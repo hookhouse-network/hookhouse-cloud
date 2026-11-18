@@ -99,3 +99,46 @@ def push(store, root: Path = ROOT) -> int:
     (root / "data" / "state").mkdir(parents=True, exist_ok=True)
     (root / "data" / "state" / "cloud_pushed.txt").write_text(str(time.time()), encoding="utf-8")
     return len(blob)
+
+
+# ---------- secrets inbox (18 Nov: the PC never pushes the whole bundle; a new login made in a coding session is
+# dropped here encrypted and merged by the next cloud run, so nothing races with a running job) ----------
+INBOX = "secrets-inbox.bin"
+SECRETS_DIR = "data/secrets"
+
+
+def send_secrets(store, names: list[str], root: Path = ROOT) -> int:
+    """PC: put these data/secrets/<name> files (and nothing else) into the cloud's inbox, encrypted."""
+    import json
+    files = {}
+    for n in names:
+        p = root / SECRETS_DIR / n
+        if p.is_file() and "/" not in n and "\\" not in n and ".." not in n:
+            files[n] = p.read_text(encoding="utf-8")
+    if not files:
+        return 0
+    old = store.get(TAG, INBOX)
+    if old:                                          # an earlier drop not merged yet: keep both
+        files = {**json.loads(_fernet().decrypt(old)), **files}
+    store.put(TAG, INBOX, _fernet().encrypt(json.dumps(files).encode()))
+    return len(files)
+
+
+def merge_secrets(store, root: Path = ROOT, log=print) -> int:
+    """Cloud (right after pull): write the inbox's login files into data/secrets, then empty the inbox."""
+    import json
+    blob = store.get(TAG, INBOX)
+    if not blob:
+        return 0
+    files = json.loads(_fernet().decrypt(blob))
+    d = root / SECRETS_DIR
+    d.mkdir(parents=True, exist_ok=True)
+    n = 0
+    for name, text in files.items():
+        if "/" in name or "\\" in name or ".." in name:
+            continue
+        (d / name).write_text(text, encoding="utf-8")
+        n += 1
+    store.delete(TAG, INBOX)
+    log(f"logins from the PC merged: {n} file(s)")
+    return n

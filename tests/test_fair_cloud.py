@@ -156,3 +156,30 @@ def test_cloud_makes_kids_long_episodes_but_not_long_documentaries(monkeypatch):
     _setup(monkeypatch, its)
     ids = {it["id"] for _, it in runner._due_to_make(runner.CLOUD_KINDS, set())}
     assert ids == {"kidslong", "s1"}
+
+
+def test_logins_reach_the_cloud_through_the_inbox(tmp_path, monkeypatch):
+    from cryptography.fernet import Fernet
+    from engine.cloud import state
+    monkeypatch.setenv("STATE_KEY", Fernet.generate_key().decode())
+
+    class St:
+        def __init__(self):
+            self.f = {}
+
+        def get(self, tag, name):
+            return self.f.get(name)
+
+        def put(self, tag, name, data, ctype="application/octet-stream"):
+            self.f[name] = data
+
+        def delete(self, tag, name):
+            return self.f.pop(name, None) is not None
+    pc, cloud, st = tmp_path / "pc", tmp_path / "cloud", St()
+    (pc / "data" / "secrets").mkdir(parents=True)
+    (pc / "data" / "secrets" / "meta_brain_snack.json").write_text('{"page_id": "1"}')
+    assert state.send_secrets(st, ["meta_brain_snack.json", "../../.env", "missing.json"], root=pc) == 1
+    assert b"page_id" not in st.f[state.INBOX]                          # encrypted
+    assert state.merge_secrets(st, root=cloud, log=lambda *_: None) == 1
+    assert (cloud / "data" / "secrets" / "meta_brain_snack.json").read_text() == '{"page_id": "1"}'
+    assert state.INBOX not in st.f and state.merge_secrets(st, root=cloud, log=lambda *_: None) == 0

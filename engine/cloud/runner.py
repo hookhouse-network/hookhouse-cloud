@@ -285,6 +285,10 @@ def tick(log=_log, light: bool = False) -> None:
     from .. import autopilot
     store = Store()
     log(f"state: {state.pull(store)} files")
+    try:                                                   # a login made on the PC in a coding session (18 Nov)
+        state.merge_secrets(store, log=log)
+    except Exception as e:  # noqa: BLE001
+        log(f"secrets inbox: {type(e).__name__}: {e}")
     kv = _kv()
     from .. import books
     if light:
