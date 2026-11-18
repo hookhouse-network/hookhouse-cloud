@@ -1099,6 +1099,11 @@ def _morning_waiting() -> None:
 def _branding() -> None:
     """Connected YouTube channels get their About text, keywords, banner, country and language by the API."""
     from . import branding
+    try:                                       # 18 Nov: the cloud has no output/brand: fetch the v2 banners first
+        from .brand_art import pull
+        pull()
+    except Exception:  # noqa: BLE001 - the texts are still written
+        pass
     done = [r for r in branding.apply_all() if r.endswith("written")]
     if done:
         from .telegram_bot import notify

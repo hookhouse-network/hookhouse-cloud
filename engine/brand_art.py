@@ -187,3 +187,21 @@ def work(store, shard: int = 0, shards: int = 1, log=print) -> int:
     finally:
         bookart.SKIP_CLOUD = False
     return n
+
+
+def pull(store=None) -> int:
+    """Fetch the stored brand files (avatar, banners) into output/brand/<channel>/ (cloud runs start empty)."""
+    from .cloud.store import Store
+    store = store or Store()
+    n = 0
+    for name in store.assets(TAG):
+        if "__" not in name:
+            continue
+        cid, fname = name.split("__", 1)
+        dest = OUT / cid / fname
+        data = store.get(TAG, name)
+        if data and (not dest.exists() or dest.read_bytes() != data):
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(data)
+            n += 1
+    return n
