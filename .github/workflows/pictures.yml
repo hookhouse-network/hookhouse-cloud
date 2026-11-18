@@ -21,7 +21,7 @@ on:
         default: "books"
       of:
         description: "how many machines share the work"
-        default: "8"
+        default: "4"
       channels:
         description: "brand: only these channels (comma separated), e.g. after a review"
         default: ""
@@ -36,8 +36,11 @@ jobs:
     timeout-minutes: 350
     strategy:
       fail-fast: false
+      # 18 Nov: 8 book + 2 rescue + 13 brand machines filled GitHub's 20 parallel jobs and the Telegram/tick runs could
+      # not start for over an hour. Never more than 4 picture machines per run: the core runs always get a machine.
+      max-parallel: 4
       matrix:
-        shard: ${{ fromJSON(inputs.only || '[0, 1, 2, 3, 4, 5, 6, 7]') }}
+        shard: ${{ fromJSON(inputs.only || '[0, 1, 2, 3]') }}
     env:
       HOOKHOUSE_CLOUD: "1"
       STATE_KEY: ${{ secrets.STATE_KEY }}
@@ -72,7 +75,7 @@ jobs:
           curl -sSL -o /tmp/w.zip https://naciscdn.org/naturalearth/10m/cultural/ne_10m_admin_0_countries_ind.zip && unzip -qo /tmp/w.zip -d data/geo/world_ind || true
       - name: Draw book pages
         if: (inputs.job || 'books') == 'books'
-        run: python cli.py cloud farm --shard ${{ matrix.shard }} --of 8 --budget ${{ inputs.minutes || '320' }}
+        run: python cli.py cloud farm --shard ${{ matrix.shard }} --of 4 --budget ${{ inputs.minutes || '320' }}
       - name: Draw channel branding
         if: inputs.job == 'brand'
         env:
