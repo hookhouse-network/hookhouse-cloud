@@ -1,0 +1,52 @@
+# How our voices should say words they get wrong (engine/media/say.py; used by every channel's narration).
+# en: the English voice (Kokoro). Value in /slashes/ = phonemes in Kokoro's own symbols (check with
+#     python cli.py say "text"); a plain value = the words to read instead.
+# hi: the Hindi voice. Value = the words to read instead (Devanagari).
+# Add a line whenever a video says a name wrong; it fixes every future video on every channel.
+en:
+  Ravana: /ɹˈɑvənə/
+  Ravan: /ɹˈɑvən/
+  Sachin: /sˈʌʧɪn/
+  Lanka: /lˈʌŋkə/
+  Kohli: /kˈOli/
+  Ambani: /ʌmbˈɑni/
+  Mahabharata: /məhˌɑbˈɑɹətə/
+  Diwali: /dɪwˈɑli/
+hi:
+  AI: एआई
+  ISRO: इसरो
+  NASA: नासा
+  # cricket (Whisper heard the Kokoro voice say "कापल देव", "कावास का", "स्विकंद", "कमानी")
+  Kapil: कपिल
+  Dev: देव
+  Gavaskar: गावस्कर
+  Srikkanth: श्रीकांत
+  Kirmani: किरमानी
+  Zimbabwe: ज़िम्बाब्वे
+  Tunbridge: टनब्रिज
+  Wells: वेल्स
+  Sachin: सचिन
+  Tendulkar: तेंदुलकर
+  Dhoni: धोनी
+  Kohli: कोहली
+  Sehwag: सहवाग
+  Dravid: द्रविड़
+  Ganguly: गांगुली
+  Yuvraj: युवराज
+  Kumble: कुंबले
+  Bumrah: बुमराह
+  Lord's: लॉर्ड्स
+  Lords: लॉर्ड्स
+  # Bollywood
+  Amitabh: अमिताभ
+  Bachchan: बच्चन
+  Shah: शाह
+  Rukh: रुख़
+  Khan: ख़ान
+  Kapoor: कपूर
+  Dilip: दिलीप
+  Kumar: कुमार
+  Madhubala: मधुबाला
+  Phalke: फाल्के
+  Dadasaheb: दादासाहेब
+  Bollywood: बॉलीवुड

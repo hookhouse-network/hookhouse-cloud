@@ -1,0 +1,38 @@
+name: tick
+# The light run: Telegram inbox, posting, previews, daily jobs, planning. Started by the Cloudflare Worker at fixed
+# Indian times and when messages arrive; GitHub's own timer below is only a backup.
+on:
+  repository_dispatch:
+    types: [tick, inbox]
+  workflow_dispatch:
+  schedule:
+    - cron: "30 3 * * *"          # 09:00 IST backup run
+
+concurrency:
+  group: state                    # one run at a time touches the shared memory
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HOOKHOUSE_CLOUD: "1"
+      STATE_KEY: ${{ secrets.STATE_KEY }}
+      STORE_REPO: ${{ vars.STORE_REPO }}            # memory + videos: the private repo (18 Nov)
+      STORE_TOKEN: ${{ secrets.STORE_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_MODELS_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # free GitHub Models (needs models: read)
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_KV_NAMESPACE_ID: ${{ secrets.CF_KV_NAMESPACE_ID }}
+      HOOKHOUSE_ENV: ${{ secrets.HOOKHOUSE_ENV }}     # all other keys (.env), written to .env below
+    permissions:
+      contents: write             # releases = state bundle + finished videos
+      models: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Run
+        # a message/tap only needs the inbox (18 Nov: full ticks for every tap used ~1,500 of the 2,000 free minutes)
+        run: python cli.py cloud tick ${{ github.event.action == 'inbox' && '--light' || '' }}

@@ -1,0 +1,24 @@
+{
+  "title": "Sirf 183 Run… Aur India Ne World Cup Jeet Liya 🏆",
+  "hook_options": ["Sirf 183 Run Aur World Cup", "Sabne Kaha India Haar Gaya", "Lord's Ka Woh Din"],
+  "hook_text": "Sirf 183 Run Aur World Cup",
+  "scenes": [
+    {"narration": "पच्चीस जून, उन्नीस सौ तिरासी। लॉर्ड्स का मैदान। भारत सिर्फ एक सौ तिरासी रन पर ऑल आउट हो चुका था।",
+     "visual_type": "photo", "visual_query": "Lord's Cricket Ground", "ai_prompt": "", "on_screen_text": "25 June 1983"},
+    {"narration": "सामने थी वेस्ट इंडीज़, दुनिया की सबसे खतरनाक टीम। सबको लगा, मैच खत्म।",
+     "visual_type": "photo", "visual_query": "West Indies cricket 1983", "ai_prompt": "", "on_screen_text": "West Indies"},
+    {"narration": "लेकिन कपिल देव की टीम ने हार नहीं मानी। गेंदबाज़ों ने एक के बाद एक विकेट लेने शुरू किए।",
+     "visual_type": "photo", "visual_query": "Kapil Dev", "ai_prompt": "", "on_screen_text": "Kapil Dev"},
+    {"narration": "विवियन रिचर्ड्स ने हवा में शॉट मारा, और कपिल देव ने पीछे भागते हुए वो कैच पकड़ लिया।",
+     "visual_type": "photo", "visual_query": "Viv Richards", "ai_prompt": "", "on_screen_text": "The Catch"},
+    {"narration": "पूरी वेस्ट इंडीज़ टीम एक सौ चालीस रन पर ढेर हो गई। भारत तैंतालीस रन से जीत गया।",
+     "visual_type": "photo", "visual_query": "cricket World Cup trophy", "ai_prompt": "", "on_screen_text": "43 runs"},
+    {"narration": "उस एक दिन ने भारतीय क्रिकेट हमेशा के लिए बदल दिया। आपको इस मैच का कौन सा पल सबसे बड़ा लगता है?",
+     "visual_type": "photo", "visual_query": "India cricket fans celebration", "ai_prompt": "", "on_screen_text": "Forever"}
+  ],
+  "summary": "Sirf 183 run bana kar India ne duniya ki sabse khatarnak team ko haraya.",
+  "instagram_caption": "Aapko 1983 ka kaunsa pal yaad hai? 🏏\nLord's par India ne itihaas rach diya.",
+  "hashtags": ["#1983worldcup", "#kapildev", "#cricketstories"],
+  "claims": ["India won the 1983 Cricket World Cup final at Lord's on 25 June 1983", "India scored 183", "West Indies were all out for 140", "India won by 43 runs", "Kapil Dev caught Viv Richards"],
+  "sources": ["1983 Cricket World Cup final"]
+}

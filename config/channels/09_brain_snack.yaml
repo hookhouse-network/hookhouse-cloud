@@ -1,0 +1,27 @@
+id: brain_snack
+number: 9
+name: Brain Snack
+backup_names: [Scroll Stopper, Dopamine Drop]
+market: US
+language: en
+type: brainrot
+niche: Fast facts, quizzes and "would you rather" over original satisfying animations
+bio: "Your daily dose of useless genius."
+catchphrase: "Snack on that. 🧠"   # signature line: descriptions and captions (the Shorts themselves loop)
+earns_from: [youtube_ads]
+schedule: {shorts_per_day: 1, long_per_week: 0}
+test_channel: true
+voice: {engine: kokoro, id: af_bella, backup: {engine: kokoro, id: af_sky}}
+style:
+  palette: ["#000000", "#00E5FF", "#FF00E5"]
+  caption_color: "#FFFFFF"
+  highlight_color: "#00E5FF"
+  hook_box: {bg: "#FF00E5", text: "#FFFFFF"}
+  visuals: own_physics_animations
+hashtags: ["#facts", "#wouldyourather", "#quiz"]
+content_rules: {original_visuals_only: true, no_reddit_text: true, no_downloaded_gameplay: true}
+# Channel page texts (YouTube About + keywords are written by the API after connecting; Instagram/Facebook bios
+# are shown with Copy buttons in the setup assistant). Copy sheet for people: docs/account_names_and_details.md
+about: "Your daily dose of useless genius. Fast facts, quizzes and \"would you rather\" over oddly satisfying animations. Test your brain in 60 seconds."
+keywords: ["fun facts", "quiz", "would you rather", "satisfying", "did you know"]
+handles: {"youtube": "@BrainSnackDose", "youtube_backup": "@BrainSnackersHQ", "instagram": "brainsnackdose", "instagram_backup": "brain.snack.daily"}

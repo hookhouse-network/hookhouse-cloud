@@ -1,0 +1,22 @@
+# Week 1 — foundation and brain
+pyyaml
+requests
+numpy
+tzdata
+sentence-transformers   # memory (needs torch; on PC install CPU torch from https://download.pytorch.org/whl/cpu)
+sqlite-vec
+holidays                # US + India holidays and festivals for the planner, MIT
+pytest
+
+# Week 2 — production stack
+faster-whisper
+kokoro          # AI voice (needs eSpeak NG installed for Hindi)
+soundfile
+opencv-python
+rembg
+pillow
+yt-dlp          # last resort only: prefer campaign download links
+qrcode                  # QR codes in our books (BSD)
+gradio_client>=1.3,<2      # storyboard pictures: Hugging Face FLUX.1-schnell Space when Cloudflare's daily quota ends
+huggingface-hub>=0.34,<1.0 # transformers 4.x needs hub < 1.0 (gradio_client 2.x pulled hub 2.x and broke it)
+pyshp                   # book maps (US Census / Natural Earth outlines), MIT

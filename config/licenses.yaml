@@ -1,0 +1,64 @@
+# Every tool/model the system uses, with its license.
+# The license checker refuses anything that doesn't allow commercial use.
+
+allowed_licenses: [Public-domain, Pexels-License, Pixabay-License, MIT, MIT-CMU, HPND, OFL-1.1, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, CC0-1.0, PSF-2.0, MPL-2.0, LGPL-2.1, LGPL-3.0, Unlicense, Free-service-terms, CreativeML-OpenRAIL-M, OpenRAIL-plus-plus]   # OpenRAIL: commercial use allowed, harmful uses banned
+tool_only_licenses: [GPL-2.0, GPL-3.0]   # fine to USE as a separate program (e.g. ffmpeg); never copy its code into ours
+
+components:
+  - {name: ffmpeg, license: GPL-3.0, use: video editing (run as a separate program)}
+  - {name: yt-dlp, license: Unlicense, use: downloading allowed source videos}
+  - {name: faster-whisper, license: MIT, use: speech to text}
+  - {name: kokoro (Kokoro-82M), license: Apache-2.0, use: English and Hindi AI voice}
+  - {name: sentence-transformers, license: Apache-2.0, use: memory embeddings}
+  - {name: intfloat/multilingual-e5-small, license: MIT, use: memory embeddings model}
+  - {name: sqlite-vec, license: MIT, use: memory search}
+  - {name: FLUX.1-schnell, license: Apache-2.0, use: AI images}
+  - {name: SDXL-Lightning (ByteDance, Cloudflare Workers AI), license: OpenRAIL-plus-plus, use: backup AI images when FLUX's free share is used}
+  - {name: DreamShaper 8 LCM (Lykon, Cloudflare Workers AI), license: CreativeML-OpenRAIL-M, use: second backup AI images}
+  - {name: Z-Image Turbo (Tongyi-MAI, via Pollinations), license: Apache-2.0, use: third backup AI images when the Cloudflare daily allocation is used}
+  - {name: FLUX.1-schnell GGUF (second-state, quantised; run on the PC's CPU), license: Apache-2.0, use: book art and pictures made locally without quota}
+  - {name: stable-diffusion.cpp (leejet), license: MIT, use: runs FLUX on the PC's CPU}
+  - {name: diffusers (Hugging Face), license: Apache-2.0, use: image pipelines}
+  - {name: pyshp, license: MIT, use: reading map shapefiles}
+  - {name: US Census cartographic boundaries, license: Public-domain, use: US state outlines for books}
+  - {name: Natural Earth admin-0 countries (India point of view), license: Public-domain, use: country outlines for books (India drawn as per India's official boundaries)}
+  - {name: Wan 2.1 / 2.2, license: Apache-2.0, use: AI motion shots}
+  - {name: rembg, license: MIT, use: background removal}
+  - {name: Real-ESRGAN, license: BSD-3-Clause, use: upscaling}
+  - {name: Depth-Anything-V2-Small, license: Apache-2.0, use: 3D parallax}
+  - {name: OpenCV, license: Apache-2.0, use: face tracking, frame editing}
+  - {name: YuNet face detector (OpenCV Zoo), license: MIT, use: face tracking}
+  - {name: misaki (Kokoro text-to-phonemes), license: Apache-2.0, use: AI voice}
+  - {name: spaCy + en_core_web_sm, license: MIT, use: AI voice text processing}
+  - {name: eSpeak NG, license: GPL-3.0, use: Hindi pronunciation for Kokoro (separate program)}
+  - {name: rembg + U2-Net, license: Apache-2.0, use: thumbnail cut-outs}
+  - {name: Google Fonts Anton / Hind / Oswald, license: OFL-1.1, use: captions and thumbnails}
+  - {name: Google Fonts Poppins / Bebas Neue / Bangers / Khand / Rozha One / Mukta, license: OFL-1.1, use: modern captions, titles, Hindi headlines}
+  - {name: Google Fonts Luckiest Guy, license: Apache-2.0, use: playful captions (Brain Snack, kids)}
+  - {name: Noto Emoji (3D + 2D images), license: OFL-1.1, use: animated emoji stickers}
+  - {name: NASA images and video, license: Public-domain, use: documentary footage (no NASA logos, no implied endorsement)}
+  - {name: Internet Archive Prelinger / FedFlix films marked public domain, license: Public-domain, use: archive footage (original soundtrack dropped)}
+  - {name: Wikimedia Commons (PD / CC0 / CC BY only), license: CC0-1.0, use: photos and video with credits}
+  - {name: Pexels photos and videos, license: Pexels-License, use: modern stock shots}
+  - {name: Pixabay videos, license: Pixabay-License, use: modern stock shots}
+  - {name: Traditional nursery melodies (Twinkle Twinkle etc.), license: Public-domain, use: bounce notes and kids songs (our own arrangements)}
+  - {name: Our frame engine, mascot, music and sound effects, license: MIT, use: made by our own code}
+  - {name: Wan 2.1 T2V 1.3B, license: Apache-2.0, use: AI motion shots (Kaggle batch)}
+  - {name: diffusers, license: Apache-2.0, use: running FLUX and Wan on GPU}
+  - {name: Revideo, license: MIT, use: animated graphics (planned)}
+  - {name: Motion Canvas, license: MIT, use: animated graphics (planned)}
+  - {name: Unsloth, license: Apache-2.0, use: training our own model}
+  - {name: Pillow, license: MIT-CMU, use: image editing}
+
+# Known non-commercial or restricted — never allowed in the system.
+denied:
+  - {name: F5-TTS weights, license: CC-BY-NC-4.0}
+  - {name: XTTS / Coqui TTS models, license: Coqui Public Model License (non-commercial)}
+  - {name: MusicGen / AudioCraft weights, license: CC-BY-NC-4.0}
+  - {name: Depth-Anything-V2 Base/Large, license: CC-BY-NC-4.0}
+  - {name: LTX-Video / LTX-2, license: LTX Community License (restricted commercial)}
+  - {name: Cracked or pirated software, license: none}
+  - {name: edge-tts (unofficial Microsoft endpoint), license: unofficial service access}
+
+# Python packages that must never be installed (they pull in non-commercial models).
+denied_packages: [f5-tts, TTS, coqui-tts, audiocraft, edge-tts]

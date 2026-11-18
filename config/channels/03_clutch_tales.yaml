@@ -1,0 +1,33 @@
+id: clutch_tales
+number: 3
+name: Clutch Tales
+backup_names: [Legends Rewind, Goosebump Plays]
+market: US
+language: en
+type: story
+niche: Dramatic sports stories (NBA, NFL, soccer) told like movies
+bio: "The greatest moments in sports, told like movies."
+earns_from: [youtube_ads]
+schedule: {shorts_per_day: 1, long_per_week: 1}
+voice: {engine: kokoro, id: am_adam, pauses: {before_reveal: 0.4}, backup: {engine: kokoro, id: am_onyx}}
+style:
+  graphics_alt: casefile        # research graphics kit: vary cards (numbers keep the main design)
+  ai_style: "stylised semi-realistic sports illustration, stadium floodlights, strong rim light, motion energy, painterly digital art, generic athletes with no real person's likeness"   # one consistent AI look per channel
+  palette: ["#0A1F44", "#FFB000", "#FFFFFF"]
+  caption_color: "#FFFFFF"
+  highlight_color: "#FFC21A"
+  hook_box: {bg: "#FFB000", text: "#0A1F44"}
+  mood: epic, stadium lights, slow motion
+hashtags: ["#sports", "#nba", "#legends"]
+content_rules: {no_real_game_footage: true, fact_check: true, sources_in_description: true}
+affiliate: {store: amazon_com, label: "Books about {subject}", query: "{subject} book"}   # off until AMAZON_*_TAG is in .env (owner's own Associate account)
+catchphrase: "That's why we watch."   # signature sign-off, end of long videos only (brand recall)
+# Research targets (owner, 11 Nov: 'follow your research'). Source: sports_cricket_stories.md format 1: 40-55 s, 160-175 wpm, 2-3 s shots
+spec: {short_words: "115-150 words (about 42-55 seconds)", short_wpm: 168, long_wpm: 158, shot_s: 2.3, hook_shot_s: 1.3, long_words: "2300-3000 words (14-18 minutes)", long_shot_s: 4.5}
+caption: {accent: "#FFC21A"}   # sports spec format 1: one accent word in #FFC21A
+writer_rules: "Sports spec: beat 1 = the decisive instant with the stakes and an exact number; beat 2 rewinds ('But to understand that, go back to [year]...'); about 18 seconds in, a re-hook line ('And then it got worse.'); the last line flows back into the opening moment."
+# Channel page texts (YouTube About + keywords are written by the API after connecting; Instagram/Facebook bios
+# are shown with Copy buttons in the setup assistant). Copy sheet for people: docs/account_names_and_details.md
+about: "The greatest moments in sports, told like movies. Comebacks, buzzer-beaters and underdog stories from the NBA, NFL, soccer and more, retold with original visuals. Fan-made stories, not affiliated with any league."
+keywords: ["sports stories", "greatest comebacks", "NBA stories", "NFL stories", "sports history"]
+handles: {"youtube": "@ClutchTalesHQ", "youtube_backup": "@ClutchTalesTV", "instagram": "clutchtaleshq", "instagram_backup": "clutch.tales"}

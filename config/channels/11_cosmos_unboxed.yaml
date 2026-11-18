@@ -1,0 +1,44 @@
+id: cosmos_unboxed
+number: 11
+name: Cosmos Unboxed
+backup_names: [Deep Space Files, Orbit Stories]
+market: US
+language: en
+type: story
+niche: Space and astronomy stories and documentaries (real missions, discoveries, cosmic mysteries)
+bio: "The universe, one jaw-dropping fact at a time."
+earns_from: [youtube_ads, dubbing]
+schedule: {shorts_per_day: 1, long_per_week: 1}      # long = 8-15 min documentary (mid-roll ads)
+voice: {engine: kokoro, id: bf_emma, backup: {engine: kokoro, id: af_heart}}
+style:
+  ai_style: "photoreal deep-space scene, cinematic, dark blue and violet, glowing nebula light, film grain, no logos, no text"
+  palette: ["#05060F", "#5B6CFF", "#E8ECFF"]
+  caption_color: "#FFFFFF"
+  highlight_color: "#7C8CFF"
+  hook_box: {bg: "#FFFFFF", text: "#05060F"}
+  graphics: proof
+  visual_era: space        # space pictures always allowed here
+  mood: vast, awe, starlight
+topic_hints:
+  - "A real space mission's most nerve-racking moment, told minute by minute"
+  - "A discovery that changed what we know about a planet or moon"
+  - "Space history: the near-disaster nobody remembers"
+hashtags: ["#space", "#astronomy", "#nasa"]
+content_rules:
+  fact_check: true
+  sources_in_description: true
+  agency_footage: "NASA media is not copyrighted in the US; credit 'Courtesy NASA'. Never use NASA logos/insignia, never imply NASA endorses us or a sponsor, no identifiable astronauts in thumbnails or ads."
+  theories_as_theories: true
+look:
+  music: cosmic          # own music identity (never shared across channels)
+affiliate: {store: amazon_com, label: "Books about {subject}", query: "{subject} book"}   # off until AMAZON_COM_TAG is in .env
+catchphrase: "Keep looking up."   # signature sign-off, end of long videos only (brand recall)
+# Research targets (owner, 11 Nov: 'follow your research'). Source: documentary story Shorts 170-239 wpm, long 168-219 wpm (money_tech_explainers.md pace bands)
+spec: {short_words: "125-150 words (about 43-52 seconds)", short_wpm: 175, long_wpm: 172, shot_s: 2.2, hook_shot_s: 1.3, long_words: "2600-3600 words (15-20 minutes)", long_shot_s: 3.5}
+topic_style: "Formats that win in space (niche_playbooks_2026-11-11.md): real-mission drama (Apollo, Columbia, Artemis), 'what would happen if...', scale reveals (size/distance comparisons), current discoveries (e.g. interstellar comet 3I/ATLAS, JWST), cosmic anomalies. Use NASA public-domain imagery."
+caption: {accent: "#FFD34D"}   # warm accent: the blue brand colour vanished on blue space frames (contrast)
+# Channel page texts (YouTube About + keywords are written by the API after connecting; Instagram/Facebook bios
+# are shown with Copy buttons in the setup assistant). Copy sheet for people: docs/account_names_and_details.md
+about: "The universe, one jaw-dropping fact at a time. Real space missions, discoveries and cosmic mysteries, explained with NASA and ESA imagery. Not affiliated with NASA or ESA."
+keywords: ["space facts", "astronomy", "NASA missions", "universe explained", "space documentary"]
+handles: {"youtube": "@CosmosUnboxedHQ", "youtube_backup": "@CosmosUnboxedTV", "instagram": "cosmosunboxed", "instagram_backup": "cosmos.unboxed"}

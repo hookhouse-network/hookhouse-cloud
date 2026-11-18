@@ -1,0 +1,19 @@
+name: worker
+# Deploys the Telegram front door to Cloudflare whenever its code changes (free plan, no card).
+on:
+  push:
+    branches: [main]                  # not the "state"/"videos" storage tags
+    paths: ["cloud/worker/**"]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: cloud/worker

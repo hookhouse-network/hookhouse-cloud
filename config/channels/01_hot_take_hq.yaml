@@ -1,0 +1,27 @@
+id: hot_take_hq
+number: 1
+name: Hot Take HQ
+backup_names: [Unfiltered Minute, ClipCrave]
+market: US
+language: en
+type: clips              # clips | story | brainrot
+niche: Best moments from US podcasts
+bio: "The 60 seconds of every podcast you actually need."
+earns_from: [clipping_campaigns]
+schedule: {shorts_per_day: 3, long_per_week: 0}   # one podcast gives many clips
+voice: null              # real speakers, no AI voice
+style:
+  caption_color: "#FFFFFF"
+  highlight_color: "#FFE600"
+  accent_color: "#FF6A3D"      # v3 captions: one accent colour on the spoken word
+  hook_box: {bg: "#FFFFFF", text: "#000000"}
+  split_screen_satisfying: only_if_campaign_allows
+hashtags: ["#podcast", "#podcastclips", "#motivation"]
+content_rules:
+  sources: campaign_allowed_list_only
+  no_added_music: true
+# Channel page texts (YouTube About + keywords are written by the API after connecting; Instagram/Facebook bios
+# are shown with Copy buttons in the setup assistant). Copy sheet for people: docs/account_names_and_details.md
+about: "The 60 seconds of every podcast you actually need. The best moments from top US podcasts: the hot takes, the funny stories and the wild guests, cut short and captioned. Every clip credits the original show."
+keywords: ["podcast clips", "podcast highlights", "hot takes", "interview clips", "best podcast moments"]
+handles: {"youtube": "@HotTakeHQ", "youtube_backup": "@HotTakeHQClips", "instagram": "hottakehqofficial", "instagram_backup": "hottakehq.clips"}

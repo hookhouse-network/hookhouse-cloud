@@ -1,0 +1,35 @@
+id: cricket_ke_kisse
+number: 7
+name: Cricket Ke Kisse
+backup_names: [Pitch Pe Kahani, Last Ball Drama]
+market: IN
+language: hi
+type: story
+niche: Dramatic cricket stories
+bio: "Cricket ki woh kahaniyan jo rongte khade kar dein."
+earns_from: [youtube_ads]
+schedule: {shorts_per_day: 1, long_per_week: 1}
+voice: {engine: kokoro, id: hm_psi, speed: 1.05, pauses: {before_reveal: 0.45, after_question: 0.3}, backup: {engine: kokoro, id: hm_omega}}
+style:
+  graphics_alt: poster        # research graphics kit: vary cards (numbers keep the main design)
+  ai_style: "vintage Indian sports poster illustration, warm film tones, stylised stadium crowd, painterly, generic cricketers with no real player's likeness"   # one consistent AI look per channel
+  palette: ["#0B3D2E", "#1E88E5", "#FFFFFF"]
+  caption_color: "#FFFFFF"
+  highlight_color: "#FFD400"
+  hook_box: {bg: "#1E88E5", text: "#FFFFFF"}
+  mood: stadium, floodlights, crowd roar
+hashtags: ["#cricket", "#indiancricket", "#cricketstories"]
+content_rules: {no_real_match_footage: true, fact_check: true}
+look:
+  music: dhol            # own music identity (never shared across channels)
+affiliate: {store: amazon_in, label: "{subject} पर किताबें", query: "{subject} book"}   # off until AMAZON_*_TAG is in .env (owner's own Associate account)
+catchphrase: "Cricket ki yahi toh baat hai."   # signature sign-off, end of long videos only (brand recall)
+# Research targets (owner, 11 Nov: 'follow your research'). Source: sports_cricket_stories.md format 3: 45-75 s, 150-165 wpm, 2-3 s visuals
+spec: {short_words: "130-155 words (about 50-60 seconds)", short_wpm: 158, long_wpm: 148, shot_s: 2.4, hook_shot_s: 1.4, long_words: "1800-2400 words (12-16 minutes)", long_shot_s: 4.5}
+caption: {script: roman, accent: "#FFD400"}   # sports spec: Roman-Hinglish captions, highlight #FFD400
+writer_rules: "Cricket spec: hook_text is the equation in Roman Hinglish or English (e.g. 'NEED 22 OFF 1 BALL'); beat 2 starts the rewind ('Lekin kahani shuru hoti hai...'); a re-hook at about 25 seconds ('Aur phir hua woh, jo kisi ne socha nahi tha.'); thumbnail text stays Devanagari with the number."
+# Channel page texts (YouTube About + keywords are written by the API after connecting; Instagram/Facebook bios
+# are shown with Copy buttons in the setup assistant). Copy sheet for people: docs/account_names_and_details.md
+about: "Cricket ki woh kahaniyan jo rongte khade kar dein. Last-ball thrillers, legendary comebacks aur cricket itihaas ke ansune kisse, Hindi mein. Fan-made kahaniyan, kisi board ya team se juda nahi."
+keywords: ["cricket stories hindi", "cricket kisse", "cricket history", "last ball thriller", "indian cricket"]
+handles: {"youtube": "@CricketKeKisseHindi", "youtube_backup": "@CricketKeKisseHindi", "instagram": "cricketkekisse", "instagram_backup": "cricket.ke.kisse"}

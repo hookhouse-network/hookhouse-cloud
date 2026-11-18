@@ -1,0 +1,28 @@
+id: stream_clips
+number: 14
+name: Stream Clips
+backup_names: [Clutch Clips Live, Stream Moments]
+market: US
+language: en
+type: clips              # gaming / streamer clips, ONLY from paid clipping campaigns (the streamer's permission)
+niche: Best moments from gaming streams and streamers (campaign sources only)
+bio: "The best moments from every stream."
+earns_from: [clipping_campaigns]
+schedule: {shorts_per_day: 3, long_per_week: 0}   # one stream gives many clips
+voice: null              # real streamers, no AI voice
+style:
+  caption_color: "#FFFFFF"
+  highlight_color: "#9B5CFF"
+  accent_color: "#9B5CFF"
+  hook_box: {bg: "#FFFFFF", text: "#000000"}
+  split_screen_satisfying: never      # research: gameplay split-screen is a banned, dated look
+hashtags: ["#gaming", "#streamer", "#clips"]
+content_rules:
+  sources: campaign_allowed_list_only       # never rip streams or gameplay without a campaign / written permission
+  no_gambling_streams: true                 # Kick/Stake gambling: illegal to promote from India (2025 Act)
+  no_added_music: true
+# Channel page texts (YouTube About + keywords are written by the API after connecting; Instagram/Facebook bios
+# are shown with Copy buttons in the setup assistant). Copy sheet for people: docs/account_names_and_details.md
+about: "The best moments from every stream. Highlights from streamers and creators who work with us, always credited."
+keywords: ["stream highlights", "streamer clips", "gaming clips", "funny stream moments", "twitch clips"]
+handles: {"youtube": "@StreamClipsDaily", "youtube_backup": "@StreamClipsHQ", "instagram": "streamclipsdaily", "instagram_backup": "stream.clips.daily"}

@@ -1,0 +1,19 @@
+name: tests
+# Every code change (from the PC or from Claude Code on the phone) is tested before it runs for real.
+on:
+  push:
+    branches: [main]                  # not the "state"/"videos" storage tags
+    paths: ["engine/**", "tests/**", "cli.py", "requirements-cloud.txt"]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HOOKHOUSE_ENV: ""
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Tests
+        run: python -m pytest -q -x

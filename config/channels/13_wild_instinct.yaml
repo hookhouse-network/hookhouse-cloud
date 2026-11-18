@@ -1,0 +1,42 @@
+id: wild_instinct
+number: 13
+name: Wild Instinct
+backup_names: [Nature Uncut, Animal Mysteries]
+market: US
+language: en
+type: story
+niche: Wildlife stories and nature documentaries (animal survival, migrations, record-breaking animals)
+bio: "Nature's most incredible true stories."
+earns_from: [youtube_ads, dubbing]
+schedule: {shorts_per_day: 1, long_per_week: 1}
+voice: {engine: kokoro, id: bm_george, backup: {engine: kokoro, id: am_michael}}
+style:
+  ai_style: "photoreal wildlife documentary frame, golden-hour light, shallow depth of field, telephoto look, natural colours, no logos, no text"
+  palette: ["#10140C", "#E0A83C", "#F4F1E8"]
+  caption_color: "#FFFFFF"
+  highlight_color: "#F2B33D"
+  hook_box: {bg: "#F2B33D", text: "#10140C"}
+  graphics: parchment
+  mood: wild, warm, alive
+topic_hints:
+  - "An animal with a record-breaking ability (fastest, longest migration, strongest bite) and how it works"
+  - "A true survival story from the wild"
+  - "A species that came back from the brink"
+hashtags: ["#wildlife", "#animals", "#nature"]
+content_rules:
+  fact_check: true
+  sources_in_description: true
+  agency_footage: "US Fish & Wildlife / National Park Service material is mostly public domain; credit the agency; check for licensed music; never imply endorsement."
+  no_graphic_animal_violence: "describe predation without gore; no animal cruelty; no dangerous 'touch the wild animal' ideas"
+look:
+  music: wild
+affiliate: {store: amazon_com, label: "Books about {subject}", query: "{subject} book"}
+catchphrase: "Nature always finds a way."   # signature sign-off, end of long videos only (brand recall)
+# Research targets (owner, 11 Nov: 'follow your research'). Source: documentary story Shorts 170-239 wpm (calmer wildlife read), long 168-219 wpm
+spec: {short_words: "125-150 words (about 45-55 seconds)", short_wpm: 170, long_wpm: 168, shot_s: 2.3, hook_shot_s: 1.3, long_words: "2100-3000 words (12-17 minutes)", long_shot_s: 3.5}
+topic_style: "Formats that win in wildlife (niche_playbooks_2026-11-11.md): one animal's unbelievable ability with proof, 'Top 5 animals that...', comparisons, surprising behaviour; famous animals (axolotl, capybara, honey badger, tardigrade, Komodo, platypus, shoebill). No gore, no cruelty."
+# Channel page texts (YouTube About + keywords are written by the API after connecting; Instagram/Facebook bios
+# are shown with Copy buttons in the setup assistant). Copy sheet for people: docs/account_names_and_details.md
+about: "Nature's most incredible true stories. Animal survival, epic migrations and record-breaking creatures, told in minutes."
+keywords: ["wildlife stories", "animal facts", "nature documentary", "animal survival", "amazing animals"]
+handles: {"youtube": "@TheWildInstinctHQ", "youtube_backup": "@WildInstinctTV", "instagram": "wildinstinctstories", "instagram_backup": "wild.instinct.stories"}

@@ -1,0 +1,30 @@
+# Everything the cloud jobs need (GitHub Actions, Ubuntu). torch comes first from the CPU index (see the workflows).
+pyyaml
+requests
+numpy
+tzdata
+scipy
+pillow
+opencv-python-headless
+soundfile
+openpyxl
+cryptography
+sentence-transformers   # our memory (RAG)
+sqlite-vec
+faster-whisper          # captions / checks
+kokoro                  # English + fallback Hindi voice (apt: espeak-ng)
+misaki[en]
+uharfbuzz               # Devanagari text shaping
+freetype-py
+pyworld                 # kids songs
+numba
+rembg                   # cut-outs for thumbnails
+onnxruntime
+transformers
+gradio_client>=1.3,<2      # storyboard pictures: Hugging Face FLUX.1-schnell Space when Cloudflare's daily quota ends
+huggingface-hub>=0.34,<1.0 # transformers 4.x needs hub < 1.0 (gradio_client 2.x pulled hub 2.x and broke it)
+playwright              # animated chart scenes (uses the runner's preinstalled Chrome)
+pyshp                   # book maps (US Census / Natural Earth outlines), MIT
+qrcode                  # book bonus page QR code, BSD
+holidays                # US + India holidays and festivals for the planner, MIT
+pytest

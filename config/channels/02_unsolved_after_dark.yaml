@@ -1,0 +1,32 @@
+id: unsolved_after_dark
+number: 2
+name: Creepy Case Club   # 14 Nov: every 'Unsolved After Dark' handle is protected on YouTube (another channel); owner picked this backup
+backup_names: [Unsolved After Dark, The Midnight Files]
+market: US
+language: en
+type: story
+niche: True mysteries and dark history
+bio: "Real stories. No answers. Watch if you dare."
+earns_from: [youtube_ads, dubbing]
+schedule: {shorts_per_day: 1, long_per_week: 1}
+voice: {engine: kokoro, id: am_michael, pitch: -0.7, backup: {engine: kokoro, id: am_onyx}}
+style:
+  ai_style: "moody cinematic film still, desaturated teal and amber grade, volumetric fog, 35mm film grain, chiaroscuro lighting, mysterious atmosphere"   # one consistent AI look per channel
+  palette: ["#0B0F1A", "#8B0000", "#E5E5E5"]
+  caption_color: "#FFFFFF"
+  highlight_color: "#FF3B3B"
+  hook_box: {bg: "#000000", text: "#FF3B3B"}
+  mood: dark, cinematic, foggy
+hashtags: ["#mystery", "#unsolved", "#truecrime"]
+content_rules: {fact_check: true, sources_in_description: true, no_added_music: false, music: cleared_library_only}
+affiliate: {store: amazon_com, label: "Books about {subject}", query: "{subject} book"}   # off until AMAZON_*_TAG is in .env (owner's own Associate account)
+catchphrase: "Some doors stay closed. Goodnight."   # signature sign-off, end of long videos only (brand recall)
+# Research targets (owner, 11 Nov: 'follow your research'). Source: mystery_dark_history.md spec 1/4: 35-50 s, 175-185 wpm, first 10 s 1-1.5 s shots, then 1.5-2.5 s; long 170-195 wpm
+spec: {short_words: "110-145 words (about 38-50 seconds)", short_wpm: 180, long_wpm: 180, shot_s: 2.0, hook_shot_s: 1.2, long_words: "3600-4500 words (20-25 minutes)", long_shot_s: 4.0}
+caption: {accent: null}   # mystery spec 1: white captions, no keyword colour (red only for anomalies)
+writer_rules: "Mystery spec: after the cold open, 'You see,' gives who/where/when; escalation beats open with But / So / Then; the last line is an irony or an unresolved fact. Long video: present-tense character intro in the first 10 s ('This is [name]...'), a But-hook at about 45 s, chapters of 3-5 minutes, each opening with a name and date and closing on a one-line haunting summary."
+# Channel page texts (YouTube About + keywords are written by the API after connecting; Instagram/Facebook bios
+# are shown with Copy buttons in the setup assistant). Copy sheet for people: docs/account_names_and_details.md
+about: "Real stories. No answers. Watch if you dare. True mysteries, strange disappearances and dark history, researched and told in minutes. New Shorts every day, full stories every week. Sources in every description."
+keywords: ["unsolved mysteries", "true crime", "dark history", "strange disappearances", "creepy stories"]
+handles: {"youtube": "@CreepyCaseClub", "youtube_backup": "@CreepyCaseClubTV", "instagram": "creepycaseclubhq", "instagram_backup": "creepy.case.club"}

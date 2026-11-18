@@ -1,0 +1,160 @@
+# Everyone who might pay us (campaign boards, affiliate networks, platform programs).
+# Rule: every payer is unproven until a withdrawal actually lands in the bank.
+# Tiers: blocked | probation | trusted. Caps are in INR (unsettled + settled-but-not-withdrawn).
+# Source: research_notes/Channel growth and earnings plan/campaign_payments_fraud.md (10 Nov 2026).
+
+content_rewards:
+  name: Content Rewards (pays through Whop)
+  type: clipping_board
+  official_domains: [contentrewards.com, whop.com]
+  legal_entity: Whop / Content Rewards (US)
+  jurisdiction: US - Delaware arbitration (opt out within 30 days of sign-up), liability capped at $500
+  payout_rails: [inr_bank, crypto]
+  crypto_only: false
+  min_withdrawal_usd: null          # shown only after KYC; test with the smallest withdrawal first
+  fee_formula: "instant bank 4% + $2.50; crypto 5% + $1; wire $23"
+  expected_settle_days: 10          # 7-day earning period + 3-day hold
+  expected_withdraw_days: 5
+  submit_deadline_min: 30
+  view_window_days: 30
+  tier: probation
+  notes: "Unsettled credits can be reversed; earnings stuck behind an exhausted brand budget may never be paid; one appeal per flagged clip (~10 business days)."
+
+vyro:
+  name: Vyro
+  type: clipping_board
+  official_domains: [vyro.com]
+  legal_entity: Beast GCP LLC
+  jurisdiction: US - New York law
+  payout_rails: [paypal, stripe]
+  crypto_only: false
+  fee_formula: "PayPal/Stripe fees"
+  expected_settle_days: 7           # weekly, after the campaign closes
+  expected_withdraw_days: 5
+  tier: probation
+  notes: "Holds earnings until the campaign closes. Creator terms not found publicly - read them at sign-up."
+
+promote_fun:
+  name: Promote.fun
+  type: clipping_board
+  official_domains: [promote.fun]
+  payout_rails: [crypto]
+  crypto_only: true
+  fee_formula: unknown
+  expected_settle_days: 5
+  tier: blocked
+  notes: "Pays only in USDC on Solana: no FIRA (FEMA problem) and crypto (VDA) tax. Off by default."
+
+reach_cat:
+  name: Reach.cat
+  type: clipping_board
+  official_domains: [reach.cat]
+  payout_rails: [crypto]
+  crypto_only: true
+  fee_formula: "9% payout fee"
+  expected_settle_days: 3          # 72-hour review, weekly payouts
+  tier: blocked
+  notes: "Stablecoin payouts only (bank 'coming soon'): no FIRA and 30% crypto tax. Trustpilot 3.1/5, polarised (Aug 2026). Re-check if bank payouts launch."
+
+clipster:
+  name: Clipster
+  type: clipping_board
+  official_domains: []
+  payout_rails: []
+  crypto_only: false
+  tier: blocked
+  notes: "Trustpilot hides its score for a guideline breach; reports of rejections at payout time; TikTok/Instagram only. 12 Nov: claims $5-6.5M paid out, campaign rates ~$0.30-2/1K, payout 2-3 weeks after verification; mix is logo/CS2-skins/music (third-party data only). Stays blocked."
+
+clipping_net:
+  name: Clipping.net
+  type: clipping_board
+  official_domains: [clipping.net]
+  payout_rails: [paypal, crypto]
+  crypto_only: false
+  tier: probation
+  notes: "12 Nov research: pays by PayPal or USDC/USDT; view minimums per campaign (10K-500K); many campaigns are casino/Kick bounties (forbidden: skip them). Thin independent review record. Test one small PayPal withdrawal first."
+
+elev8or:
+  name: Elev8or
+  type: clipping_board
+  official_domains: [elev8or.io]
+  payout_rails: [bank, crypto]
+  crypto_only: false
+  fee_formula: "15% platform fee on the Free plan (10% on paid plans) + receiving fees"
+  min_withdrawal_usd: 10            # sources say $5 or $10: check at sign-up
+  tier: probation
+  notes: "12 Nov research: bounty rates $0.50-1.00/1K (below CR); only approved posts earn. Low priority (higher fee, lower rates)."
+
+wondeed:
+  name: Wondeed
+  type: clipping_board
+  official_domains: []
+  payout_rails: [paypal, crypto]
+  tier: blocked
+  notes: "No named company on its site; claims monthly PayPal or crypto. Verify before any work."
+
+indclipping:
+  name: INDclipping
+  type: clipping_board
+  official_domains: []
+  payout_rails: []
+  tier: blocked
+  notes: "No independent footprint found."
+
+earnkaro:
+  name: EarnKaro (affiliate, INR)
+  type: affiliate
+  official_domains: [earnkaro.com]
+  payout_rails: [inr_bank]
+  min_withdrawal_inr: 10
+  expected_settle_days: 60          # affiliate cashback confirms after the return window
+  expected_withdraw_days: 10
+  tier: probation
+
+cuelinks:
+  name: Cuelinks (affiliate, INR)
+  type: affiliate
+  official_domains: [cuelinks.com]
+  payout_rails: [inr_bank]
+  min_withdrawal_inr: 500
+  expected_settle_days: 60
+  tier: probation
+
+amazon_in:
+  name: Amazon.in Associates / Influencer / Creator Connections
+  type: affiliate
+  official_domains: [amazon.in, affiliate-program.amazon.in]
+  payout_rails: [inr_bank]
+  expected_settle_days: 60
+  tier: probation
+
+impact:
+  name: impact.com (affiliate)
+  type: affiliate
+  official_domains: [impact.com]
+  payout_rails: [inr_bank, paypal]
+  min_withdrawal_usd: 10
+  tier: probation
+
+partnerstack:
+  name: PartnerStack (affiliate)
+  type: affiliate
+  official_domains: [partnerstack.com]
+  payout_rails: [inr_bank, paypal]
+  fee_formula: "$4 + 1% to India"
+  tier: probation
+
+youtube:
+  name: YouTube (AdSense ad revenue, Creator Partnerships)
+  type: native_program
+  official_domains: [youtube.com, google.com]
+  payout_rails: [inr_bank]
+  expected_settle_days: 30          # AdSense pays monthly (around the 21st) once over the threshold
+  tier: trusted
+
+meta:
+  name: Instagram / Facebook (Creator Marketplace, programs)
+  type: native_program
+  official_domains: [instagram.com, facebook.com, meta.com]
+  payout_rails: [inr_bank]
+  tier: probation

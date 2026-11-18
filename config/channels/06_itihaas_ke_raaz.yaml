@@ -1,0 +1,37 @@
+id: itihaas_ke_raaz
+number: 6
+name: Itihaas Ke Raaz
+backup_names: [Kahani Junction, Raaz Ki Kahaniyan]
+market: IN
+language: hi
+type: story
+niche: Mythology and Indian history stories
+bio: "Har kahani mein chhupa hai ek raaz."
+earns_from: [youtube_ads]
+schedule: {shorts_per_day: 1, long_per_week: 1}
+voice: {engine: kokoro, id: hm_omega, speed: 0.95, pitch: -1.0, pauses: {before_reveal: 0.5, after_question: 0.5, after_reveal: 0.35}, backup: {engine: kokoro, id: hm_psi}}   # katha pace (research: ~2.3-2.7 words/s, 400-700 ms pauses)
+style:
+  painting_search: "Raja Ravi Varma"
+  visual_era: ancient          # paintings first for characters; never modern people or modern scenes
+  painting_context: "Mahabharat|Ramayan|Ravi Varma|RRV|Hindu|India|Puran|Bhagavat|Gita|Kangra|Pahari|Rajput|Mysore|Tanjore|deity|epic"   # public-domain paintings (died 1906) for mythology scenes
+  ai_style: "classical Indian painting style inspired by 19th-century oil masters, warm golden light, rich deep colours, accurate traditional attire and architecture, respectful and dignified"   # one consistent AI look per channel
+  palette: ["#2B1B0E", "#FF9933", "#FFF4E0"]
+  caption_color: "#FFFFFF"
+  highlight_color: "#FF9933"
+  hook_box: {bg: "#FF9933", text: "#2B1B0E"}
+  mood: ancient temples, golden light, epic
+hashtags: ["#itihaas", "#mythology", "#history"]
+content_rules: {respectful_of_religions: true, fact_check: true, sources_in_description: true}
+look:
+  music: devotional            # own music identity (never shared across channels)
+affiliate: {store: amazon_in, label: "{subject} पर किताबें", query: "{subject} book Hindi"}   # off until AMAZON_*_TAG is in .env (owner's own Associate account)
+catchphrase: "Har kahani mein chhupa hai ek raaz."   # signature sign-off, end of long videos only (brand recall)
+# Research targets (owner, 11 Nov: 'follow your research'). Source: hindi_mythology_history.md format 1: 45-58 s, 2.3-2.7 words/s, 2.0-3.5 s shots
+spec: {short_words: "110-135 words (about 45-55 seconds)", short_wpm: 150, long_wpm: 150, shot_s: 2.6, hook_shot_s: 1.5, long_words: "1400-2000 words (9-13 minutes)", long_shot_s: 4.0}
+caption: {hook_accent: true}   # mythology spec: huge Devanagari hook words with a saffron keyword
+writer_rules: "Mythology spec: beats 2-3 name the source text (Valmiki Ramayana, Vyasa's Mahabharata or the named Purana); a re-hook line at about 20-24 seconds ('लेकिन असली राज़ अभी बाकी है…'); never put invented words in a deity's mouth; shlokas only with the exact text, chapter and verse; respectful tone."
+# Channel page texts (YouTube About + keywords are written by the API after connecting; Instagram/Facebook bios
+# are shown with Copy buttons in the setup assistant). Copy sheet for people: docs/account_names_and_details.md
+about: "Har kahani mein chhupa hai ek raaz. Mahabharat, Ramayan, Puranon aur Bharat ke itihaas ki woh kahaniyan jo aapne pehle nahi suni. Har din nayi kahani, Hindi mein."
+keywords: ["mythology hindi", "mahabharat kahani", "ramayan stories", "indian history hindi", "itihaas"]
+handles: {"youtube": "@ItihaasKeRaazHQ", "youtube_backup": "@ItihaasKeRaazHindi", "instagram": "itihaaskeraaz", "instagram_backup": "itihaas.ke.raaz"}

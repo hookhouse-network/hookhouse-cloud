@@ -1,0 +1,35 @@
+id: picture_abhi_baaki_hai
+number: 8
+name: Picture Abhi Baaki Hai
+backup_names: [Filmy Raaz, Bollywood Decoded]
+market: IN
+language: hi
+type: story
+niche: Bollywood facts and explainers (no film clips)
+bio: "Bollywood ke raaz, ek minute mein."
+earns_from: [youtube_ads]
+schedule: {shorts_per_day: 1, long_per_week: 1}
+voice: {engine: kokoro, id: hf_alpha, speed: 1.05, pauses: {before_reveal: 0.3, after_question: 0.3}, backup: {engine: kokoro, id: hf_beta}}
+style:
+  graphics_alt: parchment        # research graphics kit: vary cards (numbers keep the main design)
+  ai_style: "retro hand-painted Indian cinema poster art, warm colours, art deco cinema halls and film reels, no real actor likeness"   # one consistent AI look per channel
+  palette: ["#1A0B2E", "#FF2E93", "#FFD700"]
+  caption_color: "#FFFFFF"
+  highlight_color: "#FFD700"
+  hook_box: {bg: "#FFD700", text: "#1A0B2E"}
+  mood: glamour, neon, film reel
+hashtags: ["#bollywood", "#bollywoodfacts", "#filmy"]
+content_rules: {no_film_clips: true, no_songs: true, fact_check: true}
+look:
+  music: retro            # own music identity (never shared across channels)
+affiliate: {store: amazon_in, label: "{subject} पर किताबें", query: "{subject} book"}   # off until AMAZON_*_TAG is in .env (owner's own Associate account)
+catchphrase: "Picture abhi baaki hai, dost."   # signature sign-off, end of long videos only (brand recall)
+# Research targets (owner, 11 Nov: 'follow your research'). Source: movie_bollywood_explainers.md format B: 45-60 s, voice x1.05-1.10, new element every 1.5 s
+spec: {short_words: "125-150 words (about 45-55 seconds)", short_wpm: 165, long_wpm: 155, shot_s: 1.6, hook_shot_s: 1.2, long_words: "1300-1800 words (8-12 minutes)", long_shot_s: 3.0}
+caption: {accent: "#FFD700"}   # movie spec B: highlight #FFD700 on #1A0B2E
+writer_rules: "Bollywood spec: open on a number slam and a contradiction ('₹500 करोड़… फिर भी घाटा?'); the payoff is the real reason ('असली वजह'); numbers as ₹ plus Western digits; no star gossip; thumbnail.text = 1-2 Latin keyword words in CAPS and thumbnail.text_line2 = a short Devanagari payoff."
+# Channel page texts (YouTube About + keywords are written by the API after connecting; Instagram/Facebook bios
+# are shown with Copy buttons in the setup assistant). Copy sheet for people: docs/account_names_and_details.md
+about: "Bollywood ke raaz, ek minute mein. Filmon ke peeche ki kahaniyan, ansune facts aur box office ke kisse. Original commentary, koi film clip nahi."
+keywords: ["bollywood facts", "bollywood hindi", "behind the scenes", "filmy facts", "bollywood stories"]
+handles: {"youtube": "@PictureAbhiBaakiHaiHQ", "youtube_backup": "@PictureAbhiBaakiHaiHQ", "instagram": "pictureabhibaakihai", "instagram_backup": "picture.abhi.baaki.hai"}

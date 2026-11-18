@@ -1,0 +1,122 @@
+# Global settings for the whole system.
+# Times are India time (IST). Edit and save — no code changes needed.
+
+timezone: Asia/Kolkata
+
+# Best posting times per audience (IST). US slots = US daytime/evening.
+posting_slots:
+  US: ["22:30", "23:45", "05:00", "06:30"]
+  IN: ["12:30", "19:00", "21:00"]
+
+campaigns:
+  auto_stop_budget_pct: 30        # stop making clips when less than this % budget is left
+  budget_reminder_days: 2         # ask you to update budgets every N days
+  min_cpm_usd: 0.5                # ignore campaigns paying less than this per 1,000 views
+  home_country: IN                # used for the "India verdict"
+
+# The AI brain. Each task tries providers in order; if one fails or hits its
+# free limit, the next one is used automatically.
+brain:
+  routes:
+    # owner 15 Nov: tonight's render failed when Gemini's daily limit ran out and Groq refused one big request.
+    # Each model below has its OWN free limit, so the chain is long: Gemini 3 models, Groq 2 models, then backups.
+    writer:   [gemini, gemini35, groq, gemini_lite, groq20, gemini3, gemini36, gemini37, gemini31_lite, gemini35_lite, gemma31, gemma26, groq_qwen, cerebras, github, nvidia, openrouter, claude_cli]   # scripts, hooks, titles
+    editor:   [gemini, gemini35, groq, gemini_lite, groq20, gemini3, gemini36, gemini37, gemini31_lite, gemini35_lite, gemma31, gemma26, groq_qwen, cerebras, github, nvidia, openrouter, claude_cli]   # picks clip moments
+    checker:  [groq, gemini_lite, gemini35, groq20, gemini, gemini3, gemini36, gemini37, gemini31_lite, gemini35_lite, gemma31, gemma26, groq_qwen, cerebras, github, nvidia, openrouter, claude_cli]   # rules / fact checks
+    manager:  [gemini, gemini35, groq, gemini_lite, groq20, gemini3, gemini36, gemini37, gemini31_lite, gemini35_lite, gemma31, gemma26, groq_qwen, cerebras, github, nvidia, openrouter, claude_cli]   # daily review
+    reader:   [groq, gemini_lite, gemini35, groq20, gemini, gemini3, gemini36, gemini37, gemini31_lite, gemini35_lite, gemma31, gemma26, groq_qwen, cerebras, github, nvidia, openrouter, claude_cli]   # campaign pages
+  providers:
+    gemini:
+      kind: gemini
+      model: gemini-flash-latest
+      key_env: GEMINI_API_KEY
+    gemini35:
+      kind: gemini
+      model: gemini-3.5-flash
+      key_env: GEMINI_API_KEY
+    gemini_lite:
+      kind: gemini
+      model: gemini-flash-lite-latest
+      key_env: GEMINI_API_KEY
+    groq20:
+      kind: openai_compatible
+      base_url: https://api.groq.com/openai/v1
+      model: openai/gpt-oss-20b
+      key_env: GROQ_API_KEY
+    groq:
+      kind: openai_compatible
+      base_url: https://api.groq.com/openai/v1
+      model: openai/gpt-oss-120b
+      key_env: GROQ_API_KEY
+    nvidia:
+      kind: openai_compatible
+      base_url: https://integrate.api.nvidia.com/v1
+      model: meta/llama-3.3-70b-instruct
+      key_env: NVIDIA_API_KEY
+    openrouter:
+      kind: openai_compatible
+      base_url: https://openrouter.ai/api/v1
+      model: meta-llama/llama-3.3-70b-instruct:free
+      key_env: OPENROUTER_API_KEY
+    # 17 Nov: each free model has its OWN daily limit; 14 channels ran Gemini/Groq dry, so every free model our
+    # two keys can reach is listed (tested: answered or 'busy'; 2.5 models are closed to new users)
+    gemini3:
+      kind: gemini
+      model: gemini-3-flash-preview
+      key_env: GEMINI_API_KEY
+    gemini36:
+      kind: gemini
+      model: gemini-3.6-flash
+      key_env: GEMINI_API_KEY
+    gemini37:
+      kind: gemini
+      model: gemini-3.7-flash
+      key_env: GEMINI_API_KEY
+    gemini31_lite:
+      kind: gemini
+      model: gemini-3.1-flash-lite
+      key_env: GEMINI_API_KEY
+    gemini35_lite:
+      kind: gemini
+      model: gemini-3.5-flash-lite
+      key_env: GEMINI_API_KEY
+    gemma31:
+      kind: gemini
+      model: gemma-4-31b-it
+      key_env: GEMINI_API_KEY
+    gemma26:
+      kind: gemini
+      model: gemma-4-26b-a4b-it
+      key_env: GEMINI_API_KEY
+    groq_qwen:
+      kind: openai_compatible
+      base_url: https://api.groq.com/openai/v1
+      model: qwen/qwen3.8-27b
+      key_env: GROQ_API_KEY
+    cerebras:                   # Cerebras free tier: big daily allowance, no card (17 Nov)
+      kind: openai_compatible
+      base_url: https://api.cerebras.ai/v1
+      model: gpt-oss-120b
+      key_env: CEREBRAS_API_KEY
+    github:                     # GitHub Models, free with the repo's own token (cloud jobs only; 17 Nov: Gemini
+      kind: openai_compatible   # and Groq daily limits ran out across 14 channels)
+      base_url: https://models.github.ai/inference
+      model: openai/gpt-4.1-mini
+      key_env: GITHUB_MODELS_TOKEN
+    claude_cli:
+      kind: claude_cli          # only used on your PC during building/testing
+      enabled_env: USE_CLAUDE_CLI
+  cooldown_minutes:
+    rate_limit: 2               # "too many requests per minute"
+    daily_quota: 720            # "out of free quota for today" (12 hours)
+    error: 5
+    timeout: 1                  # a slow answer (long scripts): try again soon
+    busy: 1                     # 503 "high demand": try again in a minute
+
+memory:
+  # Multilingual (English + Hindi) embedding model; runs on a normal CPU.
+  embedding_model: intfloat/multilingual-e5-small
+  db_path: data/memory.db
+
+database:
+  path: data/system.db

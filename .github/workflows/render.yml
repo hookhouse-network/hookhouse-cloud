@@ -1,0 +1,58 @@
+name: render
+# Once a day: the soonest Shorts nobody has claimed, made in the cloud within a time budget (the free 2,000 minutes a
+# month are shared with the ticks). The PC helper makes the rest, and all long videos, whenever the PC is on.
+on:
+  repository_dispatch:
+    types: [render]
+  workflow_dispatch:
+    inputs:
+      budget:
+        description: "minutes to spend"
+        default: "40"
+
+concurrency:
+  group: state
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      HOOKHOUSE_CLOUD: "1"
+      STATE_KEY: ${{ secrets.STATE_KEY }}
+      STORE_REPO: ${{ vars.STORE_REPO }}            # memory + videos: the private repo (18 Nov)
+      STORE_TOKEN: ${{ secrets.STORE_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_MODELS_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # free GitHub Models (needs models: read)
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_KV_NAMESPACE_ID: ${{ secrets.CF_KV_NAMESPACE_ID }}
+      HOOKHOUSE_ENV: ${{ secrets.HOOKHOUSE_ENV }}
+    permissions:
+      contents: write
+      models: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Models cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-models-v1
+      - name: Hindi voice environment (Indic Parler-TTS, free)
+        id: parler
+        uses: actions/cache@v4
+        with:
+          path: ~/parler
+          key: parler-${{ runner.os }}-transformers-4.46.1-v2
+      - name: Install the Hindi voice
+        if: steps.parler.outputs.cache-hit != 'true'
+        run: |
+          python -m venv ~/parler
+          ~/parler/bin/pip install -q --upgrade pip
+          ~/parler/bin/pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          ~/parler/bin/pip install -q "git+https://github.com/huggingface/parler-tts.git" soundfile
+          ~/parler/bin/pip install -q --upgrade protobuf   # sentencepiece needs a protobuf runtime >= its gencode
+      - name: Render
+        run: python cli.py cloud render --budget ${{ github.event.inputs.budget || '40' }}

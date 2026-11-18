@@ -1,0 +1,38 @@
+id: money_cheat_codes
+number: 5
+name: Money Cheat Codes
+backup_names: [Pocket Economics, Rich Brain]
+market: US
+language: en
+type: story
+niche: Money and tech explained simply (incl. how AI companies and AI tools make or save money)
+topic_hints:   # research 10 Nov: AI-tools content has high ad rates and sponsor demand; education only, never buy/sell calls
+  - "How an AI company actually makes money (or loses it)"
+  - "A free AI tool that replaces a paid one, and what it costs the old company"
+  - "The real cost of running AI: chips, power and data centres explained"
+  - "A famous company's money mistake, explained in numbers"
+bio: "Money tricks school never taught you."
+earns_from: [youtube_ads]
+schedule: {shorts_per_day: 1, long_per_week: 1}
+voice: {engine: kokoro, id: am_eric, backup: {engine: kokoro, id: am_onyx}}
+style:
+  mascot: {name: Penny, body: "#F5C542", outline: "#B8860B", size: 230}   # recurring character
+  ai_style: "clean modern 3D render, soft studio lighting, navy background with bright accent colours, simple objects, playful but premium"   # one consistent AI look per channel
+  palette: ["#0E1116", "#00C853", "#FFFFFF"]
+  caption_color: "#FFFFFF"
+  highlight_color: "#00E676"
+  hook_box: {bg: "#00C853", text: "#0E1116"}
+  mood: clean, modern, charts
+hashtags: ["#money", "#finance", "#personalfinance"]
+content_rules: {no_financial_advice_claims: true, disclaimer: "Education only, not financial, investment or tax advice.", fact_check: true}
+affiliate: {store: amazon_com, label: "Books about {subject}", query: "{subject} book"}   # off until AMAZON_*_TAG is in .env (owner's own Associate account)
+catchphrase: "Now you know the cheat code."   # signature sign-off, end of long videos only (brand recall)
+# Research targets (owner, 11 Nov: 'follow your research'). Source: money_tech_explainers.md: 42-58 s, 170-200 wpm, visual change ~2.0 s, long shots <= 5.5 s
+spec: {short_words: "135-165 words (about 45-55 seconds)", short_wpm: 185, long_wpm: 180, shot_s: 2.0, hook_shot_s: 1.3, long_words: "2400-3300 words (12-18 minutes)", long_shot_s: 3.5}
+caption: {karaoke: false}   # money spec B/playbook: no karaoke; white keyword captions, none over number cards
+writer_rules: "Money spec: one idea per Short; numbers and proof carry the meaning; the narrator is never an adviser; the final clause completes the first line so the Short loops."
+# Channel page texts (YouTube About + keywords are written by the API after connecting; Instagram/Facebook bios
+# are shown with Copy buttons in the setup assistant). Copy sheet for people: docs/account_names_and_details.md
+about: "Money tricks school never taught you. How money, tech and AI companies really work, explained simply. Education only, not financial, investment or tax advice."
+keywords: ["money explained", "personal finance", "how companies make money", "tech explained", "AI business"]
+handles: {"youtube": "@MoneyCheatCodesHQ", "youtube_backup": "@MoneyCheatCodesOfficial", "instagram": "moneycheatcodes", "instagram_backup": "money.cheatcodes"}

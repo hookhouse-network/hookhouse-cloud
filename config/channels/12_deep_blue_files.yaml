@@ -1,0 +1,43 @@
+id: deep_blue_files
+number: 12
+name: Deep Blue Files
+backup_names: [Abyss Stories, Ocean Uncharted]
+market: US
+language: en
+type: story
+niche: Ocean stories and documentaries (deep-sea creatures, shipwrecks, expeditions, ocean mysteries)
+bio: "95% of the ocean is unexplored. Let's go."
+earns_from: [youtube_ads, dubbing]
+schedule: {shorts_per_day: 1, long_per_week: 1}
+voice: {engine: kokoro, id: af_sarah, backup: {engine: kokoro, id: af_heart}}
+style:
+  ai_style: "photoreal underwater scene, deep teal and black, light rays from above, particles in the water, cinematic, no logos, no text"
+  palette: ["#021820", "#00B4D8", "#E6FAFF"]
+  caption_color: "#FFFFFF"
+  highlight_color: "#00D1FF"
+  hook_box: {bg: "#00B4D8", text: "#021820"}
+  graphics: proof
+  mood: deep, calm, mysterious
+topic_hints:
+  - "A real deep-sea creature with an unbelievable survival trick"
+  - "A famous shipwreck and what divers or robots found"
+  - "An ocean expedition's biggest surprise"
+hashtags: ["#ocean", "#deepsea", "#marinelife"]
+content_rules:
+  fact_check: true
+  sources_in_description: true
+  agency_footage: "NOAA / USGS footage: check each item is public domain; credit the agency; never imply endorsement."
+  no_graphic_animal_violence: "describe predation without gore; no animal cruelty"
+look:
+  music: ocean
+affiliate: {store: amazon_com, label: "Books about {subject}", query: "{subject} book"}
+catchphrase: "The deep is still keeping secrets."   # signature sign-off, end of long videos only (brand recall)
+# Research targets (owner, 11 Nov: 'follow your research'). Source: documentary story Shorts 170-239 wpm, long 168-219 wpm
+spec: {short_words: "125-150 words (about 43-52 seconds)", short_wpm: 175, long_wpm: 172, shot_s: 2.2, hook_shot_s: 1.3, long_words: "2100-3000 words (12-17 minutes)", long_shot_s: 3.5}
+topic_style: "Formats that win in ocean (niche_playbooks_2026-11-11.md): depth/creature reveals (one strange deep-sea animal), famous wrecks and dives (Titanic, Trieste, Titan sub), rogue waves/tsunamis told with care, sharks and whales superlatives. Prefer NOAA Ocean Exploration public-domain footage."
+caption: {accent: "#FFC247"}   # warm accent: cyan vanished on ocean-blue frames (contrast)
+# Channel page texts (YouTube About + keywords are written by the API after connecting; Instagram/Facebook bios
+# are shown with Copy buttons in the setup assistant). Copy sheet for people: docs/account_names_and_details.md
+about: "95% of the ocean is unexplored. Let's go. Deep-sea creatures, shipwrecks and ocean mysteries, told as true stories."
+keywords: ["deep sea", "ocean mysteries", "shipwrecks", "sea creatures", "ocean documentary"]
+handles: {"youtube": "@DeepBlueFilesHQ", "youtube_backup": "@DeepBlueFilesTV", "instagram": "deepbluefiles", "instagram_backup": "deep.blue.files"}

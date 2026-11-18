@@ -1,0 +1,25 @@
+# Product ideas the weekly research checks (engine/product_research.py). Research first, build second
+# (owner, 16 Nov, from the income articles: "AI can help you build faster. It can't decide what deserves to be built").
+# Each idea: what buyers search, which of our channels' audiences it fits, the months it sells best (1-12) and how
+# easy it is for our generators: easy = an existing maker (planner, puzzles, coloring, tracing) re-used; new = new code.
+# Have = we already sell it (the research still measures it, so we know whether to make a v2 / bundle).
+- {id: habit_tracker, name: "Habit tracker printable", search: "habit tracker printable", fits: money_cheat_codes, months: [12, 1, 2], build: easy}
+- {id: meal_planner, name: "Weekly meal planner + grocery list", search: "meal planner printable", fits: money_cheat_codes, months: [1, 9], build: easy}
+- {id: debt_tracker, name: "Debt payoff tracker (snowball/avalanche)", search: "debt payoff tracker", fits: money_cheat_codes, months: [1, 2, 3], build: easy}
+- {id: sinking_funds, name: "Sinking funds + savings challenge sheets", search: "savings challenge printable", fits: money_cheat_codes, months: [12, 1], build: easy}
+- {id: teacher_planner, name: "Teacher planner 2027-28", search: "teacher planner printable", fits: money_cheat_codes, months: [6, 7, 8], build: easy}
+- {id: study_planner_in, name: "Exam study planner (India: boards, JEE, UPSC)", search: "study planner for exams", fits: itihaas_ke_raaz, months: [12, 1, 2, 6], build: easy}
+- {id: senior_sudoku, name: "Large print sudoku for seniors", search: "large print sudoku for seniors", fits: brain_snack, months: [11, 12, 1], build: easy}
+- {id: senior_crossword, name: "Large print crosswords for seniors", search: "large print crossword puzzles", fits: brain_snack, months: [11, 12, 1], build: new}
+- {id: logic_puzzles, name: "Logic puzzles for teens", search: "logic puzzles for kids", fits: brain_snack, months: [6, 7, 11, 12], build: new}
+- {id: christmas_coloring, name: "Christmas coloring pages for kids", search: "christmas coloring pages for kids", fits: bloop_and_friends, months: [11, 12], build: easy}
+- {id: diwali_coloring, name: "Diwali coloring + rangoli pages", search: "diwali drawing for kids", fits: bloop_and_friends, months: [9, 10], build: easy}
+- {id: sight_words, name: "Sight words worksheets (kindergarten)", search: "sight words for kindergarten", fits: bloop_and_friends, months: [7, 8, 9, 1], build: easy}
+- {id: hindi_varnamala, name: "Hindi varnamala tracing workbook", search: "hindi varnamala for kids", fits: bloop_and_friends, months: [3, 4, 6, 7], build: easy}
+- {id: chore_chart, name: "Kids chore and reward chart", search: "chore chart for kids", fits: bloop_and_friends, months: [1, 6, 9], build: easy}
+- {id: cricket_scorebook, name: "Cricket scorebook printable", search: "cricket scorebook", fits: cricket_ke_kisse, months: [3, 4, 5, 10], build: easy}
+- {id: yt_planner, name: "YouTube content planner for creators", search: "youtube content planner", fits: money_cheat_codes, months: [1, 2, 9], build: easy}
+- {id: planner_2027, name: "2027 planner (have)", search: "2027 planner printable", fits: money_cheat_codes, months: [11, 12, 1], build: have}
+- {id: budget_planner, name: "Budget planner spreadsheet (have)", search: "budget spreadsheet template", fits: money_cheat_codes, months: [12, 1, 2], build: have}
+- {id: toddler_coloring, name: "Toddler coloring book (have)", search: "coloring pages for toddlers", fits: bloop_and_friends, months: [6, 7, 11, 12], build: have}
+- {id: senior_word_search, name: "Large print word search (have)", search: "large print word search", fits: brain_snack, months: [11, 12, 1], build: have}

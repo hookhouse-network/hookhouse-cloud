@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HookHouse setup assistant</title>
+<style>
+  :root { --ink:#16162a; --muted:#6b6b85; --line:#e6e6f0; --bg:#f6f6fb; --card:#fff; --acc:#5b4bff; --acc2:#efedff;
+          --ok:#12a150; --okbg:#e8f8ef; --warn:#b26b00; --warnbg:#fff4e0; --bad:#c62828; --badbg:#fdecec; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.45 "Segoe UI", system-ui, sans-serif; color:var(--ink); background:var(--bg); }
+  header { position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:18px; padding:12px 20px;
+           background:var(--ink); color:#fff; }
+  header h1 { font-size:17px; margin:0; font-weight:650; white-space:nowrap; }
+  .bar { flex:1; height:10px; background:#ffffff26; border-radius:6px; overflow:hidden; min-width:120px; }
+  .bar i { display:block; height:100%; background:linear-gradient(90deg,#7c6cff,#3ddc97); width:0; transition:width .4s; }
+  .count { font-size:13px; opacity:.9; white-space:nowrap; }
+  .mode { display:flex; align-items:center; gap:6px; font-size:13px; white-space:nowrap; }
+  .mode select { border-radius:6px; padding:4px 6px; border:0; }
+  header button { background:#fff; color:var(--ink); border:0; border-radius:8px; padding:7px 12px; font-weight:600; cursor:pointer; }
+  main { display:grid; grid-template-columns:320px 1fr 330px; gap:0; height:calc(100vh - 54px); }
+  nav { overflow:auto; border-right:1px solid var(--line); background:#fff; padding:8px 0 30px; }
+  nav h3 { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:16px 16px 4px; }
+  .step-row { display:flex; gap:9px; align-items:flex-start; padding:7px 16px; cursor:pointer; font-size:14px; }
+  .step-row:hover { background:var(--bg); }
+  .step-row.active { background:var(--acc2); box-shadow:inset 3px 0 0 var(--acc); }
+  .dot { flex:0 0 18px; height:18px; border-radius:50%; border:2px solid #c9c9d9; margin-top:1px; display:grid;
+         place-items:center; font-size:11px; color:#fff; }
+  .done .dot { background:var(--ok); border-color:var(--ok); }
+  .done .dot::after { content:"✓"; }
+  .done .t { color:var(--muted); }
+  .opt { font-size:11px; color:var(--muted); border:1px solid var(--line); border-radius:9px; padding:0 6px; margin-left:4px; }
+  section.card { overflow:auto; padding:22px 28px 60px; }
+  .card h2 { margin:0 0 4px; font-size:22px; }
+  .why { color:var(--muted); margin:0 0 12px; }
+  .pill { display:inline-block; font-size:12.5px; padding:3px 10px; border-radius:20px; margin:0 6px 12px 0; }
+  .pill.ok { background:var(--okbg); color:var(--ok); } .pill.wait { background:var(--warnbg); color:var(--warn); }
+  .pill.pace { background:var(--acc2); color:var(--acc); }
+  .links { display:flex; flex-wrap:wrap; gap:8px; margin:6px 0 16px; }
+  .btn { border:1px solid var(--acc); background:var(--acc); color:#fff; border-radius:9px; padding:8px 14px;
+         font-weight:600; cursor:pointer; font-size:14px; }
+  .btn.ghost { background:#fff; color:var(--acc); }
+  .btn.small { padding:5px 10px; font-size:13px; }
+  .btn:disabled { opacity:.45; cursor:not-allowed; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:6px 0 18px; }
+  .box { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 16px; }
+  .box h4 { margin:0 0 6px; font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
+  .box ul { margin:0; padding-left:18px; } .box li { margin:3px 0; }
+  .copy { display:grid; grid-template-columns:170px 1fr auto; gap:8px 10px; align-items:center; margin:4px 0 18px; }
+  .copy .l { color:var(--muted); font-size:13.5px; }
+  .copy code { background:#fff; border:1px solid var(--line); border-radius:8px; padding:6px 10px; font:13.5px Consolas, monospace;
+               overflow-wrap:anywhere; }
+  .fields { display:grid; gap:10px; margin:6px 0 18px; }
+  .field { display:grid; grid-template-columns:170px 1fr auto auto; gap:8px; align-items:center; }
+  .field input { padding:8px 10px; border:1px solid #cfcfe0; border-radius:8px; font:14px Consolas, monospace; width:100%; }
+  .field .res { grid-column:2 / 5; font-size:13px; }
+  .res.ok { color:var(--ok); } .res.bad { color:var(--bad); }
+  .imgs { display:flex; gap:14px; flex-wrap:wrap; margin:6px 0 18px; }
+  .imgs figure { margin:0; background:#fff; border:1px solid var(--line); border-radius:12px; padding:8px; text-align:center; }
+  .imgs img { max-height:120px; max-width:300px; display:block; margin:0 auto 6px; border-radius:6px; }
+  .imgs figcaption { font-size:12.5px; color:var(--muted); }
+  .foot { display:flex; gap:10px; margin-top:8px; flex-wrap:wrap; }
+  aside { border-left:1px solid var(--line); background:#fff; overflow:auto; padding:14px 16px; }
+  aside h3 { margin:0 0 8px; font-size:14px; }
+  .ev { font-size:13px; padding:7px 9px; border-radius:8px; margin:0 0 6px; white-space:pre-wrap; background:var(--bg); }
+  .ev.ok { background:var(--okbg); } .ev.bad { background:var(--badbg); }
+  .ev small { color:var(--muted); display:block; }
+  .job { font-size:13px; margin:0 0 10px; padding:8px 10px; border-radius:8px; background:var(--warnbg); white-space:pre-wrap; }
+  .toast { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff;
+           padding:8px 16px; border-radius:20px; font-size:14px; opacity:0; transition:opacity .2s; pointer-events:none; }
+  .toast.on { opacity:1; }
+  @media (max-width: 1100px) { main { grid-template-columns:260px 1fr; } aside { display:none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>HookHouse setup</h1>
+  <div class="bar"><i id="bar"></i></div>
+  <span class="count" id="count">…</span>
+  <label class="mode">Open pages in
+    <select id="mode"><option value="assistant">the assistant window</option><option value="normal">my normal browser</option></select>
+  </label>
+  <button id="next">Next step →</button>
+</header>
+<main>
+  <nav id="nav"></nav>
+  <section class="card" id="card"></section>
+  <aside><h3>What the assistant did</h3><div id="jobs"></div><div id="events"></div></aside>
+</main>
+<div class="toast" id="toast"></div>
+<script>
+const TOKEN = new URLSearchParams(location.search).get("t") || "";
+let STEPS = [], STATE = {steps:{}, pace:{}, events:[], jobs:{}}, ACTIVE = "";
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const famName = {youtube:"new YouTube channels", meta:"new Facebook Pages + Instagram accounts", google:"new Google accounts", dailymotion:"new Dailymotion accounts"};
+
+async function api(path, body) {
+  const opt = body === undefined ? {headers:{"X-Token":TOKEN}} :
+    {method:"POST", headers:{"X-Token":TOKEN, "Content-Type":"application/json"}, body:JSON.stringify(body)};
+  const r = await fetch(path, opt);
+  return r.json();
+}
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("on"), 1800); }
+const isDone = id => (STATE.steps[id] || [false])[0];
+
+function nextStep() {
+  for (const s of STEPS) {
+    if (s.optional || isDone(s.id) || s.id === "welcome") continue;
+    if (s.family && (STATE.pace[s.family] || 0) >= STATE.limit && !(STATE.steps[s.id]||[])[0]) continue;
+    return s.id;
+  }
+  return "doctor";
+}
+
+function renderNav() {
+  let html = "", group = "";
+  for (const s of STEPS) {
+    if (s.group !== group) { group = s.group; html += `<h3>${esc(group)}</h3>`; }
+    html += `<div class="step-row ${isDone(s.id) ? "done" : ""} ${s.id === ACTIVE ? "active" : ""}" data-id="${s.id}">
+      <span class="dot"></span><span class="t">${esc(s.title)}${s.optional ? '<span class="opt">optional</span>' : ""}</span></div>`;
+  }
+  $("#nav").innerHTML = html;
+  document.querySelectorAll(".step-row").forEach(el => el.onclick = () => select(el.dataset.id));
+  const real = STEPS.filter(s => s.id !== "welcome" && !s.optional);
+  const done = real.filter(s => isDone(s.id)).length;
+  $("#bar").style.width = (100 * done / Math.max(1, real.length)) + "%";
+  $("#count").textContent = `${done} of ${real.length} done`;
+}
+
+function renderCard() {
+  const s = STEPS.find(x => x.id === ACTIVE); if (!s) return;
+  const [done, detail] = STATE.steps[s.id] || [false, ""];
+  let h = `<h2>${esc(s.title)}</h2>${s.why ? `<p class="why">${esc(s.why)}</p>` : ""}`;
+  if (s.id !== "welcome") h += `<span class="pill ${done ? "ok" : "wait"}">${done ? "✓ Done" : "Not done yet"}${detail && detail !== "done" ? " · " + esc(detail) : ""}</span>`;
+  if (s.family) {
+    const n = STATE.pace[s.family] || 0;
+    h += `<span class="pill pace">${famName[s.family] || "new accounts"} today: ${n} of ${STATE.limit}${n >= STATE.limit ? " · come back tomorrow for more" : ""}</span>`;
+  }
+  if (s.links.length) h += `<div class="links">${s.links.map((l, i) => `<button class="btn" data-open="${i}">↗ ${esc(l.label)}</button>`).join("")}</div>`;
+  if (s.you.length || s.auto.length) h += `<div class="cols">
+      <div class="box"><h4>You do</h4><ul>${s.you.map(x => `<li>${esc(x)}</li>`).join("") || "<li>Nothing</li>"}</ul></div>
+      <div class="box"><h4>The assistant does</h4><ul>${s.auto.map(x => `<li>${esc(x)}</li>`).join("") || "<li>Opens the pages and keeps your list</li>"}</ul></div></div>`;
+  if (s.copy.length) h += `<div class="copy">${s.copy.filter(c => c.text).map((c, i) => `<span class="l">${esc(c.label)}</span><code>${esc(c.text)}</code><button class="btn small ghost" data-copy="${esc(c.text)}">Copy</button>`).join("")}</div>`;
+  const inputs = s.fields.filter(f => f.kind === "input");
+  const envs = s.fields.filter(f => f.kind !== "input");
+  if (envs.length) h += `<div class="fields">${envs.map(f => `<div class="field" data-field="${f.id}" data-kind="${f.kind}">
+        <span class="l">${esc(f.label || f.id)}</span>
+        <input type="${f.kind === "env" ? "password" : "text"}" placeholder="${esc(f.placeholder || (f.kind === "env" ? "picked up automatically, or paste here" : ""))}" autocomplete="off">
+        ${f.kind === "env" ? '<button class="btn small ghost" data-eye>👁</button>' : "<span></span>"}
+        <button class="btn small" data-save>Check &amp; save</button><span class="res"></span></div>`).join("")}</div>`;
+  if (inputs.length) h += `<div class="fields">${inputs.map(f => `<div class="field" data-input="${f.id}"><span class="l">${esc(f.label)}</span>
+        <input type="text" autocomplete="off"><span></span><span></span></div>`).join("")}</div>`;
+  if (s.images.length) h += `<div class="imgs">${s.images.map(p => `<figure><img src="/file?t=${TOKEN}&p=${encodeURIComponent(p)}">
+        <figcaption>${esc(p.split("/").pop())} · <a href="#" data-show="${esc(p)}">show file</a></figcaption></figure>`).join("")}</div>`;
+  h += `<div class="foot">${s.actions.map(a => `<button class="btn" data-action="${esc(a.id)}">${esc(a.label)}</button>`).join("")}`;
+  if (s.family && !done) h += `<button class="btn ghost" data-action="created:${s.id}">I created it ✓</button>`;
+  if (s.rule === "manual" && s.id !== "welcome") h += `<button class="btn ghost" data-action="done:${s.id}">${done ? "Done ✓" : "Mark as done ✓"}</button>`;
+  h += `<button class="btn ghost" id="go-next">Next step →</button></div>`;
+  h += `<p class="why" id="msg" style="margin-top:14px"></p>`;
+  $("#card").innerHTML = h;
+
+  $("#card").querySelectorAll("[data-open]").forEach(b => b.onclick = () => { api("/api/open", {url: s.links[+b.dataset.open].url}); toast("Opening…"); });
+  $("#card").querySelectorAll("[data-copy]").forEach(b => b.onclick = async () => { await navigator.clipboard.writeText(b.dataset.copy); toast("Copied"); });
+  $("#card").querySelectorAll("[data-show]").forEach(a => a.onclick = e => { e.preventDefault(); api("/api/action", {id: "show:" + a.dataset.show}); });
+  $("#card").querySelectorAll("[data-eye]").forEach(b => b.onclick = () => { const i = b.parentElement.querySelector("input"); i.type = i.type === "password" ? "text" : "password"; });
+  $("#card").querySelectorAll("[data-save]").forEach(b => b.onclick = async () => {
+    const row = b.parentElement, inp = row.querySelector("input"), res = row.querySelector(".res");
+    res.className = "res"; res.textContent = "Checking…";
+    const r = row.dataset.kind === "env" ? await api("/api/key", {name: row.dataset.field, value: inp.value})
+                                         : await api("/api/action", {id: row.dataset.field, value: inp.value});
+    res.className = "res " + (r.ok && !/^(Add|Telegram can't|Do the|The bot)/.test(r.msg) ? "ok" : "bad"); res.textContent = r.msg;
+    if (r.ok && row.dataset.kind === "env") inp.value = "";
+    refresh();
+  });
+  $("#card").querySelectorAll("[data-action]").forEach(b => b.onclick = async () => {
+    const values = {};
+    $("#card").querySelectorAll("[data-input]").forEach(r => values[r.dataset.input] = r.querySelector("input").value);
+    const r = await api("/api/action", {id: b.dataset.action, values});
+    $("#msg").textContent = r.msg; $("#msg").style.color = r.ok ? "var(--ok)" : "var(--bad)";
+    refresh();
+  });
+  $("#go-next").onclick = () => select(nextStep());
+}
+
+function renderSide() {
+  const jobs = Object.entries(STATE.jobs || {}).filter(([k, j]) => j.state === "running");
+  $("#jobs").innerHTML = jobs.map(([k, j]) => `<div class="job">⏳ ${esc(k)}: ${esc(j.msg)}</div>`).join("");
+  $("#events").innerHTML = (STATE.events || []).slice().reverse().map(e =>
+    `<div class="ev ${e.ok ? "ok" : "bad"}"><small>${new Date(e.t * 1000).toLocaleTimeString()}</small>${esc(e.msg)}</div>`).join("") ||
+    '<p class="why">Keys, files and connections show up here the moment they are saved.</p>';
+}
+
+async function select(id) { ACTIVE = id; await api("/api/active", {step: id}); renderNav(); renderCard(); }
+
+let lastSig = "";
+async function refresh() {
+  STATE = await api("/api/state");
+  $("#mode").value = STATE.mode;
+  const sig = JSON.stringify(STATE.steps) + JSON.stringify(STATE.pace);
+  if (sig !== lastSig) { lastSig = sig; renderNav(); if (!document.activeElement || document.activeElement.tagName !== "INPUT") renderCard(); }
+  renderSide();
+}
+
+(async () => {
+  STEPS = (await api("/api/steps")).steps;
+  STATE = await api("/api/state");
+  ACTIVE = STATE.active || "welcome";
+  renderNav(); renderCard(); renderSide();
+  $("#next").onclick = () => select(nextStep());
+  $("#mode").onchange = e => api("/api/mode", {mode: e.target.value}).then(() => toast(e.target.value === "normal" ? "Pages now open in your normal browser" : "Pages open in the assistant window"));
+  setInterval(refresh, 2500);
+})();
+</script>
+</body>
+</html>

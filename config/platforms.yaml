@@ -1,0 +1,76 @@
+# Every platform HookHouse publishes on, for every channel (owner, 12 Nov 2026: "use all the possible platforms to
+# make money and upload our content on all these platforms").
+#
+# post (what the three words mean):
+#   auto    = the system posts it by itself after your approval. No work for you. (needs: = a one-time
+#             connection per channel; until then that platform stays in the evening winners pack)
+#   winners = the platform has no free posting API, so you post by hand - but only our proven best videos: every
+#             evening the bot sends the top 3 of the last 2 days with a ready caption (about a minute each).
+#             Campaign clips that a campaign pays for there come right after posting instead.
+#   later   = waits for something first (an audience, an invite, or a product you upload once).
+# content:  which channel types may go there (story, brainrot, kids, clips). Campaign clips additionally go only
+#           where the campaign's brief lists the platform (their footage licence covers those platforms only).
+# kids:     Made-for-Kids videos never go to 13+ apps (Instagram, Facebook, Snapchat, Threads, Pinterest, X, Telegram):
+#           that is the law for under-13 audiences (COPPA) and those apps' own age rules.
+youtube:
+  post: auto
+  content: [story, brainrot, kids, clips]
+  money: "ads after the Partner Program (rules from 1 Feb 2027), Shorts ads, fan funding, campaigns"
+  notes: "YouTube Kids shows our Made-for-Kids videos automatically"
+youtube_podcasts:
+  post: auto
+  content: [story]
+  money: "more watch time from YouTube Music's podcast listeners (same ads as YouTube)"
+  notes: "the channel's 'full episodes' playlist is marked as a podcast show (needs its square playlist image)"
+instagram:
+  post: auto
+  content: [story, brainrot, clips]
+  money: "campaign views, brand deals later (no creator payouts in India)"
+facebook:
+  post: auto
+  content: [story, brainrot, clips]
+  money: "Content Monetization (invite-only; request it monthly on each Page); Reels 3-90 s via the API"
+dailymotion:
+  post: auto
+  content: [story, brainrot, kids, clips]
+  money: "Partner revenue share (reported to start around 1,000 views; $100 payout by bank, PayPal or Payoneer)"
+  notes: "our own videos; clips only from public-domain / CC sources (never campaign or permission-only footage)"
+telegram:
+  post: auto
+  content: [story, brainrot]
+  money: "no payouts we use (Telegram ads pay in crypto); free reach that sends people to YouTube, big in India"
+  notes: "one Telegram channel per HookHouse channel (or one shared), the bot as admin; set its @name in config/links.yaml"
+snapchat:
+  post: winners
+  content: [story, brainrot, clips]
+  money: "Snap creator payouts (India is an eligible country; view-time rules); Spotlight reach"
+threads:
+  post: auto
+  needs: threads_login          # per channel; until it is connected the video stays in the evening winners pack
+  content: [story, brainrot, clips]
+  money: "no payouts in India; reach that sends people to the YouTube and Instagram accounts"
+  notes: "posted right after the Instagram Reel, using the Reel's own Instagram video link (official Threads API,
+    free). Connect each channel once in the setup assistant (Threads steps)"
+pinterest:
+  post: auto
+  needs: pinterest_claim        # Pinterest makes the Pins itself from the claimed Instagram accounts
+  content: [story, brainrot]
+  money: "no creator fund; search traffic to the long videos and affiliate links"
+  notes: "each story channel's (and Brain Snack's) Pinterest business account claims its Instagram; Pinterest turns
+    every post into a Pin by itself (posts with #ad excluded, so campaign clips stay off). Until that is done:
+    the evening winners pack"
+x:
+  post: winners
+  content: [story, brainrot, clips]
+  money: "campaigns that pay for X views; reach (X revenue sharing closed on 7 Sep 2026; the X API is no longer free
+    since 6 Feb 2026, so you post by hand: winners in the evening, paid campaign clips right after posting)"
+spotify_music:
+  post: later
+  content: [kids]
+  money: "Bloop songs on Spotify, Apple Music, JioSaavn, YouTube Music via a free distributor (RouteNote: $0, you keep 85%)"
+  notes: "3 sung songs ready in data/products/music (listen with /songs); upload with RouteNote; Content ID OFF"
+amazon_kdp:
+  post: later
+  content: [kids]
+  money: "Bloop counting activity books (paperback + Kindle), royalties per sale"
+  notes: "our own code-drawn characters (not AI images); KDP asks to disclose AI-written text; about 3 new titles a day"

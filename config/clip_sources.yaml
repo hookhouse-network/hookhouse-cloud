@@ -1,0 +1,32 @@
+# Clip permission register. The clip engine only cuts from a source listed here (or from a campaign's own footage).
+# Research (12 Nov): fair use is a legal defence AFTER a claim, not protection from Content ID claims or strikes; YouTube's
+# reused-content rule applies even with permission (clips must add value: hook, framing, captions, context); permission
+# is per creator and must be in writing. Never add a source without evidence.
+#
+# basis: public_domain_us_gov | cc_by | cc_by_sa | written_permission | campaign
+# Each entry: match (domain or channel/URL prefix), basis, evidence (URL or file), credit line, may_monetize, notes.
+
+- match: "images-assets.nasa.gov"
+  basis: public_domain_us_gov
+  owner: "NASA"
+  evidence: "https://www.nasa.gov/nasa-brand-center/images-and-media/"
+  credit: "Source: NASA (public domain). NASA does not endorse this channel."
+  may_monetize: true
+  notes: "NASA-produced media is generally not copyrighted. Never imply NASA endorsement; avoid NASA logos as branding; outside hosts/guests in NASA recordings: prefer NASA's own shows."
+
+- match: "dvidshub.net"
+  basis: public_domain_us_gov
+  owner: "US Department of Defense (DVIDS)"
+  evidence: "https://www.dvidshub.net/about/copyright"
+  credit: "Source: DVIDS / U.S. Department of Defense (public domain). No endorsement implied."
+  may_monetize: true
+  notes: "Check each item: some DVIDS items carry third-party rights."
+
+# Add creators who give written permission like this (keep the screenshot/email in data/permissions/):
+# - match: "youtube.com/@SomeStreamer"
+#   basis: written_permission
+#   owner: "Some Streamer"
+#   evidence: "data/permissions/somestreamer_2026-11-20.png"
+#   credit: "Clip from @SomeStreamer (used with permission)"
+#   may_monetize: false
+#   notes: "Allowed: clips up to 60 s, credit in caption; no monetisation."

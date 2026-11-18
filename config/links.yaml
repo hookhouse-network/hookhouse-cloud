@@ -1,0 +1,36 @@
+# HookHouse cross-links (owner, 12 Nov 2026: "make all the things inter-connect to support each other").
+# Planned handles from docs/account_names_and_details.md. Set live: true for a channel once its accounts really exist
+# (and correct any handle you had to change). Only live channels are linked in descriptions, so we never point
+# viewers to an account that doesn't exist. Made-for-Kids videos never get cross-links.
+# telegram: "@channelname" = that channel's Telegram channel (add the HookHouse bot as an admin); videos are then
+# posted there automatically.
+hot_take_hq:            {youtube: "@hottakehqofficial", instagram: "hottakehqofficial", live: true}
+unsolved_after_dark:    {youtube: "@creepycaseclub", instagram: "creepycaseclubhq", live: true}
+clutch_tales:           {youtube: "@clutchtaleshq", instagram: "clutchtaleshq", live: true}
+ending_decoded:         {youtube: "@endingdecodedhq", instagram: "endingdecoded", live: true}
+money_cheat_codes:      {youtube: "@moneycheatcodeshq", instagram: "moneycheatcodes", live: true}
+itihaas_ke_raaz:        {youtube: "@itihaaskeraazhq", instagram: "itihaaskeraaz", live: true}
+cricket_ke_kisse:       {youtube: "@cricketkekissehindi", instagram: "cricketkekisse", live: true}
+picture_abhi_baaki_hai: {youtube: "@pictureabhibaakihaihq", instagram: "pictureabhibaakihai", live: true}
+brain_snack:            {youtube: "@brainsnackdose", instagram: "brainsnackdose", live: true}
+bloop_and_friends:      {youtube: "@bloopandfriendshq", live: true}
+cosmos_unboxed:         {youtube: "@cosmosunboxedhq", instagram: "cosmosunboxed", live: true}
+deep_blue_files:        {youtube: "@deepbluefileshq", instagram: "deepbluefiles", live: true}
+wild_instinct:          {youtube: "@thewildinstincthq", instagram: "wildinstinctstories", live: true}
+stream_clips:           {youtube: "@StreamClipsDaily", instagram: "streamclipsdaily", live: false}
+
+# Which channels recommend each other (same language and a related audience; never more than two).
+siblings:
+  unsolved_after_dark: [deep_blue_files, cosmos_unboxed]
+  deep_blue_files: [unsolved_after_dark, wild_instinct]
+  cosmos_unboxed: [deep_blue_files, money_cheat_codes]
+  wild_instinct: [deep_blue_files, cosmos_unboxed]
+  clutch_tales: [hot_take_hq, stream_clips]
+  ending_decoded: [unsolved_after_dark, brain_snack]
+  money_cheat_codes: [hot_take_hq, cosmos_unboxed]
+  brain_snack: [cosmos_unboxed, wild_instinct]
+  hot_take_hq: [money_cheat_codes, clutch_tales]
+  stream_clips: [brain_snack, clutch_tales]
+  itihaas_ke_raaz: [picture_abhi_baaki_hai, cricket_ke_kisse]
+  cricket_ke_kisse: [itihaas_ke_raaz, picture_abhi_baaki_hai]
+  picture_abhi_baaki_hai: [itihaas_ke_raaz, cricket_ke_kisse]

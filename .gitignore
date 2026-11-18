@@ -1,0 +1,32 @@
+# Secrets — never uploaded
+.env
+*.key
+client_secret*.json
+token*.json
+
+# Local data (lives in Google Drive / Sheets later)
+data/
+output/
+*.mp4
+*.wav
+*.mp3
+
+# Python
+__pycache__/
+.pytest_cache/
+*.pyc
+.venv/
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example
+
+# PC only (not needed in the cloud)
+research_archive/
+backups/
+# cloud setup
+*.zip
+cloud/worker/.wrangler/
+node_modules/

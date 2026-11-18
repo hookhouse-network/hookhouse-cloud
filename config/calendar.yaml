@@ -1,0 +1,19 @@
+# Dates the weekly planner turns into topic ideas (the 14 days before each event).
+# Source: research_notes/direct_checks_2026-11-10.md and deep_pass_2026-11-10.md. Edit freely.
+events:
+  - {date: 2026-11-26, title: "Thanksgiving (US)", channels: [unsolved_after_dark, money_cheat_codes, brain_snack]}
+  - {date: 2026-11-27, title: "Black Friday deals and the psychology of shopping", channels: [money_cheat_codes]}
+  - {date: 2026-12-13, title: "India vs Sri Lanka ODI series (13, 16, 19 Dec)", channels: [cricket_ke_kisse]}
+  - {date: 2026-12-18, title: "'Dunesday': Avengers: Doomsday and Dune: Part Three open the same day (footage-free decodes only)", channels: [ending_decoded]}
+  - {date: 2026-12-22, title: "India vs Sri Lanka T20Is (22, 24, 27 Dec)", channels: [cricket_ke_kisse]}
+  - {date: 2026-12-25, title: "Christmas", channels: [brain_snack, bloop_and_friends, unsolved_after_dark]}
+  - {date: 2027-01-01, title: "New Year: money resolutions and money myths", channels: [money_cheat_codes, brain_snack]}
+  - {date: 2027-01-03, title: "India vs Zimbabwe ODIs (3, 6, 9 Jan)", channels: [cricket_ke_kisse]}
+  - {date: 2027-01-14, title: "Makar Sankranti / Uttarayan", channels: [itihaas_ke_raaz]}
+  - {date: 2027-01-21, title: "Border-Gavaskar Trophy vs Australia begins (Nagpur 21-25 Jan; 5 Tests to 3 Mar)", channels: [cricket_ke_kisse]}
+  - {date: 2027-01-26, title: "Republic Day", channels: [itihaas_ke_raaz, cricket_ke_kisse]}
+  - {date: 2027-02-01, title: "US tax season: how taxes really work (deadline 15 Apr)", channels: [money_cheat_codes]}
+  - {date: 2027-02-14, title: "Super Bowl LXI at SoFi Stadium (Valentine's Day)", channels: [clutch_tales, money_cheat_codes]}
+  - {date: 2027-03-06, title: "Maha Shivratri", channels: [itihaas_ke_raaz]}
+  - {date: 2027-03-10, title: "IPL 2027 may start (proposed, check BCCI)", channels: [cricket_ke_kisse]}
+  - {date: 2027-03-22, title: "Holi (Holika Dahan 21 Mar)", channels: [itihaas_ke_raaz, bloop_and_friends]}

@@ -1,0 +1,26 @@
+{
+  "title": "The Ghost Ship Found With No One On Board 😨",
+  "hook_options": ["Ten People Vanished At Sea", "The Ship Was Still Sailing", "No One Was On Board"],
+  "hook_text": "The Ship Was Still Sailing",
+  "scenes": [
+    {"narration": "In 1872, sailors found a ship drifting in the Atlantic. It was still sailing. But no one was on board.",
+     "visual_type": "photo", "visual_query": "Mary Celeste ship", "ai_prompt": "", "on_screen_text": "1872"},
+    {"narration": "Her name was the Mary Celeste. She had left New York a month earlier with ten people on board.",
+     "visual_type": "photo", "visual_query": "New York harbor 1870s", "ai_prompt": "", "on_screen_text": "New York"},
+    {"narration": "The crew of another ship spotted her near the Azores, moving strangely, like nobody was steering.",
+     "visual_type": "photo", "visual_query": "Azores coast sea", "ai_prompt": "", "on_screen_text": "The Azores"},
+    {"narration": "When they climbed aboard, the ship was empty. The lifeboat was gone.",
+     "visual_type": "photo", "visual_query": "old sailing ship deck", "ai_prompt": "", "on_screen_text": "Empty"},
+    {"narration": "But there was food. There was water. And the cargo of alcohol was almost untouched.",
+     "visual_type": "photo", "visual_query": "wooden barrels ship cargo", "ai_prompt": "", "on_screen_text": ""},
+    {"narration": "The captain, his wife, their little daughter, and seven crew members were never seen again.",
+     "visual_type": "photo", "visual_query": "Benjamin Briggs captain", "ai_prompt": "", "on_screen_text": "Never found"},
+    {"narration": "Storms, pirates, toxic fumes. Over 150 years later, nobody knows why ten people left a perfectly good ship.",
+     "visual_type": "photo", "visual_query": "stormy ocean waves", "ai_prompt": "", "on_screen_text": "Why?"}
+  ],
+  "summary": "A ship found sailing with no one on board. Ten people gone without a trace.",
+  "instagram_caption": "Would you leave a safe ship for a tiny lifeboat? 👀\nThe Mary Celeste mystery is still unsolved.",
+  "hashtags": ["#maryceleste", "#ghostship", "#unsolvedmysteries"],
+  "claims": ["The Mary Celeste was found abandoned in 1872 near the Azores", "Ten people were on board", "The lifeboat was missing", "The alcohol cargo was mostly intact"],
+  "sources": ["Mary Celeste"]
+}

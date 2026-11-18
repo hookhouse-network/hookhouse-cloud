@@ -1,0 +1,2470 @@
+{
+ "space": [
+  [
+   "Sun",
+   2629832
+  ],
+  [
+   "Black hole",
+   2206903
+  ],
+  [
+   "Apollo 11",
+   1946338
+  ],
+  [
+   "Neil Armstrong",
+   1862427
+  ],
+  [
+   "Artemis program",
+   1630191
+  ],
+  [
+   "Jupiter",
+   1618277
+  ],
+  [
+   "Chicxulub crater",
+   1617465
+  ],
+  [
+   "Apollo 13",
+   1574235
+  ],
+  [
+   "SpaceX",
+   1551695
+  ],
+  [
+   "3I/ATLAS",
+   1506966
+  ],
+  [
+   "Space Shuttle Columbia disaster",
+   1484017
+  ],
+  [
+   "International Space Station",
+   1459794
+  ],
+  [
+   "Saturn",
+   1291076
+  ],
+  [
+   "Milky Way",
+   1281513
+  ],
+  [
+   "Mars",
+   1262539
+  ],
+  [
+   "Venus",
+   1242403
+  ],
+  [
+   "Pluto",
+   1185867
+  ],
+  [
+   "Yuri Gagarin",
+   1011722
+  ],
+  [
+   "Voyager 1",
+   995634
+  ],
+  [
+   "Big Bang",
+   937430
+  ],
+  [
+   "Laika",
+   844571
+  ],
+  [
+   "Andromeda Galaxy",
+   806114
+  ],
+  [
+   "Halley's Comet",
+   790746
+  ],
+  [
+   "Fermi paradox",
+   743870
+  ],
+  [
+   "Titan (moon)",
+   736750
+  ],
+  [
+   "Olympus Mons",
+   715586
+  ],
+  [
+   "Dark matter",
+   681037
+  ],
+  [
+   "Carrington Event",
+   666382
+  ],
+  [
+   "Tunguska event",
+   666126
+  ],
+  [
+   "James Webb Space Telescope",
+   634201
+  ],
+  [
+   "Wow! signal",
+   604203
+  ],
+  [
+   "Betelgeuse",
+   594901
+  ],
+  [
+   "Solar eclipse",
+   574675
+  ],
+  [
+   "Sagittarius A*",
+   571901
+  ],
+  [
+   "Hubble Space Telescope",
+   550100
+  ],
+  [
+   "Wormhole",
+   511390
+  ],
+  [
+   "Europa (moon)",
+   489143
+  ],
+  [
+   "Neutron star",
+   487935
+  ],
+  [
+   "Quasar",
+   469461
+  ],
+  [
+   "Supernova",
+   458390
+  ],
+  [
+   "Planet Nine",
+   421049
+  ],
+  [
+   "Pale Blue Dot",
+   411162
+  ],
+  [
+   "Voyager 2",
+   389310
+  ],
+  [
+   "Oort cloud",
+   358113
+  ],
+  [
+   "Kessler syndrome",
+   351221
+  ],
+  [
+   "Pulsar",
+   327634
+  ],
+  [
+   "Dark energy",
+   320998
+  ],
+  [
+   "Cosmic microwave background",
+   306452
+  ],
+  [
+   "Mir",
+   304181
+  ],
+  [
+   "Chandrayaan-3",
+   301325
+  ],
+  [
+   "Kuiper belt",
+   300979
+  ],
+  [
+   "Curiosity (rover)",
+   300085
+  ],
+  [
+   "Proxima Centauri b",
+   292507
+  ],
+  [
+   "Perseverance (rover)",
+   278761
+  ],
+  [
+   "Event horizon",
+   273200
+  ],
+  [
+   "Rings of Saturn",
+   264302
+  ],
+  [
+   "Great Red Spot",
+   254211
+  ],
+  [
+   "Enceladus",
+   251925
+  ],
+  [
+   "Kepler-452b",
+   222239
+  ],
+  [
+   "Drake equation",
+   212766
+  ],
+  [
+   "Rogue planet",
+   177847
+  ],
+  [
+   "TRAPPIST-1",
+   175712
+  ],
+  [
+   "Gamma-ray burst",
+   161723
+  ],
+  [
+   "Magnetar",
+   148549
+  ],
+  [
+   "Solar flare",
+   146580
+  ],
+  [
+   "UY Scuti",
+   112168
+  ],
+  [
+   "Space debris",
+   109093
+  ],
+  [
+   "Challenger disaster",
+   6882
+  ],
+  [
+   "Hypervelocity star",
+   4555
+  ],
+  [
+   "Starship (spacecraft)",
+   2490
+  ],
+  [
+   "Oumuamua",
+   1927
+  ],
+  [
+   "Golden Record",
+   1667
+  ],
+  [
+   "Asteroid 99942 Apophis",
+   711
+  ]
+ ],
+ "ocean": [
+  [
+   "James Cameron",
+   2981027
+  ],
+  [
+   "Titanic",
+   2578615
+  ],
+  [
+   "2004 Indian Ocean earthquake and tsunami",
+   1797968
+  ],
+  [
+   "Bermuda Triangle",
+   1319936
+  ],
+  [
+   "Orca",
+   1312934
+  ],
+  [
+   "Mariana Trench",
+   979731
+  ],
+  [
+   "Titan submersible implosion",
+   969495
+  ],
+  [
+   "Blue whale",
+   855998
+  ],
+  [
+   "Greenland shark",
+   855518
+  ],
+  [
+   "Sperm whale",
+   853305
+  ],
+  [
+   "Octopus",
+   811311
+  ],
+  [
+   "Leviathan",
+   796221
+  ],
+  [
+   "Great white shark",
+   765262
+  ],
+  [
+   "Portuguese man o' war",
+   739182
+  ],
+  [
+   "Megalodon",
+   733533
+  ],
+  [
+   "Narwhal",
+   689783
+  ],
+  [
+   "Atlantis",
+   688899
+  ],
+  [
+   "Giant squid",
+   684464
+  ],
+  [
+   "Whale shark",
+   632066
+  ],
+  [
+   "USS Indianapolis (CA-35)",
+   572297
+  ],
+  [
+   "Coelacanth",
+   560229
+  ],
+  [
+   "Dead Sea",
+   559284
+  ],
+  [
+   "Colossal squid",
+   554308
+  ],
+  [
+   "Anglerfish",
+   537434
+  ],
+  [
+   "Kraken",
+   500542
+  ],
+  [
+   "Wreck of the Titanic",
+   498925
+  ],
+  [
+   "Mantis shrimp",
+   471974
+  ],
+  [
+   "Kursk submarine disaster",
+   438525
+  ],
+  [
+   "Jacques Cousteau",
+   428572
+  ],
+  [
+   "Tsunami",
+   423987
+  ],
+  [
+   "Great Barrier Reef",
+   417105
+  ],
+  [
+   "Challenger Deep",
+   379416
+  ],
+  [
+   "Box jellyfish",
+   324370
+  ],
+  [
+   "Sea of Galilee",
+   291544
+  ],
+  [
+   "Electric eel",
+   275316
+  ],
+  [
+   "Rogue wave",
+   260446
+  ],
+  [
+   "Bloop",
+   249257
+  ],
+  [
+   "Goblin shark",
+   234028
+  ],
+  [
+   "Leatherback sea turtle",
+   223965
+  ],
+  [
+   "Sea turtle",
+   222768
+  ],
+  [
+   "Moray eel",
+   215839
+  ],
+  [
+   "Mary Rose",
+   191668
+  ],
+  [
+   "Hadal zone",
+   158202
+  ],
+  [
+   "Vampire squid",
+   151804
+  ],
+  [
+   "Dwarka",
+   146999
+  ],
+  [
+   "Bioluminescence",
+   146293
+  ],
+  [
+   "Deepsea Challenger",
+   145178
+  ],
+  [
+   "Lusitania",
+   130934
+  ],
+  [
+   "Hydrothermal vent",
+   114202
+  ],
+  [
+   "Frilled shark",
+   94642
+  ],
+  [
+   "Barreleye",
+   93963
+  ],
+  [
+   "Blobfish",
+   81223
+  ],
+  [
+   "Mimic octopus",
+   60149
+  ],
+  [
+   "Coral bleaching",
+   53627
+  ],
+  [
+   "Red tide",
+   49119
+  ],
+  [
+   "Bathyscaphe Trieste",
+   37699
+  ],
+  [
+   "Maelstrom",
+   33279
+  ],
+  [
+   "Pufferfish",
+   33007
+  ],
+  [
+   "Great Pacific garbage patch",
+   31165
+  ],
+  [
+   "Immortal jellyfish",
+   29213
+  ],
+  [
+   "Bismarck",
+   21456
+  ],
+  [
+   "Point Nemo",
+   18438
+  ],
+  [
+   "Stonefish",
+   14975
+  ],
+  [
+   "Pistol shrimp",
+   10850
+  ],
+  [
+   "Dumbo octopus",
+   3273
+  ],
+  [
+   "Midnight zone",
+   327
+  ],
+  [
+   "Lost city of Atlantis",
+   254
+  ],
+  [
+   "Sunken ship",
+   227
+  ]
+ ],
+ "wildlife": [
+  [
+   "Axolotl",
+   1502845
+  ],
+  [
+   "Capybara",
+   1363224
+  ],
+  [
+   "Lion",
+   1296918
+  ],
+  [
+   "Tiger",
+   1240149
+  ],
+  [
+   "Giant panda",
+   1115550
+  ],
+  [
+   "Komodo dragon",
+   1019231
+  ],
+  [
+   "Honey badger",
+   1002066
+  ],
+  [
+   "Tardigrade",
+   977668
+  ],
+  [
+   "Jaguar",
+   969193
+  ],
+  [
+   "Platypus",
+   965996
+  ],
+  [
+   "Polar bear",
+   924852
+  ],
+  [
+   "Dodo",
+   919537
+  ],
+  [
+   "Wolverine",
+   892145
+  ],
+  [
+   "Cheetah",
+   862861
+  ],
+  [
+   "Gorilla",
+   804159
+  ],
+  [
+   "Moose",
+   804136
+  ],
+  [
+   "Hippopotamus",
+   788457
+  ],
+  [
+   "Shoebill",
+   744028
+  ],
+  [
+   "Red panda",
+   735943
+  ],
+  [
+   "Thylacine",
+   735829
+  ],
+  [
+   "Leopard",
+   734197
+  ],
+  [
+   "Peregrine falcon",
+   697563
+  ],
+  [
+   "Pangolin",
+   688177
+  ],
+  [
+   "Bald eagle",
+   678086
+  ],
+  [
+   "Kangaroo",
+   663524
+  ],
+  [
+   "Orangutan",
+   663058
+  ],
+  [
+   "Hyena",
+   659915
+  ],
+  [
+   "Snow leopard",
+   652971
+  ],
+  [
+   "Saltwater crocodile",
+   627233
+  ],
+  [
+   "Tasmanian devil",
+   626037
+  ],
+  [
+   "Cassowary",
+   598460
+  ],
+  [
+   "Koala",
+   593511
+  ],
+  [
+   "King cobra",
+   588864
+  ],
+  [
+   "Bonobo",
+   581553
+  ],
+  [
+   "Wild boar",
+   580364
+  ],
+  [
+   "Chimpanzee",
+   562526
+  ],
+  [
+   "Grizzly bear",
+   554016
+  ],
+  [
+   "Mongoose",
+   536445
+  ],
+  [
+   "Owl",
+   513625
+  ],
+  [
+   "Hummingbird",
+   493407
+  ],
+  [
+   "Golden eagle",
+   479052
+  ],
+  [
+   "Bison",
+   459246
+  ],
+  [
+   "Cockroach",
+   456354
+  ],
+  [
+   "Woolly mammoth",
+   454588
+  ],
+  [
+   "Emu",
+   452494
+  ],
+  [
+   "Sloth",
+   451500
+  ],
+  [
+   "Bengal tiger",
+   444230
+  ],
+  [
+   "Inland taipan",
+   418569
+  ],
+  [
+   "Passenger pigeon",
+   413272
+  ],
+  [
+   "Black mamba",
+   403361
+  ],
+  [
+   "Gila monster",
+   403052
+  ],
+  [
+   "Monarch butterfly",
+   396788
+  ],
+  [
+   "Green anaconda",
+   373239
+  ],
+  [
+   "Harpy eagle",
+   367869
+  ],
+  [
+   "Asian giant hornet",
+   367306
+  ],
+  [
+   "Ostrich",
+   364793
+  ],
+  [
+   "Nile crocodile",
+   359394
+  ],
+  [
+   "Poison dart frog",
+   330792
+  ],
+  [
+   "Gaur",
+   325725
+  ],
+  [
+   "Reticulated python",
+   311140
+  ],
+  [
+   "Chameleon",
+   303823
+  ],
+  [
+   "Electric eel",
+   275316
+  ],
+  [
+   "Spotted hyena",
+   275286
+  ],
+  [
+   "Asian elephant",
+   268963
+  ],
+  [
+   "Indian rhinoceros",
+   203684
+  ],
+  [
+   "African elephant",
+   202453
+  ],
+  [
+   "Lyrebird",
+   113915
+  ],
+  [
+   "Gray wolf",
+   110445
+  ],
+  [
+   "Arctic tern",
+   107031
+  ],
+  [
+   "Army ant",
+   82842
+  ],
+  [
+   "Bengal fox",
+   41245
+  ],
+  [
+   "Bullet ant",
+   12034
+  ],
+  [
+   "Secretary bird",
+   7953
+  ],
+  [
+   "Sabre-toothed cat",
+   2538
+  ],
+  [
+   "Great Migration (Serengeti)",
+   2
+  ],
+  [
+   "Wildebeest migration",
+   -1
+  ]
+ ],
+ "mystery": [
+  [
+   "Lizzie Borden",
+   12311925
+  ],
+  [
+   "Chernobyl disaster",
+   4305531
+  ],
+  [
+   "Titanic",
+   2578615
+  ],
+  [
+   "Zodiac Killer",
+   2394517
+  ],
+  [
+   "Malaysia Airlines Flight 370",
+   2118175
+  ],
+  [
+   "Jack the Ripper",
+   1989709
+  ],
+  [
+   "Area 51",
+   1538185
+  ],
+  [
+   "Black Dahlia",
+   1443047
+  ],
+  [
+   "D. B. Cooper",
+   1333074
+  ],
+  [
+   "Bermuda Triangle",
+   1319936
+  ],
+  [
+   "Voynich manuscript",
+   1267859
+  ],
+  [
+   "Dyatlov Pass incident",
+   1188539
+  ],
+  [
+   "Shroud of Turin",
+   1182473
+  ],
+  [
+   "Stonehenge",
+   1124674
+  ],
+  [
+   "Göbekli Tepe",
+   1101394
+  ],
+  [
+   "Pompeii",
+   1082901
+  ],
+  [
+   "Hindenburg disaster",
+   977791
+  ],
+  [
+   "Easter Island",
+   921106
+  ],
+  [
+   "Antikythera mechanism",
+   888440
+  ],
+  [
+   "Roanoke Colony",
+   830277
+  ],
+  [
+   "Library of Alexandria",
+   827761
+  ],
+  [
+   "Terracotta Army",
+   819176
+  ],
+  [
+   "Bigfoot",
+   796900
+  ],
+  [
+   "Loch Ness Monster",
+   774824
+  ],
+  [
+   "Roswell incident",
+   682881
+  ],
+  [
+   "Tunguska event",
+   666126
+  ],
+  [
+   "Dancing plague of 1518",
+   601776
+  ],
+  [
+   "Franklin's lost expedition",
+   571993
+  ],
+  [
+   "Mothman",
+   527676
+  ],
+  [
+   "Death of Elisa Lam",
+   443721
+  ],
+  [
+   "Mary Celeste",
+   419022
+  ],
+  [
+   "Skinwalker Ranch",
+   417873
+  ],
+  [
+   "Cicada 3301",
+   387825
+  ],
+  [
+   "Alcatraz Island",
+   362374
+  ],
+  [
+   "Somerton Man",
+   329921
+  ],
+  [
+   "Lake Peigneur",
+   301006
+  ],
+  [
+   "Winchester Mystery House",
+   289278
+  ],
+  [
+   "Hinterkaifeck murders",
+   270783
+  ],
+  [
+   "Max Headroom signal hijacking",
+   240102
+  ],
+  [
+   "Amber Room",
+   239288
+  ],
+  [
+   "Sutton Hoo",
+   233570
+  ],
+  [
+   "Bloody Mary (folklore)",
+   214305
+  ],
+  [
+   "Kryptos",
+   182066
+  ],
+  [
+   "Villisca axe murders",
+   179587
+  ],
+  [
+   "Oak Island",
+   172079
+  ],
+  [
+   "Phaistos Disc",
+   138242
+  ],
+  [
+   "Baghdad Battery",
+   122860
+  ],
+  [
+   "Lead masks case",
+   93116
+  ],
+  [
+   "Tanganyika laughter epidemic",
+   63751
+  ],
+  [
+   "Nazca Lines",
+   49341
+  ],
+  [
+   "Flannan Isles",
+   22367
+  ],
+  [
+   "Frank Morris",
+   10017
+  ],
+  [
+   "Lost Colony",
+   4965
+  ],
+  [
+   "Escape from Alcatraz",
+   1831
+  ],
+  [
+   "Great Emu War",
+   1277
+  ],
+  [
+   "Taos Hum",
+   681
+  ],
+  [
+   "Taman Shud case",
+   679
+  ],
+  [
+   "Disappearance of Amelia Earhart",
+   604
+  ],
+  [
+   "Disappearance of the Sodder children",
+   446
+  ],
+  [
+   "Tomb of Qin Shi Huang",
+   90
+  ]
+ ],
+ "sports_us": [
+  [
+   "Cristiano Ronaldo",
+   15559812
+  ],
+  [
+   "Lionel Messi",
+   15312910
+  ],
+  [
+   "LeBron James",
+   6773196
+  ],
+  [
+   "Michael Jordan",
+   4332550
+  ],
+  [
+   "Tom Brady",
+   3949228
+  ],
+  [
+   "Diego Maradona",
+   3913127
+  ],
+  [
+   "Shaquille O'Neal",
+   3287032
+  ],
+  [
+   "Mike Tyson",
+   3281017
+  ],
+  [
+   "Kobe Bryant",
+   3182629
+  ],
+  [
+   "Muhammad Ali",
+   3151864
+  ],
+  [
+   "Pelé",
+   3124205
+  ],
+  [
+   "Tiger Woods",
+   2972381
+  ],
+  [
+   "Serena Williams",
+   2496828
+  ],
+  [
+   "Babe Ruth",
+   1692231
+  ],
+  [
+   "Leicester City F.C.",
+   1619204
+  ],
+  [
+   "Deion Sanders",
+   1606811
+  ],
+  [
+   "Wayne Gretzky",
+   1550384
+  ],
+  [
+   "Wilt Chamberlain",
+   1440363
+  ],
+  [
+   "Jackie Robinson",
+   1398358
+  ],
+  [
+   "Usain Bolt",
+   1342350
+  ],
+  [
+   "Michael Phelps",
+   1133465
+  ],
+  [
+   "Derek Jeter",
+   1027391
+  ],
+  [
+   "Simone Biles",
+   1022930
+  ],
+  [
+   "Secretariat (horse)",
+   994844
+  ],
+  [
+   "Bo Jackson",
+   970311
+  ],
+  [
+   "Miracle on Ice",
+   911024
+  ],
+  [
+   "Lance Armstrong",
+   882249
+  ],
+  [
+   "Super Bowl LI",
+   820965
+  ],
+  [
+   "Lou Gehrig",
+   819162
+  ],
+  [
+   "Jim Thorpe",
+   784850
+  ],
+  [
+   "Bill Russell",
+   771555
+  ],
+  [
+   "Jesse Owens",
+   675054
+  ],
+  [
+   "1936 Summer Olympics",
+   390378
+  ],
+  [
+   "Buster Douglas",
+   371419
+  ],
+  [
+   "Black Sox Scandal",
+   288194
+  ],
+  [
+   "1980 Winter Olympics",
+   266344
+  ],
+  [
+   "Thrilla in Manila",
+   200647
+  ],
+  [
+   "Curse of the Bambino",
+   140972
+  ],
+  [
+   "Hail Mary pass",
+   135316
+  ],
+  [
+   "Kerri Strug",
+   135155
+  ],
+  [
+   "The Last Dance (miniseries)",
+   117140
+  ],
+  [
+   "Immaculate Reception",
+   99455
+  ],
+  [
+   "2019 Masters Tournament",
+   89142
+  ],
+  [
+   "2004 American League Championship Series",
+   73839
+  ],
+  [
+   "The Catch (American football)",
+   44911
+  ],
+  [
+   "Helmet Catch",
+   43643
+  ],
+  [
+   "Rumble in the Jungle",
+   5819
+  ],
+  [
+   "Steph Curry",
+   5562
+  ],
+  [
+   "28–3",
+   1014
+  ],
+  [
+   "Ben Johnson (sprinter)",
+   900
+  ],
+  [
+   "Hand of God (goal)",
+   -1
+  ]
+ ],
+ "movies": [
+  [
+   "Avatar (2009 film)",
+   4202163
+  ],
+  [
+   "Interstellar (film)",
+   4018072
+  ],
+  [
+   "Oppenheimer (film)",
+   3507072
+  ],
+  [
+   "The Godfather",
+   2598023
+  ],
+  [
+   "Titanic (1997 film)",
+   2316459
+  ],
+  [
+   "Shutter Island (film)",
+   2217337
+  ],
+  [
+   "Inception",
+   2003369
+  ],
+  [
+   "The Shining (film)",
+   1892955
+  ],
+  [
+   "Hereditary (film)",
+   1846176
+  ],
+  [
+   "Pulp Fiction",
+   1747398
+  ],
+  [
+   "The Matrix",
+   1678422
+  ],
+  [
+   "Memento (film)",
+   1630650
+  ],
+  [
+   "Everything Everywhere All at Once",
+   1563770
+  ],
+  [
+   "Gone Girl (film)",
+   1551244
+  ],
+  [
+   "Star Wars (film)",
+   1544541
+  ],
+  [
+   "Blade Runner",
+   1539860
+  ],
+  [
+   "Get Out",
+   1482152
+  ],
+  [
+   "The Sixth Sense",
+   1476334
+  ],
+  [
+   "The Truman Show",
+   1474204
+  ],
+  [
+   "Mulholland Drive (film)",
+   1470625
+  ],
+  [
+   "Back to the Future",
+   1406195
+  ],
+  [
+   "Parasite (2019 film)",
+   1351857
+  ],
+  [
+   "Alien (film)",
+   1341029
+  ],
+  [
+   "Terminator 2: Judgment Day",
+   1312915
+  ],
+  [
+   "Arrival (film)",
+   1306333
+  ],
+  [
+   "Donnie Darko",
+   1298914
+  ],
+  [
+   "Fight Club",
+   1297721
+  ],
+  [
+   "The Thing (1982 film)",
+   1294108
+  ],
+  [
+   "Jaws (film)",
+   1250167
+  ],
+  [
+   "Casablanca (film)",
+   1193037
+  ],
+  [
+   "Psycho (1960 film)",
+   1084778
+  ],
+  [
+   "Citizen Kane",
+   1059332
+  ],
+  [
+   "The Usual Suspects",
+   1043481
+  ],
+  [
+   "The Exorcist",
+   1042599
+  ],
+  [
+   "Joker (2019 film)",
+   970671
+  ],
+  [
+   "Nosferatu",
+   649642
+  ],
+  [
+   "Metropolis (1927 film)",
+   625396
+  ],
+  [
+   "Tenet (film)",
+   486743
+  ],
+  [
+   "Frankenstein (1931 film)",
+   362751
+  ],
+  [
+   "The Prestige (film)",
+   353469
+  ],
+  [
+   "King Kong (1933 film)",
+   303981
+  ],
+  [
+   "The Cabinet of Dr. Caligari",
+   263481
+  ],
+  [
+   "A Trip to the Moon",
+   258108
+  ],
+  [
+   "Jurassic Park (film)",
+   130015
+  ],
+  [
+   "2001: A Space Odyssey (film)",
+   124979
+  ],
+  [
+   "The Great Train Robbery (1903 film)",
+   68606
+  ],
+  [
+   "Midsommar (film)",
+   45544
+  ],
+  [
+   "Sherlock Jr.",
+   44657
+  ],
+  [
+   "Se7en",
+   12239
+  ],
+  [
+   "Dracula (1931 film)",
+   1331
+  ]
+ ],
+ "money": [
+  [
+   "ChatGPT",
+   30783998
+  ],
+  [
+   "Jeff Bezos",
+   11720551
+  ],
+  [
+   "Elon Musk",
+   8672342
+  ],
+  [
+   "Artificial intelligence",
+   4370906
+  ],
+  [
+   "OpenAI",
+   2775333
+  ],
+  [
+   "Amazon (company)",
+   2537056
+  ],
+  [
+   "Nvidia",
+   2495586
+  ],
+  [
+   "Apple Inc.",
+   2371027
+  ],
+  [
+   "Warren Buffett",
+   2216817
+  ],
+  [
+   "John D. Rockefeller",
+   1592932
+  ],
+  [
+   "Tesla, Inc.",
+   1462686
+  ],
+  [
+   "Bernie Madoff",
+   1387598
+  ],
+  [
+   "Bitcoin",
+   1336767
+  ],
+  [
+   "Great Depression",
+   1301766
+  ],
+  [
+   "Walmart",
+   1242648
+  ],
+  [
+   "Mansa Musa",
+   1235436
+  ],
+  [
+   "Berkshire Hathaway",
+   1142454
+  ],
+  [
+   "2008 financial crisis",
+   971315
+  ],
+  [
+   "Costco",
+   932593
+  ],
+  [
+   "S&P 500",
+   925406
+  ],
+  [
+   "Euro",
+   909735
+  ],
+  [
+   "Black Friday (shopping)",
+   798990
+  ],
+  [
+   "Dot-com bubble",
+   779970
+  ],
+  [
+   "Andrew Carnegie",
+   719428
+  ],
+  [
+   "Federal Reserve",
+   547897
+  ],
+  [
+   "Ponzi scheme",
+   527372
+  ],
+  [
+   "Enron scandal",
+   517342
+  ],
+  [
+   "Indian rupee",
+   507777
+  ],
+  [
+   "Penny (United States coin)",
+   434519
+  ],
+  [
+   "Bretton Woods system",
+   399015
+  ],
+  [
+   "Dollar",
+   361769
+  ],
+  [
+   "Lottery",
+   353210
+  ],
+  [
+   "GameStop short squeeze",
+   351518
+  ],
+  [
+   "Tulip mania",
+   339943
+  ],
+  [
+   "Gold standard",
+   308045
+  ],
+  [
+   "Powerball",
+   306704
+  ],
+  [
+   "Inflation",
+   272305
+  ],
+  [
+   "Credit card",
+   267874
+  ],
+  [
+   "Charles Ponzi",
+   251942
+  ],
+  [
+   "Minimum wage in the United States",
+   228371
+  ],
+  [
+   "Social Security (United States)",
+   219499
+  ],
+  [
+   "401(k)",
+   173449
+  ],
+  [
+   "Planned obsolescence",
+   166915
+  ],
+  [
+   "South Sea Company",
+   145824
+  ],
+  [
+   "Compound interest",
+   139767
+  ],
+  [
+   "Roth IRA",
+   136541
+  ],
+  [
+   "Cash",
+   128346
+  ],
+  [
+   "Hyperinflation in Zimbabwe",
+   107074
+  ],
+  [
+   "Wall Street Crash of 1929",
+   86610
+  ],
+  [
+   "Index fund",
+   86088
+  ],
+  [
+   "Property tax",
+   84946
+  ],
+  [
+   "Income tax in the United States",
+   82883
+  ],
+  [
+   "Counterfeit money",
+   64681
+  ],
+  [
+   "Credit score in the United States",
+   63717
+  ],
+  [
+   "Shrinkflation",
+   59570
+  ],
+  [
+   "Mortgage loan",
+   53321
+  ],
+  [
+   "Student loans in the United States",
+   26532
+  ],
+  [
+   "Rent control",
+   22723
+  ],
+  [
+   "Tipping",
+   2266
+  ],
+  [
+   "Weimar Republic hyperinflation",
+   0
+  ]
+ ],
+ "mythology": [
+  [
+   "Taj Mahal",
+   1553615
+  ],
+  [
+   "Shivaji",
+   1385017
+  ],
+  [
+   "Shiva",
+   1207280
+  ],
+  [
+   "Krishna",
+   1130778
+  ],
+  [
+   "Ramayana",
+   927958
+  ],
+  [
+   "Bhagavad Gita",
+   827744
+  ],
+  [
+   "Mahabharata",
+   774877
+  ],
+  [
+   "Akbar",
+   762489
+  ],
+  [
+   "Ashoka",
+   687156
+  ],
+  [
+   "Vishnu",
+   673513
+  ],
+  [
+   "Rama",
+   637019
+  ],
+  [
+   "Hanuman",
+   622530
+  ],
+  [
+   "Ganesha",
+   614054
+  ],
+  [
+   "Ravana",
+   455568
+  ],
+  [
+   "Rani of Jhansi",
+   427491
+  ],
+  [
+   "Chandragupta Maurya",
+   424802
+  ],
+  [
+   "Dashavatara",
+   413766
+  ],
+  [
+   "Maharana Pratap",
+   409149
+  ],
+  [
+   "Kartikeya",
+   399448
+  ],
+  [
+   "Parvati",
+   377236
+  ],
+  [
+   "Brahma",
+   359061
+  ],
+  [
+   "Indra",
+   357167
+  ],
+  [
+   "Kalki",
+   321422
+  ],
+  [
+   "Garuda",
+   321031
+  ],
+  [
+   "Prithviraj Chauhan",
+   319057
+  ],
+  [
+   "Parashurama",
+   308216
+  ],
+  [
+   "Karna",
+   307926
+  ],
+  [
+   "Arjuna",
+   302600
+  ],
+  [
+   "Chanakya",
+   274419
+  ],
+  [
+   "Kurukshetra War",
+   262931
+  ],
+  [
+   "Konark Sun Temple",
+   261616
+  ],
+  [
+   "Ayodhya",
+   245232
+  ],
+  [
+   "Draupadi",
+   238803
+  ],
+  [
+   "Sita",
+   234356
+  ],
+  [
+   "Bhishma",
+   226230
+  ],
+  [
+   "Surya",
+   222871
+  ],
+  [
+   "Yama",
+   188838
+  ],
+  [
+   "Kedarnath Temple",
+   177670
+  ],
+  [
+   "Nalanda mahavihara",
+   173972
+  ],
+  [
+   "Narasimha",
+   172366
+  ],
+  [
+   "Abhimanyu",
+   152869
+  ],
+  [
+   "Dwarka",
+   146999
+  ],
+  [
+   "Somnath temple",
+   145888
+  ],
+  [
+   "Shikhandi",
+   137477
+  ],
+  [
+   "Hampi",
+   136075
+  ],
+  [
+   "Duryodhana",
+   135375
+  ],
+  [
+   "Ghatotkacha",
+   127982
+  ],
+  [
+   "Barbarika",
+   120956
+  ],
+  [
+   "Drona",
+   117588
+  ],
+  [
+   "Lakshmana",
+   104110
+  ],
+  [
+   "Sudarshana Chakra",
+   102402
+  ],
+  [
+   "Jarasandha",
+   101107
+  ],
+  [
+   "Shakuni",
+   97975
+  ],
+  [
+   "Vasuki",
+   94841
+  ],
+  [
+   "Kumbhakarna",
+   93762
+  ],
+  [
+   "Vibhishana",
+   92337
+  ],
+  [
+   "Airavata",
+   63300
+  ],
+  [
+   "Kamadhenu",
+   61240
+  ],
+  [
+   "Brahmastra",
+   61150
+  ],
+  [
+   "Ashwatthama",
+   51122
+  ],
+  [
+   "Ganga",
+   15119
+  ],
+  [
+   "Pushpaka Vimana",
+   9379
+  ],
+  [
+   "Kailash",
+   4712
+  ],
+  [
+   "Ram Setu",
+   3432
+  ],
+  [
+   "Kohinoor",
+   2060
+  ],
+  [
+   "Eklavya",
+   900
+  ],
+  [
+   "Kailasa temple",
+   1
+  ],
+  [
+   "Samudra manthana",
+   -1
+  ]
+ ],
+ "cricket": [
+  [
+   "Virat Kohli",
+   3379170
+  ],
+  [
+   "Indian Premier League",
+   1882175
+  ],
+  [
+   "Sachin Tendulkar",
+   1587169
+  ],
+  [
+   "MS Dhoni",
+   1245614
+  ],
+  [
+   "Rohit Sharma",
+   1240185
+  ],
+  [
+   "Shubman Gill",
+   1138045
+  ],
+  [
+   "Jasprit Bumrah",
+   1014658
+  ],
+  [
+   "Hardik Pandya",
+   897229
+  ],
+  [
+   "Ben Stokes",
+   815820
+  ],
+  [
+   "Shane Warne",
+   711717
+  ],
+  [
+   "2023 Cricket World Cup",
+   587347
+  ],
+  [
+   "India–Pakistan cricket rivalry",
+   573766
+  ],
+  [
+   "Ravindra Jadeja",
+   549678
+  ],
+  [
+   "Yuvraj Singh",
+   478463
+  ],
+  [
+   "Mohammad Azharuddin",
+   374762
+  ],
+  [
+   "Don Bradman",
+   370939
+  ],
+  [
+   "Kapil Dev",
+   356793
+  ],
+  [
+   "Sourav Ganguly",
+   356670
+  ],
+  [
+   "Rahul Dravid",
+   355377
+  ],
+  [
+   "Wasim Akram",
+   346721
+  ],
+  [
+   "Virender Sehwag",
+   341134
+  ],
+  [
+   "Sunil Gavaskar",
+   312131
+  ],
+  [
+   "Ricky Ponting",
+   305824
+  ],
+  [
+   "2011 Cricket World Cup",
+   304252
+  ],
+  [
+   "Harbhajan Singh",
+   291019
+  ],
+  [
+   "Shoaib Akhtar",
+   285144
+  ],
+  [
+   "Chris Gayle",
+   284750
+  ],
+  [
+   "Brian Lara",
+   284585
+  ],
+  [
+   "Kevin Pietersen",
+   270842
+  ],
+  [
+   "AB de Villiers",
+   250868
+  ],
+  [
+   "Muttiah Muralitharan",
+   239691
+  ],
+  [
+   "2003 Cricket World Cup",
+   229113
+  ],
+  [
+   "1983 Cricket World Cup",
+   228926
+  ],
+  [
+   "Anil Kumble",
+   219828
+  ],
+  [
+   "Adam Gilchrist",
+   204501
+  ],
+  [
+   "Glenn Maxwell",
+   195802
+  ],
+  [
+   "Eden Gardens",
+   154268
+  ],
+  [
+   "Wankhede Stadium",
+   150296
+  ],
+  [
+   "Hansie Cronje",
+   139063
+  ],
+  [
+   "Lala Amarnath",
+   85652
+  ],
+  [
+   "2019 Cricket World Cup final",
+   71328
+  ],
+  [
+   "Bodyline",
+   64665
+  ],
+  [
+   "2024 ICC Men's T20 World Cup",
+   48922
+  ],
+  [
+   "2007 ICC World Twenty20",
+   17740
+  ],
+  [
+   "Monkeygate",
+   3932
+  ],
+  [
+   "Ashes series",
+   869
+  ],
+  [
+   "Match fixing in cricket",
+   277
+  ],
+  [
+   "Natwest Series final 2002",
+   -1
+  ],
+  [
+   "Desert Storm (cricket)",
+   -1
+  ],
+  [
+   "2001 Kolkata Test",
+   -1
+  ]
+ ],
+ "bollywood": [
+  [
+   "Shah Rukh Khan",
+   2186562
+  ],
+  [
+   "Salman Khan",
+   2000601
+  ],
+  [
+   "Amitabh Bachchan",
+   1832956
+  ],
+  [
+   "Aamir Khan",
+   1680488
+  ],
+  [
+   "Pushpa 2: The Rule",
+   1211085
+  ],
+  [
+   "Kalki 2898 AD",
+   1195806
+  ],
+  [
+   "Chhaava",
+   1084007
+  ],
+  [
+   "Sridevi",
+   1047987
+  ],
+  [
+   "Jawan (film)",
+   968492
+  ],
+  [
+   "Raj Kapoor",
+   938348
+  ],
+  [
+   "Lata Mangeshkar",
+   907222
+  ],
+  [
+   "Rekha",
+   864389
+  ],
+  [
+   "Rajesh Khanna",
+   854466
+  ],
+  [
+   "Kishore Kumar",
+   838485
+  ],
+  [
+   "Madhubala",
+   800141
+  ],
+  [
+   "KGF: Chapter 2",
+   762318
+  ],
+  [
+   "Baahubali 2: The Conclusion",
+   761588
+  ],
+  [
+   "Pathaan (film)",
+   731165
+  ],
+  [
+   "3 Idiots",
+   665273
+  ],
+  [
+   "Drishyam (2015 film)",
+   659536
+  ],
+  [
+   "Dilip Kumar",
+   644840
+  ],
+  [
+   "Stree 2",
+   618379
+  ],
+  [
+   "Sholay",
+   608321
+  ],
+  [
+   "Dilwale Dulhania Le Jayenge",
+   550109
+  ],
+  [
+   "Satyajit Ray",
+   504667
+  ],
+  [
+   "Dev Anand",
+   502907
+  ],
+  [
+   "Gadar 2",
+   466578
+  ],
+  [
+   "Tumbbad",
+   443629
+  ],
+  [
+   "Bajrangi Bhaijaan",
+   433485
+  ],
+  [
+   "Meena Kumari",
+   427157
+  ],
+  [
+   "Lagaan",
+   408326
+  ],
+  [
+   "Kabir Singh",
+   406585
+  ],
+  [
+   "National Film Awards",
+   397054
+  ],
+  [
+   "PK (film)",
+   395744
+  ],
+  [
+   "Andhadhun",
+   376505
+  ],
+  [
+   "Mohammed Rafi",
+   333758
+  ],
+  [
+   "Gangs of Wasseypur",
+   307081
+  ],
+  [
+   "Mughal-e-Azam",
+   276381
+  ],
+  [
+   "Filmfare Awards",
+   275895
+  ],
+  [
+   "Guru Dutt",
+   235594
+  ],
+  [
+   "Pather Panchali",
+   219890
+  ],
+  [
+   "Mother India",
+   180664
+  ],
+  [
+   "Central Board of Film Certification",
+   178980
+  ],
+  [
+   "Deewaar",
+   178931
+  ],
+  [
+   "Box office",
+   126642
+  ],
+  [
+   "Dadasaheb Phalke",
+   119223
+  ],
+  [
+   "Zanjeer (1973 film)",
+   118939
+  ],
+  [
+   "Raja Harishchandra",
+   108664
+  ],
+  [
+   "Pakeezah",
+   107835
+  ],
+  [
+   "RRR (film)",
+   97803
+  ],
+  [
+   "Alam Ara",
+   69966
+  ],
+  [
+   "Kantara (film)",
+   65134
+  ],
+  [
+   "Dangal (film)",
+   3364
+  ],
+  [
+   "Animal (2023 film)",
+   3155
+  ],
+  [
+   "Sanju (film)",
+   298
+  ],
+  [
+   "Film censorship in India",
+   222
+  ]
+ ]
+}

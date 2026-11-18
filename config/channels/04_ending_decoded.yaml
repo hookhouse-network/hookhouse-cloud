@@ -1,0 +1,34 @@
+id: ending_decoded
+number: 4
+name: Ending Decoded
+backup_names: [Plot Unlocked, Spoiler Club]
+market: US
+language: en
+type: story
+niche: Movie explainers, endings and hidden details (no studio clips)
+bio: "Every ending explained. Every secret found."
+earns_from: [youtube_ads]
+schedule: {shorts_per_day: 1, long_per_week: 1}
+voice: {engine: kokoro, id: af_heart, backup: {engine: kokoro, id: af_nicole}}
+style:
+  ai_style: "noir detective aesthetic, evidence board and paper textures, hard side lighting, deep shadows, original characters only, no real actors"   # one consistent AI look per channel
+  palette: ["#111111", "#E50914", "#F5F5F1"]
+  caption_color: "#FFFFFF"
+  highlight_color: "#E50914"
+  hook_box: {bg: "#E50914", text: "#FFFFFF"}
+  mood: cinema, film grain, spotlight
+hashtags: ["#movies", "#endingexplained", "#film"]
+content_rules: {no_studio_clips: true, public_domain_films_ok: true, fact_check: true}
+look:
+  music: noir            # own music identity (never shared across channels)
+affiliate: {store: amazon_com, label: "Books about {subject}", query: "{subject} book"}   # off until AMAZON_*_TAG is in .env (owner's own Associate account)
+catchphrase: "Now you'll never watch it the same way."   # signature sign-off, end of long videos only (brand recall)
+# Research targets (owner, 11 Nov: 'follow your research'). Source: movie_bollywood_explainers.md format A: 55-75 s, ~180 wpm (af_heart x1.10), new visual every 1.2-2.0 s
+spec: {short_words: "160-200 words (about 55-68 seconds)", short_wpm: 180, long_wpm: 180, shot_s: 1.6, hook_shot_s: 1.2, long_words: "1600-2100 words (8-12 minutes)", long_shot_s: 3.0}
+caption: {font: "Bebas Neue", pop: true}   # movie spec A: Bebas Neue/Anton 88-96 px, keyword pop 1.0-1.15-1.0
+writer_rules: "Movie spec: beat 1 is a verdict or contradiction in 8-12 words; label any speculation as a theory; never present anything as official."
+# Channel page texts (YouTube About + keywords are written by the API after connecting; Instagram/Facebook bios
+# are shown with Copy buttons in the setup assistant). Copy sheet for people: docs/account_names_and_details.md
+about: "Every ending explained. Every secret found. Movie endings, hidden details and the stories behind famous films, explained in minutes. Original commentary, no studio clips."
+keywords: ["movie endings explained", "movie explained", "hidden details", "film theories", "movie facts"]
+handles: {"youtube": "@EndingDecodedHQ", "youtube_backup": "@EndingDecodedHQ", "instagram": "endingdecoded", "instagram_backup": "ending.decoded"}

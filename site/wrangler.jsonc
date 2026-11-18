@@ -1,0 +1,6 @@
+{
+  // The small public website (home, privacy, terms) Google's sign-in screen links to. Deploy: cd site && npx wrangler deploy
+  "name": "hookhouse-media",
+  "compatibility_date": "2026-11-01",
+  "assets": { "directory": "." }
+}

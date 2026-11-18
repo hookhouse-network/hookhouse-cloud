@@ -1,0 +1,18 @@
+name = "hookhouse-bot"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+
+[triggers]
+crons = ["*/15 * * * *"]
+
+[vars]
+TICK_SLOTS = "06:00,10:00,14:00,18:00,22:30,01:30"   # Indian time: posting windows + daily jobs
+RENDER_SLOT = "02:00,08:00,13:00,17:00,20:00"         # 18 Nov: public repo = unlimited minutes: 5 renders a day
+GH_REPO = "hookhouse-network/hookhouse-cloud"         # 18 Nov: the public code repo runs the jobs
+STORE_REPO = "hookhouse-network/hookhouse"            # private: memory, videos, footage (release files)
+# (17 Nov: repo names are kept here, not only passed by the setup command: an auto-deploy once dropped them)
+
+# KV namespace id is filled in by `python cli.py cloud setup`
+[[kv_namespaces]]
+binding = "HH"
+id = "c8017288c8324d399fbf5695c863e0f9"

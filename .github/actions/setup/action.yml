@@ -1,0 +1,30 @@
+name: HookHouse setup
+description: Python, system tools and packages (cached so each run starts in about a minute)
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - name: System tools
+      shell: bash
+      run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg espeak-ng libsndfile1 > /dev/null
+    - name: Package cache
+      id: venv
+      uses: actions/cache@v4
+      with:
+        path: ~/venv
+        key: venv-${{ runner.os }}-${{ hashFiles('requirements-cloud.txt') }}-v1
+    - name: Install packages
+      if: steps.venv.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        python -m venv ~/venv
+        ~/venv/bin/pip install -q --upgrade pip
+        ~/venv/bin/pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+        ~/venv/bin/pip install -q -r requirements-cloud.txt
+    - name: Use packages + keys
+      shell: bash
+      run: |
+        echo "$HOME/venv/bin" >> "$GITHUB_PATH"
+        printf '%s\n' "$HOOKHOUSE_ENV" > .env

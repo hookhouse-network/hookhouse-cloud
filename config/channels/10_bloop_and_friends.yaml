@@ -1,0 +1,33 @@
+id: bloop_and_friends
+number: 10
+name: Bloop & Friends
+backup_names: [Wiggle Pop Town, Jelly Jam Kids]
+market: US
+language: en
+type: kids
+niche: Sing-along nursery rhymes, counting, colours and good habits with our own cute characters
+bio: "Sing, count and giggle with Bloop!"
+catchphrase: "Count with Bloop!"   # sung at the end of every video (jingle) + the description sign-off
+earns_from: [youtube_ads]
+made_for_kids: true          # must be ticked on every upload (US COPPA law + YouTube rules)
+schedule: {shorts_per_week: 2, long_per_week: 1}   # research: 1 episode a week + 2-3 Short cut-downs
+                                                  # (Shorts are trailers for under-5s, not the main product)
+voice: {engine: kokoro, id: af_heart, speed: 0.82, backup: {engine: kokoro, id: af_bella}}   # child-directed pace: ~145 wpm while speaking (was 166)
+style:
+  palette: ["#4FC3F7", "#FFF176", "#F48FB1"]
+  caption_color: "#FFFFFF"
+  highlight_color: "#FF4FD8"
+  hook_box: {bg: "#FFFFFF", text: "#000000"}
+  visuals: own_characters_and_animation
+hashtags: ["#nurseryrhymes", "#kidssongs", "#learning"]
+content_rules:
+  original_characters_only: true        # never copy CoComelon / other shows' characters
+  public_domain_melodies_only: true     # traditional rhymes (Twinkle Twinkle, Old MacDonald...) + our own arrangements
+  no_scary_or_violent_content: true
+  no_external_links_or_calls_to_comment: true   # comments are off on Made for Kids videos
+  slower_pace_than_brain_snack: true    # child-development guidance: fewer distractions in real-life moments
+# Channel page texts (YouTube About + keywords are written by the API after connecting; Instagram/Facebook bios
+# are shown with Copy buttons in the setup assistant). Copy sheet for people: docs/account_names_and_details.md
+about: "Sing, count and giggle with Bloop! Original sing-along songs, counting, colours and good habits for little ones, with Bloop and friends."
+keywords: ["nursery rhymes", "kids songs", "counting for kids", "colours for toddlers", "sing along"]
+handles: {"youtube": "@BloopAndFriendsHQ", "youtube_backup": "@BloopAndFriendsTV"}

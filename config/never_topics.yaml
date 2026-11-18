@@ -1,0 +1,63 @@
+# Topics we NEVER make videos about, on any channel (owner's rule, 10 Nov 2026: "avoid these topics").
+# Used by: the trend radar (drops matching trends), the week planner (topic picker prompt + filter), the script
+# writer (prompt rules) and the campaign safety gate. Patterns are case-insensitive regular expressions
+# (English + Hindi). "why" is shown to the writer and in logs.
+categories:
+  adult:
+    why: "Adult or sexual content, adult performers, sexual positions, explicit sites"
+    patterns: ['porn', 'adult (film|actress|actor|model|entertainment|website)', 'erotic', 'onlyfans', 'sex worker',
+               '\bnude\b', '\bnsfw\b', '\bxxx\b', 'camgirl', '\bescort', 'sexual position', 'sex position', 'fetish',
+               'xnxx', 'xvideos', 'xhamster', 'pornhub', 'redtube', 'youporn', 'brazzers',
+               'अश्लील', 'पोर्न', 'वयस्क फ़िल्म', 'यौन', 'सेक्स', 'नग्न']
+  gambling:
+    why: "Gambling, betting, fantasy-money and real-money gaming apps (banned in India since 2025)"
+    patterns: ['\bcasino', 'sportsbook', '\bbetting\b', 'betting app', 'satta', 'matka', '\bpoker\b', 'rummy',
+               'fantasy (cricket|sports|league)', 'real[- ]money gam', 'सट्टा', 'जुआ', 'जुए']
+  drugs:
+    why: "Promoting drugs, alcohol or smoking; how-to or glorifying"
+    patterns: ['how to (make|get|buy) (drugs|weed|meth|cocaine)', 'drug recipe', 'get high', 'नशा कैसे', 'ड्रग्स कैसे']
+  self_harm:
+    why: "Suicide, self-harm methods, eating disorders"
+    patterns: ['suicide', 'self[- ]harm', 'ways to die', 'आत्महत्या', 'खुदकुशी']
+  fresh_tragedy:
+    why: "Breaking-news tragedies, shootings, terror attacks, disasters and their victims (no exploitation)"
+    patterns: ['shooting', 'massacre', 'terror(ist)? attack', 'bombing', 'stabbing', 'hostage', 'stampede',
+               'plane crash', 'mass killing', 'आतंकी हमला', 'हत्याकांड', 'भगदड़']
+  hate:
+    why: "Hate, extremism, communal or caste hatred, religious 'us vs them' framing, slurs"
+    patterns: ['communal', 'hate speech', 'ethnic cleansing', 'jihad', 'love jihad', 'caste slur', 'supremac',
+               'सांप्रदायिक', 'दंगा', 'दंगे', 'जातिवाद']
+  politics:
+    why: "Elections, parties and current politicians (any country)"
+    patterns: ['politician', 'election', 'senator', 'congressman', 'congresswoman', 'member of parliament',
+               '\bMLA\b', 'chief minister', 'prime minister', 'party leader', 'political party', 'campaign rally',
+               'राजनेता', 'चुनाव', 'मुख्यमंत्री', 'सांसद', 'विधायक']
+  financial_advice:
+    why: "Buy/sell calls, trading signals, crypto schemes, guaranteed returns (SEBI finfluencer rules)"
+    patterns: ['buy call', 'sell call', 'target price', 'stock tips?', 'intraday tips?', 'multibagger',
+               'guaranteed returns?', 'trading signals?', 'pump and dump', 'memecoin', 'meme coin', 'airdrop', 'presale',
+               'forex signal']
+  medical_claims:
+    why: "Medical cures, miracle treatments, health misinformation"
+    patterns: ['\bcures?\b', 'miracle (cure|supplement)', 'weight[- ]loss (pill|drug)', 'anti[- ]vax', 'vaccine (hoax|myth)']
+  dangerous:
+    why: "Weapons making, explosives, dangerous challenges or stunts people could copy"
+    patterns: ['how to make (a )?(bomb|gun|explosive)', 'homemade (gun|weapon|explosive)', 'challenge gone wrong']
+  living_person_allegations:
+    why: "Unproven allegations or scandals about living people (defamation risk); court-proven facts only"
+    patterns: ['allegations?', 'accused of', 'scandal', 'आरोप']
+# Where each category is enforced by pattern (everything is always in the writer's instructions):
+# trend = live trends (strict); topic = planned video topics (history may mention elections, massacres or
+# shootings in sport respectfully, so those stay instructions); campaign = brand / clipping campaigns.
+modes:
+  trend: [adult, gambling, drugs, self_harm, fresh_tragedy, hate, politics, financial_advice, medical_claims,
+          dangerous, living_person_allegations]
+  topic: [adult, gambling, drugs, self_harm, hate, financial_advice, dangerous]
+  campaign: [adult, gambling, drugs, self_harm, hate, financial_advice, medical_claims, dangerous]
+# Phrases added to the writer's and topic picker's instructions (plain words, no regex).
+writer_rules:
+  - "Tell religious, mythological and historical stories respectfully: no 'us vs them' framing between religions,
+     communities or castes, and nothing about present-day religious-political disputes."
+  - "About living people, state only facts proven in court or widely documented; never repeat unproven allegations."
+  - "Mysteries: present theories as theories; never present a conspiracy theory as fact."
+  - "Money: education only. Never tell viewers to buy or sell anything specific."

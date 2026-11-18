@@ -1,0 +1,11 @@
+# Hot topics: campaigns that match get a 🔥 tag and go to the top of the phone list.
+# Today's trending items (Wikipedia / Google Trends radar) are added automatically each day.
+# boost = extra ranking points; until = stop boosting after this date.
+- name: GTA 6
+  keywords: ["gta 6", "gta vi", "gta6", "grand theft auto", "vice city", "leonida", "gta online"]
+  boost: 30
+  until: 2027-06-30
+- name: Gaming streams
+  keywords: ["gaming", "gameplay", "streamer", "twitch", "kick.com", "let's play", "speedrun"]
+  boost: 10
+  until: 2099-12-31
