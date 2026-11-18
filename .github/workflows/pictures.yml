@@ -22,6 +22,9 @@ on:
       of:
         description: "how many machines share the work"
         default: "8"
+      channels:
+        description: "brand: only these channels (comma separated), e.g. after a review"
+        default: ""
 
 concurrency:
   group: farm-${{ inputs.job || 'books' }}-${{ inputs.only || 'all' }}
@@ -72,4 +75,6 @@ jobs:
         run: python cli.py cloud farm --shard ${{ matrix.shard }} --of 8 --budget ${{ inputs.minutes || '320' }}
       - name: Draw channel branding
         if: inputs.job == 'brand'
+        env:
+          BRAND_ONLY: ${{ inputs.channels }}
         run: python cli.py cloud brand --shard ${{ matrix.shard }} --of ${{ inputs.of || '8' }}

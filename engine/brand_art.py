@@ -34,10 +34,11 @@ ART = {
                             "lone street lamp, a case file and police tape", "deep red and black"),
     "clutch_tales": ("a golden championship trophy struck by a lightning bolt", "a packed stadium under floodlights at "
                      "the final second, confetti in the air", "gold and royal blue"),
-    "ending_decoded": ("a film reel with a golden key in its centre", "an empty cinema with a glowing screen and "
-                       "film strips floating in the beam", "red, white and black"),
-    "money_cheat_codes": ("a shiny gold coin with a glowing game controller plus sign", "a futuristic city of "
-                          "stacked gold coins and neon charts", "neon green and gold on dark green"),
+    # 18 Nov review: v1 "film reel + key" read as a telephone dial, "coin + controller" as a gaming channel
+    "ending_decoded": ("an open movie clapperboard with a bright glowing question mark rising out of it",
+                       "an empty cinema with a glowing screen and film strips floating in the beam", "red, white and black"),
+    "money_cheat_codes": ("a tall stack of shiny gold coins with a big glowing green arrow shooting upward",
+                          "a futuristic city of stacked gold coins and neon charts", "neon green and gold on dark green"),
     "itihaas_ke_raaz": ("an ancient Indian fort inside an old scroll with a glowing keyhole", "a majestic Rajasthani "
                         "palace at golden hour with lanterns and ancient banners", "saffron, gold and deep maroon"),
     "cricket_ke_kisse": ("a red cricket ball and two crossed bats with sparks", "a cricket stadium at night under "
@@ -164,7 +165,10 @@ def compose(cid: str, emblem: Image.Image, scene: Image.Image, out: Path | None 
 def work(store, shard: int = 0, shards: int = 1, log=print) -> int:
     """Cloud farm machine: draw this shard's channels with our own FLUX, compose, store everything (tag 'brand')."""
     from . import bookart
-    mine = [cid for i, cid in enumerate(ART) if i % shards == shard]
+    import os
+    only = [c for c in os.environ.get("BRAND_ONLY", "").split(",") if c]      # redraw just these (review fixes)
+    todo = [c for c in ART if not only or c in only]
+    mine = [cid for i, cid in enumerate(todo) if i % shards == shard]
     bookart.SKIP_CLOUD = True
     n = 0
     try:
@@ -173,7 +177,7 @@ def work(store, shard: int = 0, shards: int = 1, log=print) -> int:
             for c, kind, prompt, size in jobs():
                 if c != cid:
                     continue
-                img, src = bookart.draw(prompt, seed=7 + len(cid), size=size, allow_local=True)
+                img, src = bookart.draw(prompt, seed=7 + len(cid) + (101 if only else 0), size=size, allow_local=True)
                 pics[kind] = img
                 p = OUT / cid / f"{kind}.png"
                 p.parent.mkdir(parents=True, exist_ok=True)
