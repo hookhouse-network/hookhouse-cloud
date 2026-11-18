@@ -61,10 +61,21 @@ class Page:
 # ---------------- 1. draw ----------------
 # Local FLUX (owner approved 17 Nov): FLUX.1-schnell Q4 GGUF (Apache 2.0) on the PC's CPU through stable-diffusion.cpp's
 # sd-server (MIT), which keeps the model loaded and answers the standard txt2img call on 127.0.0.1 only.
-SD_DIR = ROOT / "tools" / "sdcpp"
-FLUX_DIR = MODELS / "flux"
+# 18 Nov (owner: everything in the cloud, in-house generators): the same server runs on the Linux cloud machine of
+# the picture farm (.github/workflows/pictures.yml); SD_DIR / FLUX_DIR point at its download folders there.
+import os as _os
+import sys as _sys
+SD_DIR = Path(_os.environ.get("SD_DIR") or ROOT / "tools" / "sdcpp")
+FLUX_DIR = Path(_os.environ.get("FLUX_DIR") or MODELS / "flux")
+SD_EXE = "sd-server.exe" if _sys.platform.startswith("win") else "sd-server"
 SD_PORT = 1234
 SD_URL = f"http://127.0.0.1:{SD_PORT}"
+
+
+def _threads() -> int:
+    """All cores on the cloud farm machine (it does nothing else); two spare on a PC."""
+    n = _os.cpu_count() or 4
+    return n if _os.environ.get("HOOKHOUSE_CLOUD") else max(1, n - 2)
 
 
 def sd_server_up() -> bool:
@@ -80,18 +91,20 @@ def start_sd_server(wait_s: int = 900) -> bool:
     import subprocess
     if sd_server_up():
         return True
-    exe = SD_DIR / "sd-server.exe"
+    exe = SD_DIR / SD_EXE
     files = {k: FLUX_DIR / v for k, v in (("diffusion-model", "flux1-schnell-Q4_0.gguf"), ("vae", "ae-f16.gguf"),
                                           ("clip_l", "clip_l-Q8_0.gguf"), ("t5xxl", "t5xxl-Q4_0.gguf"))}
     if not exe.exists() or not all(p.exists() for p in files.values()):
         return False
     args = [str(exe), "--listen-ip", "127.0.0.1", "--listen-port", str(SD_PORT), "--cfg-scale", "1.0",
-            "--sampling-method", "euler", "--steps", "4", "-t", str(max(1, (__import__("os").cpu_count() or 4) - 2))]
+            "--sampling-method", "euler", "--steps", "4", "-t", str(_threads())]
     for k, p in files.items():
         args += [f"--{k}", str(p)]
     flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    CACHE.parent.mkdir(parents=True, exist_ok=True)
     log_f = open(CACHE.parent / "sd_server.log", "ab")
-    subprocess.Popen(args, cwd=str(SD_DIR), stdout=log_f, stderr=log_f, creationflags=flags)
+    env = dict(_os.environ, LD_LIBRARY_PATH=str(SD_DIR) + ":" + _os.environ.get("LD_LIBRARY_PATH", ""))   # Linux .so
+    subprocess.Popen(args, cwd=str(SD_DIR), stdout=log_f, stderr=log_f, creationflags=flags, env=env)
     t0 = time.time()
     while time.time() - t0 < wait_s:
         if sd_server_up():

@@ -40,7 +40,8 @@ def test_steps_cover_every_channel_key_and_todo():
         assert (f"meta_{ch['id']}" in ids) == (ch.get("type") != "kids")      # no Instagram/Facebook for kids
     todo_ids = {t["id"] for t in todo.load()}
     for s in st:
-        assert not s["todo"] or s["todo"] in todo_ids, s["id"]
+        # the owner's to-do list is private (not in the public code repo; the cloud gets it from its memory)
+        assert not s["todo"] or not todo_ids or s["todo"] in todo_ids, s["id"]
         for f in s["fields"]:
             assert f["kind"] != "env" or f["id"] in ss.KEYS
         for k in s["scan"]:

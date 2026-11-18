@@ -481,6 +481,10 @@ def cmd_cloud(args):
         runner.tick(light=args.light)
     elif args.action == "render":
         runner.render(budget_min=float(args.budget))
+    elif args.action == "farm":                        # 18 Nov: in-house book pictures on a cloud farm machine
+        from engine.cloud import book_farm
+        from engine.cloud.store import Store
+        print(book_farm.work(Store(), shard=args.shard, shards=args.of, minutes=float(args.budget)))
     elif args.action == "helper":
         runner.helper(once=args.once)
     else:
@@ -635,7 +639,9 @@ def main(argv=None):
     bt.set_defaults(fn=cmd_bot)
 
     cl = sub.add_parser("cloud", help="Cloud mode: setup (one time) | tick | render | helper | status")
-    cl.add_argument("action", choices=["setup", "tick", "render", "helper", "status"])
+    cl.add_argument("action", choices=["setup", "tick", "render", "helper", "status", "farm"])
+    cl.add_argument("--shard", type=int, default=0, help="farm: this machine's number (0..of-1)")
+    cl.add_argument("--of", type=int, default=1, help="farm: how many farm machines run together")
     cl.add_argument("--budget", default="40", help="render: minutes to spend")
     cl.add_argument("--once", action="store_true", help="helper: one round, then stop")
     cl.add_argument("--light", action="store_true", help="tick: only the Telegram inbox (runs started by a message)")

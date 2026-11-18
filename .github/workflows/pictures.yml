@@ -1,68 +1,62 @@
 name: pictures
-# In-house pictures (owner 18 Nov: "use in house image and video generators ... less depending upon third party"):
-# our own models on the cloud machine with stable-diffusion.cpp (MIT). No third-party picture quota.
-#   flux: FLUX.1-schnell Q4 GGUF (Apache 2.0, second-state) - best quality, slow on CPU
-#   fast: DreamShaper 8 LCM (SD 1.5, CreativeML OpenRAIL-M: commercial use allowed) - a few steps, fast on CPU
-# mode=test: draws sample pictures and reports the seconds, to size the picture farm.
+# In-house picture farm (owner 18 Nov: "use in house image and video generators ... less depending upon third party",
+# "all the processes should be done on cloude"). Our own FLUX.1-schnell Q4 (Apache 2.0, second-state GGUF) with
+# stable-diffusion.cpp (MIT) on the cloud machines; no third-party picture quota, no PC.
+# Speed test 18 Nov (4-core runner): 512x640 in 600 s, 768x1024 in 1405 s. A fast SD 1.5 LCM model was tried and
+# dropped: it cannot draw line art.
+# Each machine takes a different unfinished book (engine/cloud/book_farm.py) and saves every page to the private store.
 on:
+  schedule:
+    - cron: "15 */6 * * *"             # every 6 hours; a run stops itself after ~5.5 h
   workflow_dispatch:
     inputs:
-      mode:
-        description: "test = speed test"
-        default: "test"
-      model:
-        description: "flux or fast"
-        default: "fast"
+      minutes:
+        description: "drawing minutes per machine"
+        default: "320"
+
+concurrency:
+  group: farm
+  cancel-in-progress: false
 
 jobs:
   farm:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+    env:
+      HOOKHOUSE_CLOUD: "1"
+      STATE_KEY: ${{ secrets.STATE_KEY }}
+      STORE_REPO: ${{ vars.STORE_REPO }}
+      STORE_TOKEN: ${{ secrets.STORE_TOKEN }}
+      HOOKHOUSE_ENV: ${{ secrets.HOOKHOUSE_ENV }}
+      SD_DIR: /home/runner/sd
+      FLUX_DIR: /home/runner/models
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
       - name: Image engine (stable-diffusion.cpp, MIT)
         run: |
           mkdir -p ~/sd && cd ~/sd
           curl -sSL -o sd.zip https://github.com/leejet/stable-diffusion.cpp/releases/download/master-1106-532d2c1/sd-master-532d2c1-bin-Linux-Ubuntu-26.04-x86_64.zip
-          unzip -q sd.zip && chmod +x sd-cli
+          unzip -q sd.zip && chmod +x sd-cli sd-server
       - name: Model cache
         uses: actions/cache@v4
         with:
           path: ~/models
-          key: models-${{ inputs.model }}-v1
-      - name: Model files
+          key: flux-schnell-q4-8c45a2b
+      - name: Model (FLUX.1-schnell GGUF, Apache 2.0)
         run: |
           mkdir -p ~/models && cd ~/models
-          if [ "${{ inputs.model }}" = "flux" ]; then
-            for f in flux1-schnell-Q4_0.gguf ae-f16.gguf clip_l-Q8_0.gguf t5xxl-Q4_0.gguf; do
-              [ -s "$f" ] || curl -sSL -o "$f" "https://huggingface.co/second-state/FLUX.1-schnell-GGUF/resolve/8c45a2ba25e2d02bd34230989fb54983f39e44ec/$f"
-            done
-          else
-            f=DreamShaper8_LCM.safetensors
-            [ -s "$f" ] || curl -sSL -o "$f" "https://huggingface.co/Lykon/dreamshaper-8-lcm/resolve/4645d8bc6a8e/$f"
-          fi
-          ls -la
-      - name: Speed test
-        if: inputs.mode == 'test'
-        run: |
-          echo "cores: $(nproc)"; lscpu | grep -i "model name"; free -g | head -2
-          cd ~/sd
-          P="black and white line art coloring book page, a cute cartoon whale, thick clean outlines, plain white background"
-          for size in "512 640" "768 1024"; do
-            set -- $size
-            start=$(date +%s)
-            if [ "${{ inputs.model }}" = "flux" ]; then
-              LD_LIBRARY_PATH=. ./sd-cli --diffusion-model ~/models/flux1-schnell-Q4_0.gguf --vae ~/models/ae-f16.gguf \
-                --clip_l ~/models/clip_l-Q8_0.gguf --t5xxl ~/models/t5xxl-Q4_0.gguf -p "$P" \
-                --cfg-scale 1.0 --sampling-method euler --steps 4 -W $1 -H $2 -s 7 -t $(nproc) -o ~/test_$1.png > ~/sd_$1.log 2>&1 || tail -20 ~/sd_$1.log
-            else
-              LD_LIBRARY_PATH=. ./sd-cli -m ~/models/DreamShaper8_LCM.safetensors -p "$P" -n "color, shading, gray, text" \
-                --cfg-scale 1.5 --sampling-method lcm --steps 6 -W $1 -H $2 -s 7 -t $(nproc) -o ~/test_$1.png > ~/sd_$1.log 2>&1 || tail -20 ~/sd_$1.log
-            fi
-            echo "PICTURE ${{ inputs.model }} $1x$2: $(( $(date +%s) - start )) s"
+          for f in flux1-schnell-Q4_0.gguf ae-f16.gguf clip_l-Q8_0.gguf t5xxl-Q4_0.gguf; do
+            [ -s "$f" ] || curl -sSL -o "$f" "https://huggingface.co/second-state/FLUX.1-schnell-GGUF/resolve/8c45a2ba25e2d02bd34230989fb54983f39e44ec/$f"
           done
-      - uses: actions/upload-artifact@v4
-        if: inputs.mode == 'test'
-        with:
-          name: test-pictures-${{ inputs.model }}
-          path: ~/test_*.png
+      - name: Map data (public domain - US Census, Natural Earth)
+        run: |
+          mkdir -p data/geo/us_states data/geo/world_ind
+          curl -sSL -o /tmp/us.zip https://www2.census.gov/geo/tiger/GENZ2023/shp/cb_2023_us_state_20m.zip && unzip -qo /tmp/us.zip -d data/geo/us_states || true
+          curl -sSL -o /tmp/w.zip https://naciscdn.org/naturalearth/10m/cultural/ne_10m_admin_0_countries_ind.zip && unzip -qo /tmp/w.zip -d data/geo/world_ind || true
+      - name: Draw book pages
+        run: python cli.py cloud farm --shard ${{ matrix.shard }} --of 8 --budget ${{ inputs.minutes || '320' }}
