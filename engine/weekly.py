@@ -196,6 +196,15 @@ CLUSTER_RULE = """- TOPIC CLUSTER (hub and spokes, the way top search strategies
 """
 
 
+def _stale(it: dict, days: int = 3) -> bool:
+    """A planned slot more than `days` in the past: its video will not be made any more (cloud.runner.OVERDUE_D)."""
+    try:
+        when = datetime.fromisoformat(it["publish_at"])
+    except (KeyError, ValueError):
+        return False
+    return when < datetime.now(when.tzinfo) - timedelta(days=days)
+
+
 def past_topics(channel_id: str, limit: int = 80) -> list[str]:
     """Titles/topics this channel already made or planned, newest first."""
     seen: list[tuple[float, str]] = []
@@ -213,8 +222,14 @@ def past_topics(channel_id: str, limit: int = 80) -> list[str]:
         except (OSError, ValueError):
             continue
         for it in plan.get("items", []):
-            if it.get("channel") == channel_id and it.get("topic") and it.get("status") != "rejected":
-                seen.append((plan_file.stat().st_mtime, it["topic"][:120]))
+            if it.get("channel") != channel_id or not it.get("topic") or it.get("status") == "rejected":
+                continue
+            # 18 Nov (owner: "you are giving the topics but you haven't generated the content ... it got waste"):
+            # a topic counts as used only if its video was made, or is still coming. Never-made topics from past
+            # slots go back to the pool and can be planned again.
+            if it.get("status") in TO_MAKE and _stale(it):
+                continue
+            seen.append((plan_file.stat().st_mtime, it["topic"][:120]))
     out, keys = [], set()
     for _, t in sorted(seen, reverse=True):
         k = re.sub(r"\W+", " ", t.lower()).strip()
@@ -553,8 +568,10 @@ def make_item(plan: dict, item: dict, brain, memory=None, log=print) -> None:
         item["out_dir"], item["file"] = str(out), (sorted(out.glob("*.mp4")) or [Path("")])[0].name
     elif ch["type"] == "brainrot":
         from .snack import maker as snack              # Brain Snack v3: five rotating game formats
-        out, _ = snack.make(brain, ch, topic=topic or None, memory=memory, log=log)
+        out, meta = snack.make(brain, ch, topic=topic or None, memory=memory, log=log)
         item["out_dir"], item["file"] = str(out), (sorted(out.glob("*.mp4")) or [Path("")])[0].name
+        if item.get("topic") and not (meta or {}).get("used_topic"):     # a physics game: the plan shows what was
+            item["planned_topic"], item["topic"] = item["topic"], (meta or {}).get("title") or item["topic"]  # made
     elif ch["type"] == "clips":
         item["out_dir"], item["file"] = _make_clip(plan, item, brain, ch, memory, log)
     elif ch["type"] == "kids":

@@ -101,3 +101,31 @@ def test_storage_and_runs_live_in_different_repos(monkeypatch):
     assert files and not any(f.startswith(("docs/", "research_notes/")) or f in ("config/owner_todo.yaml", "CLAUDE.md")
                              for f in files)
     assert setup._USER_PATH.sub("C:/Users/<user>", r"see C:/Users/<user>\x.txt") == r"see C:/Users/<user>\x.txt"
+
+
+def test_planned_topic_gets_a_topic_format_after_a_physics_video():
+    from engine.snack import maker
+    after_physics = {maker.choose_format([], made=["readfast", "spiral"], topic="The Day of Two Noons")
+                     for _ in range(50)}
+    assert after_physics <= maker.TOPIC_FORMATS - {"readfast"}          # ladder (readfast was 2 ago)
+    after_topic = {maker.choose_format([], made=["spiral", "ladder"], topic="x") for _ in range(80)}
+    assert after_topic & {"multiply", "versus", "readfast"}             # physics games still come (best views)
+
+
+def test_never_made_topics_go_back_to_the_pool(tmp_path, monkeypatch):
+    import json
+    from datetime import datetime, timedelta, timezone
+    from engine import weekly
+    monkeypatch.setattr(weekly, "OUTPUT_DIR", tmp_path / "out")
+    monkeypatch.setattr(weekly, "WEEKS_DIR", tmp_path / "weeks")
+    now = datetime.now(timezone.utc)
+    items = [{"channel": "deep_blue_files", "topic": "Old unmade", "status": "planned",
+              "publish_at": (now - timedelta(days=5)).isoformat()},
+             {"channel": "deep_blue_files", "topic": "Coming soon", "status": "planned",
+              "publish_at": (now + timedelta(days=1)).isoformat()},
+             {"channel": "deep_blue_files", "topic": "Posted one", "status": "posted",
+              "publish_at": (now - timedelta(days=6)).isoformat()}]
+    (tmp_path / "weeks" / "w").mkdir(parents=True)
+    (tmp_path / "weeks" / "w" / "plan.json").write_text(json.dumps({"start": "w", "items": items}))
+    past = weekly.past_topics("deep_blue_files")
+    assert "Coming soon" in past and "Posted one" in past and "Old unmade" not in past

@@ -81,13 +81,24 @@ def made_formats(channel_id: str = "brain_snack") -> list[str]:
     return out
 
 
-def choose_format(history: list[dict], wanted: str | None = None, made: list[str] | None = None) -> str:
+TOPIC_FORMATS = {"readfast", "ladder"}          # the formats that are ABOUT a subject (fact / quiz)
+
+
+def choose_format(history: list[dict], wanted: str | None = None, made: list[str] | None = None,
+                  topic: str | None = None) -> str:
     if wanted:
         return wanted
     recent = (made if made is not None else []) or [h.get("format") for h in history[-3:]]
     recent = recent[-3:]
     options = [f for f in FORMATS if f in READY and f not in recent[-2:]]     # never in the last two
     options = options or [f for f in FORMATS if f in READY and f not in recent[-1:]]
+    # 18 Nov (owner: "you are giving the topics but you haven't generated the content according to that topics"):
+    # the planned topic was dropped whenever a physics format came up. But the physics formats are the network's
+    # best performers (spiral 1,088 + 1,065 views, versus 802; next best channel 172), so they alternate: after a
+    # physics video, a planned topic gets a format that uses it (fact / quiz). A physics video leaves its topic in
+    # the pool (make() doesn't record it as used).
+    if topic and TOPIC_FORMATS & set(options) and (not recent or recent[-1] not in TOPIC_FORMATS):
+        options = [f for f in options if f in TOPIC_FORMATS]
     weights = [0.5 if f in recent else 1.0 for f in options]
     return random.choices(options, weights=weights)[0]
 
@@ -244,17 +255,19 @@ def make(brain, channel: dict, topic: str | None = None, fmt: str | None = None,
          seed: int | None = None) -> tuple[Path, dict]:
     history = load_history()
     seed = seed if seed is not None else int(time.time()) % 1_000_000
-    fmt = choose_format(history, fmt, made=made_formats(channel["id"]))
+    fmt = choose_format(history, fmt, made=made_formats(channel["id"]), topic=topic)
     spec = new_spec(fmt, history, seed)
-    if topic:
+    used = bool(topic) and fmt in TOPIC_FORMATS          # physics formats don't use (or use up) the planned topic
+    if used:
         spec["topic"] = topic
     out_dir = ROOT / "output" / channel["id"] / f"{time.strftime('%Y%m%d_%H%M%S')}_{fmt}"
     out_dir.mkdir(parents=True, exist_ok=True)
     log(f"Brain Snack v3: format '{fmt}', spec {spec}")
     info = render_spec(spec, out_dir, brain=brain, channel=channel, log=log)
-    (out_dir / "script.json").write_text(json.dumps({"title": fmt, "topic": topic, "spec": spec},
+    (out_dir / "script.json").write_text(json.dumps({"title": fmt, "topic": topic if used else None, "spec": spec},
                                                     indent=2, ensure_ascii=False), encoding="utf-8")
     meta = write_meta(channel, spec, info, out_dir)
+    meta["used_topic"] = used
     save_cover(out_dir / "video.mp4", info.get("cover_at", max(0.0, info["total"] - 1.2)), out_dir / "cover.jpg")
     try:
         from ..reels import snack_reel
