@@ -64,6 +64,8 @@ class Store:
             r = self.s.post(f"{API}/repos/{self.repo}/releases", headers=self.h, timeout=30,
                             json={"tag_name": tag, "name": f"HookHouse {tag}", "prerelease": True,
                                   "body": "Managed by HookHouse (state / finished videos). Do not edit by hand."})
+            if r.status_code == 422 and "already_exists" in r.text:     # 18 Nov: farm machines raced to create it
+                r = self.s.get(f"{API}/repos/{self.repo}/releases/tags/{tag}", headers=self.h, timeout=30)
         if r.status_code not in (200, 201):
             raise StoreError(f"release {tag}: {r.status_code} {r.text[:200]}")
         self._rel[tag] = r.json()

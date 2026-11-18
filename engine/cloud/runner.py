@@ -178,7 +178,8 @@ def _due_to_make(kinds: set | None, skip: set, connected_only: bool = False) -> 
         if x["status"] in ("making", "made", "approved", "posted") and x.get("kind") != "long":
             recent[x["channel"]] = recent.get(x["channel"], 0) + 1
     for s, it in window:
-        if it["id"] in skip or it["status"] not in weekly.TO_MAKE or (kinds and it.get("kind") not in kinds):
+        if it["id"] in skip or it["status"] not in weekly.TO_MAKE or (kinds and it.get("kind") not in kinds
+                                                                       and not _cloud_long(it, kinds)):
             continue
         ahead = autopilot.MAKE_AHEAD_LONG_H if it.get("kind") == "long" else autopilot.MAKE_AHEAD_H
         if not (it["status"] == "redo" or autopilot._when(it) <= now + timedelta(hours=ahead)):
@@ -211,6 +212,21 @@ def _due_to_make(kinds: set | None, skip: set, connected_only: bool = False) -> 
     if connected_only:
         due = [d for d in due if live(d[1])]
     return due
+
+
+CLOUD_LONG_TYPES = {"kids"}                      # long videos the 4-core cloud machine makes quickly (2-2.5 min episodes)
+
+
+def _cloud_long(it: dict, kinds: set | None) -> bool:
+    """18 Nov (owner: no PC): kids long episodes are short and code-drawn, so the cloud makes them too. Long story
+    documentaries still need the in-house picture pipeline first (handoff next step 2-3)."""
+    if it.get("kind") != "long" or kinds is not CLOUD_KINDS:
+        return False
+    from ..config import channel
+    try:
+        return channel(it["channel"]).get("type") in CLOUD_LONG_TYPES
+    except Exception:  # noqa: BLE001
+        return False
 
 
 def _storyboarded(channel_id: str) -> bool:

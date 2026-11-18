@@ -13,9 +13,12 @@ on:
       minutes:
         description: "drawing minutes per machine"
         default: "320"
+      only:
+        description: "only these machines, e.g. [0,3] (a rescue run beside the running one)"
+        default: ""
 
 concurrency:
-  group: farm
+  group: farm-${{ inputs.only || 'all' }}
   cancel-in-progress: false
 
 jobs:
@@ -25,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+        shard: ${{ fromJSON(inputs.only || '[0, 1, 2, 3, 4, 5, 6, 7]') }}
     env:
       HOOKHOUSE_CLOUD: "1"
       STATE_KEY: ${{ secrets.STATE_KEY }}

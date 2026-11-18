@@ -148,3 +148,11 @@ def test_cloud_browser_jobs_only_in_the_cloud(monkeypatch):
     from engine.cloud import browser_session as bs
     monkeypatch.delenv("HOOKHOUSE_CLOUD", raising=False)
     assert bs.cloud_jobs(object(), log=lambda *_: None) == 0
+
+
+def test_cloud_makes_kids_long_episodes_but_not_long_documentaries(monkeypatch):
+    its = [_it("kidslong", "bloop_and_friends", 20, kind="long"), _it("doc", "unsolved_after_dark", 20, kind="long"),
+           _it("s1", "clutch_tales", 20)]
+    _setup(monkeypatch, its)
+    ids = {it["id"] for _, it in runner._due_to_make(runner.CLOUD_KINDS, set())}
+    assert ids == {"kidslong", "s1"}
