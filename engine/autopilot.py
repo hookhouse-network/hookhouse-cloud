@@ -901,7 +901,9 @@ def _daily(log) -> None:
         for name, fn in (("campaigns", lambda: discover.discover(hours=30, log=log)),
                          ("stats", lambda: stats_fetch.fetch(log=log)), ("digest", tb.digest), ("report", tb.report),
                          ("logins", _check_logins), ("waiting", _morning_waiting), ("branding", _branding),
-                         ("threads", _threads_refresh), ("retention", lambda: _retention(log))):
+                         ("threads", _threads_refresh), ("retention", lambda: _retention(log)),
+                         ("milestones", lambda: __import__("engine.milestones", fromlist=["check"]).check(log=log)),
+                         ("news_topics", lambda: __import__("engine.news_topics", fromlist=["refresh"]).refresh(log=log))):
             try:
                 fn()
             except Exception as e:  # noqa: BLE001

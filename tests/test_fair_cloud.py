@@ -208,3 +208,44 @@ def test_meta_reconnect_keeps_a_working_instagram_link(tmp_path, monkeypatch):
             return R()
     setup_steps.meta_connect("EAAx", S())
     assert saved["brain_snack"] == ("178", "P1", "OLD", "PAGETOK")     # IG kept, new Page token added
+
+
+def test_money_milestones_are_announced_once(tmp_path, monkeypatch):
+    from engine import milestones, stats_fetch
+    monkeypatch.setattr(milestones, "STATE", tmp_path / "m.json")
+    monkeypatch.setattr(stats_fetch, "live_stats", lambda: {"channels": {
+        "brain_snack": {"subs": 620, "views": 3_400_000}, "clutch_tales": {"subs": 2000, "views": 50_000}}})
+    sent = []
+    assert milestones.check(send=sent.append, log=lambda *_: None) == 1
+    assert "Brain Snack" in sent[0] and "Shopping affiliate" in sent[0]
+    assert milestones.check(send=sent.append, log=lambda *_: None) == 0        # never twice
+
+
+def test_cricket_gets_news_driven_topics(monkeypatch):
+    from engine import autopilot, news_topics, weekly
+    rss = ("<rss><channel><item><title>Bumrah 3 wickets away from a big record</title>"
+           "<pubDate>Wed, 18 Nov 2026 06:00:00 GMT</pubDate><source url='x'>India TV</source></item>"
+           "<item><title>Old news</title><pubDate>Mon, 01 Jan 2024 06:00:00 GMT</pubDate></item></channel></rss>")
+
+    class R:
+        text = rss
+
+    class S:
+        def get(self, *a, **k):
+            return R()
+    heads = news_topics.headlines("cricket_ke_kisse", session=S())
+    assert [h["title"] for h in heads] == ["Bumrah 3 wickets away from a big record"]     # fresh only, deduped
+    its = [_it("c1", "cricket_ke_kisse", 20), _it("c2", "cricket_ke_kisse", 30), _it("c3", "cricket_ke_kisse", 70)]
+    monkeypatch.setattr(autopilot, "items", lambda *a, **k: its)
+    monkeypatch.setattr(weekly, "past_topics", lambda cid, limit=25: [])
+    updated = {}
+    monkeypatch.setattr(autopilot, "update_item", lambda start, iid, **f: updated.setdefault(iid, f))
+    monkeypatch.setattr(news_topics, "FEEDS", {"cricket_ke_kisse": news_topics.FEEDS["cricket_ke_kisse"]})
+
+    class Brain:
+        def ask_json(self, task, prompt, temperature=0.5):
+            assert "Bumrah" in prompt
+            return {"topic": "Bumrah ka record aur 1990 ki woh kahani", "angle": "a", "why": "w",
+                    "headline": "Bumrah 3 wickets away from a big record"}, None
+    assert news_topics.refresh(Brain(), log=lambda *_: None, session=S()) == 2
+    assert set(updated) == {"c1", "c2"} and updated["c1"]["news"].startswith("Bumrah")     # c3 is beyond 48 h
