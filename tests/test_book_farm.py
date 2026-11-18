@@ -70,3 +70,18 @@ def test_a_finished_book_is_sent_for_review(tmp_path, monkeypatch):
     st = FakeStore()
     assert book_farm.work(st, log=lambda *_: None) == "bk: built" and sent == ["bk"]
     assert book_farm.done(st, "bk") and len(st.files["book-bk"]) == 4
+
+
+def test_brand_jobs_bios_and_layouts(tmp_path):
+    from PIL import Image
+    from engine import brand_art
+    from engine.config import channels
+    ids = {c["id"] for c in channels()}
+    assert set(brand_art.ART) <= ids and set(brand_art.BIOS) == set(brand_art.ART)
+    for ig, fb in brand_art.BIOS.values():
+        assert len(ig) <= 150 and len(fb) <= 101
+    assert len(brand_art.jobs()) == 2 * len(brand_art.ART)
+    files = brand_art.compose("deep_blue_files", Image.new("RGB", (768, 768), "teal"),
+                              Image.new("RGB", (1344, 768), "navy"), out=tmp_path)
+    sizes = {k: Image.open(v).size for k, v in files.items()}
+    assert sizes == {"avatar.png": (1080, 1080), "youtube_banner.jpg": (2560, 1440), "facebook_cover.jpg": (1640, 624)}

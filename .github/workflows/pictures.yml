@@ -16,9 +16,15 @@ on:
       only:
         description: "only these machines, e.g. [0,3] (a rescue run beside the running one)"
         default: ""
+      job:
+        description: "books or brand (channel profile pictures + banners)"
+        default: "books"
+      of:
+        description: "how many machines share the work"
+        default: "8"
 
 concurrency:
-  group: farm-${{ inputs.only || 'all' }}
+  group: farm-${{ inputs.job || 'books' }}-${{ inputs.only || 'all' }}
   cancel-in-progress: false
 
 jobs:
@@ -62,4 +68,8 @@ jobs:
           curl -sSL -o /tmp/us.zip https://www2.census.gov/geo/tiger/GENZ2023/shp/cb_2023_us_state_20m.zip && unzip -qo /tmp/us.zip -d data/geo/us_states || true
           curl -sSL -o /tmp/w.zip https://naciscdn.org/naturalearth/10m/cultural/ne_10m_admin_0_countries_ind.zip && unzip -qo /tmp/w.zip -d data/geo/world_ind || true
       - name: Draw book pages
+        if: (inputs.job || 'books') == 'books'
         run: python cli.py cloud farm --shard ${{ matrix.shard }} --of 8 --budget ${{ inputs.minutes || '320' }}
+      - name: Draw channel branding
+        if: inputs.job == 'brand'
+        run: python cli.py cloud brand --shard ${{ matrix.shard }} --of ${{ inputs.of || '8' }}
