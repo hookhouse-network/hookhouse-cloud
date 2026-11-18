@@ -57,33 +57,45 @@ ART = {
                      "a streaming setup, glowing screens and RGB lights", "purple and electric green on black"),
 }
 
-BIOS = {   # platform-sized texts (Instagram <= 150 chars, Facebook Page <= 101 chars)
+BIOS = {   # (Instagram <= 150 chars, Facebook Page bio <= 101 chars); 18 Nov v3: hook + promise + reason to follow
     "hot_take_hq": ("🎙️ The 60 seconds of every podcast you actually need\n🔥 Hot takes · wild guests · daily clips\n"
-                    "👇 Full videos on YouTube", "The 60 seconds of every podcast you actually need. New clips daily."),
+                    "👇 Full videos on YouTube",
+                    "🎙️ The 60 seconds of every podcast you actually need. 🔥 Hot takes & wild guests daily."),
     "unsolved_after_dark": ("🕯️ Real mysteries. No answers.\n🔎 True cases & dark history in 60 seconds\n"
-                            "👇 A new case every night", "Real mysteries. No answers. A new true case every night."),
+                            "👇 A new case every night",
+                            "🕯️ Real mysteries. No answers. 🔎 A new true case every night, if you dare."),
     "clutch_tales": ("🏆 Sports' greatest moments, told like movies\n⚡ Comebacks · buzzer-beaters · underdogs\n"
-                     "👇 A new story every day", "Sports' greatest moments, told like movies. New story daily."),
+                     "👇 A new story every day",
+                     "🏆 Sports' greatest moments, told like movies. ⚡ Comebacks & underdogs daily."),
     "ending_decoded": ("🎬 Every ending explained. Every secret found.\n🔍 Hidden details & film theories\n"
-                       "👇 A new breakdown every day", "Every ending explained. Every secret found. New breakdown daily."),
+                       "👇 A new breakdown every day",
+                       "🎬 Every ending explained. Every secret found. 🔍 A new breakdown daily."),
     "money_cheat_codes": ("💸 Money tricks school never taught you\n🧠 How money, tech & AI really work\n"
-                          "📚 Education only, not financial advice", "Money tricks school never taught you. Education only."),
+                          "📚 Education only, not financial advice",
+                          "💸 Money tricks school never taught you. 🧠 How money & AI really work."),
     "itihaas_ke_raaz": ("📜 Har kahani mein chhupa hai ek raaz\n🏰 Itihaas ki ansuni kahaniyan, 60 second mein\n"
-                        "👇 Roz nayi kahani", "Har kahani mein chhupa hai ek raaz. Itihaas ki ansuni kahaniyan."),
+                        "👇 Roz nayi kahani",
+                        "📜 Har kahani mein chhupa hai ek raaz. 🏰 Itihaas ki ansuni kahaniyan, roz."),
     "cricket_ke_kisse": ("🏏 Cricket ke woh kisse jo rongte khade kar dein\n🔥 Last-ball drama · legends · records\n"
-                         "👇 Roz naya kissa", "Cricket ke woh kisse jo rongte khade kar dein. Roz naya kissa."),
+                         "👇 Roz naya kissa",
+                         "🏏 Cricket ke woh kisse jo rongte khade kar dein. 🔥 Roz naya kissa."),
     "picture_abhi_baaki_hai": ("🎥 Bollywood ke raaz, ek minute mein\n⭐ Filmy kisse · behind the scenes · trivia\n"
-                               "👇 Roz naye raaz", "Bollywood ke raaz, ek minute mein. Roz naye filmy kisse."),
+                               "👇 Roz naye raaz",
+                               "🎥 Bollywood ke raaz, ek minute mein. ⭐ Filmy kisse & trivia, roz."),
     "brain_snack": ("🧠 Your daily dose of useless genius\n🎯 Satisfying puzzles, quizzes & brain games\n"
-                    "👇 Can you beat today's?", "Your daily dose of useless genius. Puzzles, quizzes and brain games."),
+                    "👇 Can you beat today's?",
+                    "🧠 Your daily dose of useless genius. 🎯 Puzzles, quizzes & brain games."),
     "cosmos_unboxed": ("🌌 The universe, one jaw-dropping fact at a time\n🚀 Space stories, missions & mysteries\n"
-                       "👇 A new wonder every day", "The universe, one jaw-dropping fact at a time."),
+                       "👇 A new wonder every day",
+                       "🌌 The universe, one jaw-dropping fact at a time. 🚀 New space stories daily."),
     "deep_blue_files": ("🌊 95% of the ocean is unexplored. Let's go.\n🐙 Deep-sea creatures, wrecks & mysteries\n"
-                        "👇 Dive in daily", "95% of the ocean is unexplored. Deep-sea stories, every day."),
+                        "👇 Dive in daily",
+                        "🌊 95% of the ocean is unexplored. Let's go. 🐙 Deep-sea mysteries daily."),
     "wild_instinct": ("🐾 Nature's most incredible true stories\n🦁 Survival, hunts & animal genius\n"
-                      "👇 A new story every day", "Nature's most incredible true stories. A new one every day."),
+                      "👇 A new story every day",
+                      "🐾 Nature's most incredible true stories. 🦁 Survival & animal genius daily."),
     "stream_clips": ("🎮 The best moments from every stream\n⚡ Clutches · fails · reactions\n👇 Fresh clips daily",
-                     "The best moments from every stream. Fresh clips daily."),
+                     "🎮 The best moments from every stream. ⚡ Clutches, fails & reactions daily."),
 }
 
 
@@ -209,3 +221,43 @@ def pull(store=None) -> int:
             dest.write_bytes(data)
             n += 1
     return n
+
+
+def page_preview(cid: str, out: Path | None = None) -> Path:
+    """A Facebook-style mock-up of the finished Page (cover, round profile picture, name, category, bio, buttons)
+    for the owner to approve before anything goes live."""
+    from PIL import ImageFont
+    from scripts.make_brand_assets import BRANDS, FONTS, rgb
+    from .config import channel
+    W = 1200
+    cover = Image.open(OUT / cid / "facebook_cover.jpg").convert("RGB").resize((W, int(W * 624 / 1640)))
+    av = Image.open(OUT / cid / "avatar.png").convert("RGB").resize((230, 230))
+    H = cover.height + 330
+    img = Image.new("RGB", (W, H), (240, 242, 245))
+    img.paste(cover, (0, 0))
+    d = ImageDraw.Draw(img)
+    cx, cy = 60, cover.height - 90
+    d.ellipse([cx - 6, cy - 6, cx + 236, cy + 236], fill="white")
+    m = Image.new("L", av.size, 0)
+    ImageDraw.Draw(m).ellipse([0, 0, 229, 229], fill=255)
+    img.paste(av, (cx, cy), m)
+    big = ImageFont.truetype(str(FONTS / "Poppins-ExtraBold.ttf"), 46)
+    small = ImageFont.truetype(str(FONTS / "Poppins-ExtraBold.ttf"), 22)
+    x, y = cx + 260, cover.height + 18
+    d.text((x, y), channel(cid)["name"], font=big, fill=(5, 5, 5))
+    d.text((x, y + 62), "Digital creator", font=small, fill=(101, 103, 107))
+    try:
+        emo = ImageFont.truetype("seguiemj.ttf", 24)
+    except OSError:
+        emo = small
+    d.text((x, y + 100), BIOS[cid][1], font=emo, fill=(28, 30, 33), embedded_color=True)
+    accent = rgb(BRANDS[cid]["lines"][-1][1])
+    for i, (label, fill, ink) in enumerate((("Follow", (8, 102, 255), "white"), ("Watch on YouTube", accent, "black"))):
+        bx = x + i * 230
+        d.rounded_rectangle([bx, y + 160, bx + 210, y + 210], radius=10, fill=fill)
+        tw = d.textlength(label, font=small)
+        d.text((bx + (210 - tw) / 2, y + 170), label, font=small, fill=ink)
+    p = (out or OUT / cid) / "page_preview.jpg"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    img.save(p, quality=90)
+    return p

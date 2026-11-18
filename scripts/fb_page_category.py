@@ -13,6 +13,10 @@ BIOS = {c["name"]: c.get("about", "") for c in channels()}
 
 
 def bio_for(name):
+    from engine import brand_art                       # the v2 bios written for Facebook (<= 101 characters)
+    cid = next((c["id"] for c in channels() if c["name"] == name), "")
+    if cid in brand_art.BIOS:
+        return brand_art.BIOS[cid][1]
     s = BIOS.get(name, "")
     out = ""
     for part in s.split(". "):
