@@ -183,3 +183,28 @@ def test_logins_reach_the_cloud_through_the_inbox(tmp_path, monkeypatch):
     assert state.merge_secrets(st, root=cloud, log=lambda *_: None) == 1
     assert (cloud / "data" / "secrets" / "meta_brain_snack.json").read_text() == '{"page_id": "1"}'
     assert state.INBOX not in st.f and state.merge_secrets(st, root=cloud, log=lambda *_: None) == 0
+
+
+def test_meta_reconnect_keeps_a_working_instagram_link(tmp_path, monkeypatch):
+    import json
+    from engine import connect, setup_steps
+    monkeypatch.setattr(setup_steps, "SECRETS", tmp_path)
+    (tmp_path / "meta_brain_snack.json").write_text(json.dumps({"ig_user_id": "178", "access_token": "OLD",
+                                                                "expires_at": 5}))
+    monkeypatch.setattr(connect, "meta_long_lived", lambda t, s=None: ("NEW", 9))
+    saved = {}
+    monkeypatch.setattr(connect, "save_meta", lambda cid, ig, page, tok, ptok="", s=None, **k:
+                        saved.setdefault(cid, (ig, page, tok, ptok)))
+
+    class R:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"data": [{"id": "P1", "name": "Brain Snack", "access_token": "PAGETOK"}]}
+
+    class S:
+        def get(self, *a, **k):
+            return R()
+    setup_steps.meta_connect("EAAx", S())
+    assert saved["brain_snack"] == ("178", "P1", "OLD", "PAGETOK")     # IG kept, new Page token added

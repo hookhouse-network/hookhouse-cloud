@@ -366,7 +366,14 @@ def meta_connect(user_token: str, s=requests) -> list[str]:
         if not page:
             continue
         ig = (page.get("instagram_business_account") or {}).get("id", "")
-        save_meta(ch["id"], ig, page["id"], tok, page.get("access_token", ""), s, exchange=False, expires_at=exp)
+        user_tok, user_exp = tok, exp
+        old_f = SECRETS / f"meta_{ch['id']}.json"
+        if not ig and old_f.exists():               # 18 Nov: a reconnect wiped working Instagram links (the IG account
+            old = json.loads(old_f.read_text(encoding="utf-8"))     # isn't linked to the Page, so Meta didn't list it)
+            if old.get("ig_user_id"):
+                ig, user_tok, user_exp = old["ig_user_id"], old.get("access_token") or tok, old.get("expires_at") or exp
+        save_meta(ch["id"], ig, page["id"], user_tok, page.get("access_token", ""), s, exchange=False,
+                  expires_at=user_exp)
         uname = (page.get("instagram_business_account") or {}).get("username")
         if uname:
             from . import links
