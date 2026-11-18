@@ -129,3 +129,22 @@ def test_never_made_topics_go_back_to_the_pool(tmp_path, monkeypatch):
     (tmp_path / "weeks" / "w" / "plan.json").write_text(json.dumps({"start": "w", "items": items}))
     past = weekly.past_topics("deep_blue_files")
     assert "Coming soon" in past and "Posted one" in past and "Old unmade" not in past
+
+
+def test_browser_session_keeps_only_our_sites_and_setcookie_fields():
+    from engine.cloud import browser_session as bs
+    raw = [{"name": "s", "value": "1", "domain": ".contentrewards.com", "path": "/", "secure": True, "httpOnly": True,
+            "sameSite": "Lax", "expires": 1900000000, "size": 9, "priority": "Medium", "session": False},
+           {"name": "t", "value": "2", "domain": "next.frame.io", "path": "/", "expires": -1, "session": True},
+           {"name": "x", "value": "3", "domain": ".gmail.com", "path": "/"},
+           {"name": "y", "value": "4", "domain": "notcontentrewards.com", "path": "/"}]
+    out = bs.clean(raw)
+    assert [c["name"] for c in out] == ["s", "t"]                      # no mail, no look-alike domains
+    assert "size" not in out[0] and "priority" not in out[0] and out[0]["expires"] == 1900000000
+    assert "expires" not in out[1]                                       # session cookie
+
+
+def test_cloud_browser_jobs_only_in_the_cloud(monkeypatch):
+    from engine.cloud import browser_session as bs
+    monkeypatch.delenv("HOOKHOUSE_CLOUD", raising=False)
+    assert bs.cloud_jobs(object(), log=lambda *_: None) == 0

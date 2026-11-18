@@ -291,6 +291,8 @@ def tick(log=_log, light: bool = False) -> None:
              ("merge", lambda: merge_helper(store, log)),
              ("media", lambda: ensure_media(store, log)),
              ("inbox", lambda: process_inbox(kv, log)),
+             # 18 Nov: logged-in jobs in the cloud (owner's session, encrypted): joined campaigns -> footage
+             ("browser", lambda: __import__("engine.cloud.browser_session", fromlist=["x"]).cloud_jobs(store, log)),
              ("campaigns", lambda: _campaign_footage(store, log)),   # after the inbox: a fresh Confirm is "picked"
              ("missed", lambda: autopilot._missed(log)),
              ("preflight", lambda: __import__("engine.preflight", fromlist=["run"]).run(log=log)),   # logins
@@ -470,6 +472,11 @@ def helper(once: bool = False, every_s: int = 300, log=_log) -> None:
             log("book art: " + books_v2.ensure_night_worker(log))     # cloud + night backup (owner 18 Nov)
         except Exception as e:  # noqa: BLE001
             log(f"book art: {e}")
+        try:                                               # the logged-in session -> the cloud (18 Nov)
+            from .browser_session import export
+            export(Store(), log)
+        except Exception as e:  # noqa: BLE001
+            log(f"browser session: {e}")
         try:                                               # .env changed on the PC -> the cloud gets it (18 Nov)
             from .setup import sync_env_secret
             sync_env_secret(log)

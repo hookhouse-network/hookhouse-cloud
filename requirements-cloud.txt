@@ -28,3 +28,4 @@ pyshp                   # book maps (US Census / Natural Earth outlines), MIT
 qrcode                  # book bonus page QR code, BSD
 holidays                # US + India holidays and festivals for the planner, MIT
 pytest
+websockets              # DevTools: the logged-in cloud Chrome (campaign pages, Frame.io)

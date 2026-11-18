@@ -1,13 +1,18 @@
 name: pictures
 # In-house pictures (owner 18 Nov: "use in house image and video generators ... less depending upon third party"):
-# our own FLUX.1-schnell (Apache 2.0, second-state GGUF) on the cloud machine with stable-diffusion.cpp (MIT).
-# mode=test: draws two sample pictures and reports the seconds, to size the picture farm.
+# our own models on the cloud machine with stable-diffusion.cpp (MIT). No third-party picture quota.
+#   flux: FLUX.1-schnell Q4 GGUF (Apache 2.0, second-state) - best quality, slow on CPU
+#   fast: DreamShaper 8 LCM (SD 1.5, CreativeML OpenRAIL-M: commercial use allowed) - a few steps, fast on CPU
+# mode=test: draws sample pictures and reports the seconds, to size the picture farm.
 on:
   workflow_dispatch:
     inputs:
       mode:
         description: "test = speed test"
         default: "test"
+      model:
+        description: "flux or fast"
+        default: "fast"
 
 jobs:
   farm:
@@ -24,30 +29,40 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/models
-          key: flux-schnell-q4-8c45a2b
-      - name: Model (FLUX.1-schnell GGUF, Apache 2.0)
+          key: models-${{ inputs.model }}-v1
+      - name: Model files
         run: |
           mkdir -p ~/models && cd ~/models
-          for f in flux1-schnell-Q4_0.gguf ae-f16.gguf clip_l-Q8_0.gguf t5xxl-Q4_0.gguf; do
-            [ -s "$f" ] || curl -sSL -o "$f" "https://huggingface.co/second-state/FLUX.1-schnell-GGUF/resolve/8c45a2ba25e2d02bd34230989fb54983f39e44ec/$f"
-          done
+          if [ "${{ inputs.model }}" = "flux" ]; then
+            for f in flux1-schnell-Q4_0.gguf ae-f16.gguf clip_l-Q8_0.gguf t5xxl-Q4_0.gguf; do
+              [ -s "$f" ] || curl -sSL -o "$f" "https://huggingface.co/second-state/FLUX.1-schnell-GGUF/resolve/8c45a2ba25e2d02bd34230989fb54983f39e44ec/$f"
+            done
+          else
+            f=DreamShaper8_LCM.safetensors
+            [ -s "$f" ] || curl -sSL -o "$f" "https://huggingface.co/Lykon/dreamshaper-8-lcm/resolve/4645d8bc6a8e/$f"
+          fi
           ls -la
       - name: Speed test
         if: inputs.mode == 'test'
         run: |
           echo "cores: $(nproc)"; lscpu | grep -i "model name"; free -g | head -2
           cd ~/sd
+          P="black and white line art coloring book page, a cute cartoon whale, thick clean outlines, plain white background"
           for size in "512 640" "768 1024"; do
             set -- $size
             start=$(date +%s)
-            LD_LIBRARY_PATH=. ./sd-cli --diffusion-model ~/models/flux1-schnell-Q4_0.gguf --vae ~/models/ae-f16.gguf \
-              --clip_l ~/models/clip_l-Q8_0.gguf --t5xxl ~/models/t5xxl-Q4_0.gguf \
-              -p "black and white line art coloring book page, a cute cartoon whale, thick clean outlines, plain white background" \
-              --cfg-scale 1.0 --sampling-method euler --steps 4 -W $1 -H $2 -s 7 -t $(nproc) -o ~/test_$1.png > ~/sd_$1.log 2>&1 || tail -20 ~/sd_$1.log
-            echo "PICTURE $1x$2: $(( $(date +%s) - start )) s"
+            if [ "${{ inputs.model }}" = "flux" ]; then
+              LD_LIBRARY_PATH=. ./sd-cli --diffusion-model ~/models/flux1-schnell-Q4_0.gguf --vae ~/models/ae-f16.gguf \
+                --clip_l ~/models/clip_l-Q8_0.gguf --t5xxl ~/models/t5xxl-Q4_0.gguf -p "$P" \
+                --cfg-scale 1.0 --sampling-method euler --steps 4 -W $1 -H $2 -s 7 -t $(nproc) -o ~/test_$1.png > ~/sd_$1.log 2>&1 || tail -20 ~/sd_$1.log
+            else
+              LD_LIBRARY_PATH=. ./sd-cli -m ~/models/DreamShaper8_LCM.safetensors -p "$P" -n "color, shading, gray, text" \
+                --cfg-scale 1.5 --sampling-method lcm --steps 6 -W $1 -H $2 -s 7 -t $(nproc) -o ~/test_$1.png > ~/sd_$1.log 2>&1 || tail -20 ~/sd_$1.log
+            fi
+            echo "PICTURE ${{ inputs.model }} $1x$2: $(( $(date +%s) - start )) s"
           done
       - uses: actions/upload-artifact@v4
         if: inputs.mode == 'test'
         with:
-          name: test-pictures
+          name: test-pictures-${{ inputs.model }}
           path: ~/test_*.png

@@ -24,7 +24,10 @@ from pathlib import Path
 from .config import ROOT
 
 CDP = "http://127.0.0.1:9333"
-SEEN = ROOT / "data" / "pc" / "footage_checked.json"      # PC-only (data/campaigns is overwritten by each pull)
+import os as _os
+# PC: data/pc (data/campaigns is overwritten by each pull). Cloud (18 Nov, logged-in jobs moved there): data/state,
+# which the memory bundle keeps, so each campaign is still checked at most every CHECK_EVERY_S.
+SEEN = ROOT / "data" / ("state" if _os.environ.get("HOOKHOUSE_CLOUD") else "pc") / "footage_checked.json"
 WATCH = ROOT / "data" / "pc" / "join_watch.json"         # campaigns opened on the PC for the owner to Join
 CHECK_EVERY_S = 30 * 60
 LOCKED = re.compile(r"visible once you join|join to unlock", re.I)
