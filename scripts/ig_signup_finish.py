@@ -27,6 +27,11 @@ SELECT = r'''((which, v) => { const s = [...document.querySelectorAll("select")]
 CLICK = r'''((want) => { const b = [...document.querySelectorAll("button,div[role=button]")].filter(e => (e.innerText || "")
   .trim() === want && e.getBoundingClientRect().width > 0 && !e.disabled && e.getAttribute("aria-disabled") !== "true").pop();
   if (!b) return false; b.click(); return true; })(%s)'''
+CODE_BOX = r'''((v) => { const ins = [...document.querySelectorAll("input[type=text],input[type=number],input[type=tel]")]
+  .filter(e => e.offsetParent !== null && !((e.closest("label") || {}).innerText || "").trim()); const e = ins.pop();
+  if (!e) return false; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(e, v);
+  e.dispatchEvent(new Event("input", {bubbles: true})); e.dispatchEvent(new Event("change", {bubbles: true}));
+  return e.value === v; })(%s)'''
 MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November",
           "December"]
 
@@ -43,10 +48,46 @@ def password_for(cid: str) -> str:
     return os.environ.get("IG_SIGNUP_PASSWORD", "")
 
 
+async def _real_click(xy) -> None:
+    import websockets as _ws
+    tid = TAB.read_text().strip()
+    t = next(t for t in json.loads(urllib.request.urlopen(f"{CDP}/json/list").read()) if t["id"] == tid)
+    async with _ws.connect(t["webSocketDebuggerUrl"], max_size=2 ** 24) as ws:
+        for i, k in enumerate(("mouseMoved", "mousePressed", "mouseReleased")):
+            await ws.send(json.dumps({"id": i + 1, "method": "Input.dispatchMouseEvent", "params": {
+                "type": k, "x": xy[0], "y": xy[1], "button": "left", "clickCount": 1}}))
+            while json.loads(await ws.recv()).get("id") != i + 1:
+                pass
+
+
+async def _combo(label: str, value: str) -> bool:
+    """Instagram's custom drop-downs (div role=combobox aria-label 'Select Month'): open, then click the option."""
+    xy = await js('(() => { const c = document.querySelector(%s); if (!c) return null; c.scrollIntoView({block: "center"});'
+                  ' const r = c.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()'
+                  % json.dumps(f'[role=combobox][aria-label="{label}"]'))
+    if not xy:
+        return False
+    await _real_click(xy)
+    time.sleep(1.2)
+    oxy = await js('((v) => { const o = [...document.querySelectorAll("[role=option]")].find(e => (e.innerText || "")'
+                   '.trim() === v && e.getBoundingClientRect().width > 0); if (!o) return null; o.scrollIntoView({block: '
+                   '"center"}); const r = o.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })(%s)'
+                   % json.dumps(value))
+    if not oxy:
+        return False
+    await _real_click(oxy)
+    time.sleep(0.8)
+    return value in (await js('(document.querySelector(%s) || {}).innerText || ""'
+                               % json.dumps(f'[role=combobox][aria-label="{label}"]')) or "")
+
+
 async def birthday(y: str, m: str, d: str) -> bool:
+    month = MONTHS[int(m) - 1]
+    if await js('!!document.querySelector(' + json.dumps('[role=combobox][aria-label="Select Month"]') + ')'):
+        return all([await _combo("Select Month", month), await _combo("Select Day", str(int(d))),
+                    await _combo("Select Year", y)])
     if not await js('document.querySelectorAll("select").length >= 3'):
         return False
-    month = MONTHS[int(m) - 1]
     ok = [await js(SELECT % (json.dumps("month"), json.dumps(str(int(m))))) or
           await js(SELECT % (json.dumps("month"), json.dumps(month))),
           await js(SELECT % (json.dumps("day"), json.dumps(str(int(d))))),
@@ -62,7 +103,9 @@ async def gmail_code(alias: str, since: float, wait_s: int = 180) -> str | None:
         req = urllib.request.Request(f"{CDP}/json/new?https://mail.google.com/mail/u/0/", method="PUT")
         t = json.loads(urllib.request.urlopen(req).read())
         time.sleep(10)
-    q = urllib.parse.quote(f"from:instagram deliveredto:{alias} newer_than:1h")
+    # 19 Nov: Gmail search can't match these mails by the +alias address; sign-ups run one at a time, so the newest
+    # Instagram code from the last 15 minutes belongs to the account being made
+    q = urllib.parse.quote("from:instagram newer_than:15m")
     async with websockets.connect(t["webSocketDebuggerUrl"], max_size=2 ** 24) as ws:
         n = 0
 
@@ -78,11 +121,26 @@ async def gmail_code(alias: str, since: float, wait_s: int = 180) -> str | None:
         while time.time() - since < wait_s:
             await ev(f'location.href = "https://mail.google.com/mail/u/0/#search/{q}"')
             time.sleep(8)
-            m = re.search(r"\b(\d{6}) is your Instagram code", await ev("document.body.innerText") or "")
+            m = re.search(r"(\d{6})\s+is\s+your\s+Instagram\s+code",
+                          await ev('(document.querySelector("[role=main]") || document.body).innerText') or "")
             if m:
                 return m.group(1)
             time.sleep(7)
     return None
+
+
+async def press_any(labels) -> bool:
+    """Real mouse click on the first visible, enabled button with one of these labels."""
+    for lbl in labels:
+        q = (r'''((want) => { const b = [...document.querySelectorAll("button,div[role=button]")].filter(e => (e.innerText
+          || "").trim() === want && e.getBoundingClientRect().width > 0 && !e.disabled && e.getAttribute("aria-disabled")
+          !== "true").pop(); if (!b) return null; b.scrollIntoView({block: "center"}); const r = b.getBoundingClientRect();
+          return [r.x + r.width / 2, r.y + r.height / 2]; })(%s)''' % json.dumps(lbl))
+        if await js(q):
+            time.sleep(0.5)
+            await _real_click(await js(q))
+            return True
+    return False
 
 
 async def main(cid: str):
@@ -100,7 +158,7 @@ async def main(cid: str):
     if await birthday(y, m, d):                       # newer form: birthday on the same page
         print("birthday set")
     since = time.time()
-    if not (await js(CLICK % json.dumps("Sign up")) or await js(CLICK % json.dumps("Next"))):
+    if not await press_any(("Submit", "Sign up", "Next")):       # 19 Nov: only a real click registers
         print("Sign up button not found / not enabled")
         return
     time.sleep(8)
@@ -108,8 +166,8 @@ async def main(cid: str):
         print("birthday set (2nd page)")
         await js(CLICK % json.dumps("Next"))
         time.sleep(8)
-    page = (await js("document.body.innerText") or "")[:300]
-    if "code" not in page.lower():
+    page = await js("document.body.innerText") or ""        # 19 Nov: the hidden old form stays at the top of the text
+    if "confirmation code" not in page.lower():
         print("no confirmation-code step yet; page says:", page.replace("\n", " / ")[:200])
         return
     code = await gmail_code(alias, since)
@@ -120,8 +178,10 @@ async def main(cid: str):
       (i.getAttribute("aria-label") || "") + (i.placeholder || ""))); if (!e) return false;
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(e, v);
       e.dispatchEvent(new Event("input", {bubbles: true})); return true; })(%s)''' % json.dumps(code))
+    if not ok:                                         # 19 Nov: the code box has no label: the last visible text box
+        ok = await js(CODE_BOX % json.dumps(code)) is True
     print("code entered:", ok)
-    await js(CLICK % json.dumps("Next")) or await js(CLICK % json.dumps("Confirm"))
+    await press_any(("Continue", "Next", "Confirm"))
     time.sleep(12)
     acc = accounts()
     acc.setdefault(cid, {}).update(username=user, email=alias, created=time.strftime("%Y-%m-%d %H:%M"),

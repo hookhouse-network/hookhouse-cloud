@@ -76,4 +76,5 @@ async def main(cid, user=None):
           else "no free handle among the options: pick one")
 
 
-asyncio.run(main(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else None))
+if __name__ == "__main__":
+    asyncio.run(main(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else None))
