@@ -481,7 +481,27 @@ def clip_state() -> dict:
                 pass
         s = {"used": list(dict.fromkeys(used)), "pool": {}}
     s.setdefault("pool", {})
+    try:                                                # PC: footage it cut since the last pull (20 Nov)
+        s["used"] = list(dict.fromkeys(s["used"] + json.loads(PC_CLIP_USED.read_text(encoding="utf-8"))))
+    except (OSError, ValueError):
+        pass
     return s
+
+
+PC_CLIP_USED = ROOT / "data" / "pc" / "clip_used.json"
+
+
+def remember_used_on_pc(source: str) -> None:
+    """The PC's pulled clip_pool.json is replaced on every pull; this list survives until the cloud has merged."""
+    import os
+    if os.environ.get("HOOKHOUSE_CLOUD"):
+        return
+    try:
+        used = json.loads(PC_CLIP_USED.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        used = []
+    PC_CLIP_USED.parent.mkdir(parents=True, exist_ok=True)
+    PC_CLIP_USED.write_text(json.dumps((used + [source])[-500:]), encoding="utf-8")
 
 
 def save_clip_state(s: dict) -> None:
@@ -570,6 +590,8 @@ def _make_clip(plan: dict, item: dict, brain, ch: dict, memory, log) -> tuple[st
         s = clip_state()
         s["used"].append(src["source"])
         save_clip_state(s)
+        remember_used_on_pc(src["source"])
+        item["clip_source"] = src["source"]                      # the PC's done marker reports it to the cloud
         asset = f"{item.get('id', 'clip')}.zip"                   # the cloud runner uploads this folder under the item's name
         pool = [{"out_dir": str(out), "file": m["file"], "at": time.time(), "asset": asset} for m in metas]
         if not pool:
@@ -618,9 +640,27 @@ def _refresh_topic(plan: dict, item: dict, ch: dict, brain, memory=None, log=pri
                 feeling=t.get("feeling"), now_hook=t.get("now_hook"))
 
 
+def clip_slot(ch: dict, item: dict) -> bool:
+    """20 Nov: a story channel with clips_first (Stream Clips: GTA facts) cuts a campaign clip in its Short slot when
+    campaign footage is waiting (Kick clips of a joined campaign). On the PC the used footage is remembered locally
+    (PC_CLIP_USED) and reported back in the done marker, so the cloud never cuts the same footage again."""
+    if ch.get("type") != "story" or not ch.get("clips_first") or item.get("kind") == "long":
+        return False
+    s = clip_state()                                    # only footage meant for THIS channel (never loose sources)
+    return bool(_live_pool(s["pool"].get(ch["id"], []))) or any(
+        src["source"] not in s["used"] and _source_channel(src) == ch["id"] for src in _read_sources())
+
+
 def make_item(plan: dict, item: dict, brain, memory=None, log=print) -> None:
     from .config import channel as get_channel
     ch = get_channel(item["channel"])
+    if clip_slot(ch, item):
+        log(f"{ch['name']}: campaign footage waiting, this slot becomes a clip")
+        item["out_dir"], item["file"] = _make_clip(plan, item, brain, ch, memory, log)
+        item["made_as"] = "clip"
+        from .training_data import record
+        record(item)
+        return
     if ch["type"] == "story" and not item.get("topic") and brain is not None:
         # the week plan got fewer topics than slots (AI busy that day): pick one now instead of skipping the slot
         taken = [it.get("topic") for it in plan.get("items", []) if it.get("topic")]

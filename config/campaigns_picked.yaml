@@ -1,0 +1,25 @@
+# Campaigns the owner picked by link (owner 19-20 Nov: "join gta 6 campaigns and start clipping"). The cloud tick puts
+# each one in the campaign database (cr_footage.ensure_config_campaigns); campaigns with `kick:` get their footage
+# from the streamer's Kick clips via Kick's own Download button (engine/kick.py, PC browser signed in to Kick).
+# Twitch / YouTube-only campaigns (Kai Cenat, LACY, Clix, TOMO) are joined but NOT listed: no permitted way to get
+# their footage (Twitch: only the streamer can download; YouTube: no download), so nothing to clip.
+campaigns:
+  - id: dasgasd3m-x-ruckus-gta-6     # same id as the board copy (ClippingAlpha) so there is one record
+    name: "Dasgasd3m x RUCKUS | GTA 6"
+    url: https://contentrewards.com/c/campaigns/051002dd-5c46-43d0-a446-43f2957ba3a9
+    source: contentrewards
+    status: joined                   # joined 19 Nov (scripts.cr_join_check)
+    account: stream_clips            # the GTA channel (brief: a GTA 6-specific YouTube Shorts / TikTok account)
+    platforms: [youtube]             # brief: TikTok or YouTube Shorts only (TikTok is not available in India)
+    kick: dasgasd3m
+    game: "Grand Theft Auto VI"
+    footage_since: "2026-11-18"      # brief: his 18 Nov GTA 6 stream or later; older clips are style references only
+    deadline: "2026-12-19"
+    required_tags: ["#dasgasdom3"]
+    required_text: ["Credit: dasgasd3m on Kick. Watch live: kick.com/dasgasd3m"]   # caption gate adds it
+    submit_within_min: 30            # brief: submit the public post link while it is under 30 minutes old
+    hook_ideas: ["Dasgas Dom reacts to ...", "Dasgas Dom finds a GTA 6 glitch", "Dasgas Dom fails ..."]
+    rules: >-
+      Keep Dom's face or voice; keep setup, reaction and payoff; readable captions, clear audio; no explicit
+      material; never fabricate his voice, reactions, chat or gameplay; no spoilers in the cover; no gambling
+      (Stake) promos in the clip.

@@ -30,6 +30,15 @@ def _no_real_publish_log(monkeypatch, tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def _no_real_clip_records(monkeypatch, tmp_path):
+    """Tests never write the PC's real used-footage or Kick lists (20 Nov: a test's fake footage marked as used)."""
+    import engine.cr_footage as crf
+    import engine.weekly as wk
+    monkeypatch.setattr(wk, "PC_CLIP_USED", tmp_path / "pc_clip_used_test.json")
+    monkeypatch.setattr(crf, "KICK_STATE", tmp_path / "kick_state_test.json")
+
+
+@pytest.fixture(autouse=True)
 def _no_real_picture_quota(monkeypatch, tmp_path):
     """Tests never read or write today's real free-picture limits (a blocked day made the scheduler skip videos)."""
     import engine.storyboard as sbm

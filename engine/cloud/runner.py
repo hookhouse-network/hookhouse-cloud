@@ -120,6 +120,12 @@ def merge_helper(store, log=_log) -> int:
                                       feeling=info.get("feeling"), now_hook=info.get("now_hook"),
                                       planned_topic=info.get("planned_topic"))
                 n += 1
+                if info.get("clip_source"):                # 20 Nov: footage the PC cut is never cut again
+                    from .. import weekly
+                    cs = weekly.clip_state()
+                    if info["clip_source"] not in cs["used"]:
+                        cs["used"].append(info["clip_source"])
+                        weekly.save_clip_state(cs)
                 rec = info.get("training")                 # 19 Nov: PC-made videos join the cloud's learning loops
                 if rec:
                     from ..training_data import DIR, SCRIPTS
@@ -353,6 +359,10 @@ def _storyboarded(channel_id: str) -> bool:
 
 def _campaign_footage(store, log=_log) -> int:
     from .. import cr_footage
+    try:                                                   # 20 Nov: owner-picked campaigns (config) into the database
+        cr_footage.ensure_config_campaigns(log=log)
+    except Exception as e:  # noqa: BLE001
+        log(f"picked campaigns: {e}")
     n = cr_footage.merge(store, log)
     if n:
         log(f"campaigns: {n} joined, footage queued for clips")
@@ -650,6 +660,14 @@ def helper(once: bool = False, every_s: int = 300, log=_log, videos_only: bool =
                     _wake_cloud(log)
             except Exception as e:  # noqa: BLE001
                 log(f"campaign footage: {e}")
+            try:                                           # 20 Nov: Kick clips of owner-picked campaigns (hourly)
+                from .. import cr_footage
+                cr_footage.ensure_config_campaigns(log=log)   # local copy, so the PC can cut them too
+                if cr_footage.kick_job(store, log):
+                    _wake_cloud(log)
+                cr_footage.recover_sources(store, log)
+            except Exception as e:  # noqa: BLE001
+                log(f"kick footage: {e}")
             taken = set(claims(store))
             # clips stay in the cloud: their spare-clip pool lives in the cloud memory, which the PC only reads
             due = [(s, it) for s, it in _due_to_make(None, taken) if it["status"] != "making" and it.get("kind") != "clip"]
@@ -669,7 +687,9 @@ def helper(once: bool = False, every_s: int = 300, log=_log, videos_only: bool =
                     "id": item["id"], "start": start, "out_rel": media.rel_out(folder), "file": item.get("file"),
                     "topic": item.get("topic"), "angle": item.get("angle"), "made_at": time.time(),
                     "feeling": item.get("feeling"), "now_hook": item.get("now_hook"),
-                    "planned_topic": item.get("planned_topic"), "training": training}, ensure_ascii=False).encode())
+                    "planned_topic": item.get("planned_topic"), "training": training,
+                    "clip_source": item.get("clip_source"), "made_as": item.get("made_as")},
+                    ensure_ascii=False).encode())
                 _wake_cloud(log)
                 continue                                   # straight to the next one while the PC is on
         except KeyboardInterrupt:

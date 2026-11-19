@@ -47,6 +47,9 @@ CREATE TABLE IF NOT EXISTS jobs (
   run_after REAL NOT NULL DEFAULT 0, lease_owner TEXT, lease_until REAL,
   created REAL NOT NULL, updated REAL NOT NULL, last_error TEXT, result TEXT);
 CREATE INDEX IF NOT EXISTS jobs_due ON jobs(state, run_after);
+CREATE TABLE IF NOT EXISTS checkpoints (
+  item TEXT NOT NULL, stage TEXT NOT NULL, status TEXT NOT NULL, artifact TEXT, attempts INTEGER NOT NULL DEFAULT 0,
+  error TEXT, updated REAL NOT NULL, PRIMARY KEY (item, stage));
 """
 FAIL_KINDS = ("transient", "quota", "permanent")
 
@@ -192,6 +195,56 @@ class Ledger:
         if kind:
             q, args = q + " AND kind=?", args + [kind]
         return self._tx(lambda c: [dict(r) for r in c.execute(q + " ORDER BY id", args)])
+
+    # ------------------------------------------------------------------ stage checkpoints (resumable pipelines)
+    def checkpoint(self, item: str, stage: str) -> dict | None:
+        r = self._tx(lambda c: c.execute("SELECT * FROM checkpoints WHERE item=? AND stage=?", (item, stage)).fetchone())
+        return dict(r, artifact=json.loads(r["artifact"] or "null")) if r else None
+
+    def _save_checkpoint(self, item: str, stage: str, status: str, artifact=None, error: str = "",
+                         attempt: bool = False) -> None:
+        now = self.clock()
+        self._tx(lambda c: c.execute(
+            "INSERT INTO checkpoints(item,stage,status,artifact,attempts,error,updated) VALUES (?,?,?,?,?,?,?) "
+            "ON CONFLICT(item,stage) DO UPDATE SET status=excluded.status, artifact=excluded.artifact, "
+            "attempts=checkpoints.attempts+?, error=excluded.error, updated=excluded.updated",
+            (item, stage, status, json.dumps(artifact, ensure_ascii=False, default=str), int(attempt), error[:1000],
+             now, int(attempt))))
+
+    def invalidate(self, item: str, stages: list[str] | tuple[str, ...]) -> int:
+        """Drop these stages' checkpoints (e.g. everything after a stage that has to be redone)."""
+        if not stages:
+            return 0
+        return self._tx(lambda c: c.execute(f"DELETE FROM checkpoints WHERE item=? AND stage IN "
+                                            f"({','.join('?' * len(stages))})", (item, *stages)).rowcount)
+
+    def run_stage(self, item: str, stage: str, producer, validate=lambda a: a is not None,
+                  order: list[str] | tuple[str, ...] = ()):
+        """Resumable pipeline step (idea from darkzOGx/youtube-automation-agent's generation recovery, MIT; rebuilt
+        here). A completed stage whose saved artifact still validates is reused, so a crash, a timeout or a
+        switched-off PC resumes where it stopped instead of re-spending AI quota. A completed stage whose artifact
+        is gone or broken is redone and every later stage in `order` is invalidated. The producer's exceptions
+        propagate (the job queue decides about retries); its artifact must pass `validate` to count."""
+        cp = self.checkpoint(item, stage)
+        if cp and cp["status"] == "completed":
+            if validate(cp["artifact"]):
+                self.event("stage.reused", item=item, data={"stage": stage})
+                return cp["artifact"]
+            later = list(order[order.index(stage) + 1:]) if stage in order else []
+            self.invalidate(item, later)
+            self.event("stage.invalid", item=item, data={"stage": stage, "dropped": later})
+        self._save_checkpoint(item, stage, "running", attempt=True)
+        try:
+            artifact = producer()
+            if not validate(artifact):
+                raise ValueError(f"stage '{stage}' produced an incomplete or missing result")
+        except BaseException as e:
+            self._save_checkpoint(item, stage, "failed", error=f"{type(e).__name__}: {e}")
+            self.event("stage.failed", item=item, data={"stage": stage, "error": f"{type(e).__name__}: {e}"[:300]})
+            raise
+        self._save_checkpoint(item, stage, "completed", artifact=artifact)
+        self.event("stage.done", item=item, data={"stage": stage})
+        return artifact
 
     def stats(self) -> dict[str, dict[str, int]]:
         out: dict[str, dict[str, int]] = {}

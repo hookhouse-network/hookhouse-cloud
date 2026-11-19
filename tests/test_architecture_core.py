@@ -172,3 +172,40 @@ def test_silently_swallowed_errors_never_grow():
             for f in Path("engine").rglob("*.py"))
     assert n <= SILENT_BASELINE, (f"{n} silent excepts (baseline {SILENT_BASELINE}): handle or report the error "
                                   "instead of swallowing it")
+
+
+# ---------------------------------------------------------------- resumable stages (checkpoints)
+ORDER = ("script", "storyboard", "pictures", "render")
+
+
+def test_a_finished_stage_is_reused_after_a_crash(tmp_path):
+    led = _ledger(tmp_path, Clock())
+    calls = []
+    led.run_stage("v1", "script", lambda: calls.append(1) or {"title": "T"}, lambda a: bool(a and a.get("title")))
+    with pytest.raises(RuntimeError):                       # the render crashed (PC switched off)
+        led.run_stage("v1", "render", lambda: (_ for _ in ()).throw(RuntimeError("killed")))
+    again = led.run_stage("v1", "script", lambda: calls.append(1) or {"title": "other"},
+                          lambda a: bool(a and a.get("title")))
+    assert again == {"title": "T"} and calls == [1]          # no second AI call for the script
+    assert led.checkpoint("v1", "render")["status"] == "failed"
+
+
+def test_a_broken_artifact_is_redone_and_later_stages_dropped(tmp_path):
+    led = _ledger(tmp_path, Clock())
+    f = tmp_path / "pics.json"
+    f.write_text("[]")
+    ok = lambda a: bool(a and Path(a["file"]).exists())     # noqa: E731
+    led.run_stage("v1", "pictures", lambda: {"file": str(f)}, ok, ORDER)
+    led.run_stage("v1", "render", lambda: {"file": "v.mp4"}, order=ORDER)
+    f.unlink()                                               # the cache was cleaned
+    out = led.run_stage("v1", "pictures", lambda: (f.write_text("[1]"), {"file": str(f)})[1], ok, ORDER)
+    assert Path(out["file"]).exists()
+    assert led.checkpoint("v1", "render") is None            # the old render no longer matches the pictures
+    assert led.checkpoint("v1", "pictures")["attempts"] == 2
+
+
+def test_an_incomplete_result_does_not_count_as_done(tmp_path):
+    led = _ledger(tmp_path, Clock())
+    with pytest.raises(ValueError):
+        led.run_stage("v1", "script", lambda: {"title": ""}, lambda a: bool(a.get("title")))
+    assert led.checkpoint("v1", "script")["status"] == "failed"

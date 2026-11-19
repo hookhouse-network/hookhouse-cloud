@@ -315,3 +315,127 @@ def merge(store, log=print, send=None) -> int:
         finally:
             store.delete(media.TAG, name)
     return n
+
+
+# ---------------- owner-picked campaigns + Kick footage (20 Nov) ----------------
+PICKED_FILE = ROOT / "config" / "campaigns_picked.yaml"
+KICK_STATE = ROOT / "data" / "pc" / "kick_fetched.json"
+KICK_ACCOUNT = ROOT / "data" / "secrets" / "kick_account.json"
+KICK_EVERY_S = 60 * 60                    # new stream clips appear all day during a marathon
+KICK_PER_RUN = 3                          # per campaign per hour: enough clips, light on the PC
+GAMBLING = re.compile(r"\b(stake|casino|slots?|gambl\w*|roulette|blackjack|bet(ting)?|crash game|plinko)\b", re.I)
+
+
+def config_campaigns() -> list[dict]:
+    import yaml
+    try:
+        return list((yaml.safe_load(PICKED_FILE.read_text(encoding="utf-8")) or {}).get("campaigns") or [])
+    except (OSError, ValueError):
+        return []
+
+
+def ensure_config_campaigns(conn=None, log=print) -> int:
+    """Cloud tick: owner-picked campaigns (config/campaigns_picked.yaml) into the campaign database. Config fields win
+    over older copies; a campaign that ended stays ended."""
+    from . import db
+    conn, n = conn or db.connect(), 0
+    for c in config_campaigns():
+        if not c.get("id"):
+            continue
+        old = db.get_campaign(conn, c["id"]) or {}
+        new = {**old, **c, "status": old.get("status") if old.get("status") == "ended" else c.get("status", "picked")}
+        if c.get("rules"):
+            new["other_rules"] = list(dict.fromkeys((old.get("other_rules") or []) + [c["rules"]]))
+        if new != old:
+            db.save_campaign(conn, new)
+            n += 1
+    if n:
+        log(f"campaigns: {n} owner-picked campaign(s) updated from config")
+    return n
+
+
+def kick_signed_in() -> bool:
+    try:
+        return bool(json.loads(KICK_ACCOUNT.read_text(encoding="utf-8")).get("signed_in"))
+    except (OSError, ValueError):
+        return False
+
+
+def _kick_state() -> dict:
+    try:
+        return json.loads(KICK_STATE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def pick_kick_clips(clips: list[dict], fetched: set, since_s: float, limit: int) -> list[dict]:
+    """Most viewed first; skip clips already fetched, older than the campaign allows, gambling, too short/long."""
+    out = []
+    for c in clips:
+        if c["id"] in fetched or c["age_s"] > since_s or GAMBLING.search(c.get("title") or ""):
+            continue
+        if c.get("seconds") and not 12 <= c["seconds"] <= 180:
+            continue
+        out.append(c)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def kick_job(store, log=print, lister=None, downloader=None, now=None) -> int:
+    """PC helper, hourly: for each owner-picked campaign with `kick:`, the newest well-viewed clips of the streamer's
+    game go to cloud storage as src-<campaign id[:30]>-kick-<clip>.mp4; the cloud tick's recover_sources() puts them
+    in the clip list for the campaign's channel. Needs the PC Chrome signed in to Kick (scripts.kick_signup)."""
+    from datetime import date
+    from . import kick
+    from .cloud import media
+    camps = [c for c in config_campaigns() if c.get("kick") and c.get("status", "picked") != "ended"]
+    if not camps:
+        return 0
+    st, now = _kick_state(), now or time.time()
+    if now - st.get("last", 0) < KICK_EVERY_S:
+        return 0
+    st["last"] = now
+    if not (lister or kick_signed_in()):
+        if now - st.get("warned", 0) > 86400:
+            st["warned"] = now
+            log("Kick: the PC browser is not signed in to Kick yet (python -m scripts.kick_signup), so no campaign "
+                "clips can be downloaded")
+        KICK_STATE.parent.mkdir(parents=True, exist_ok=True)
+        KICK_STATE.write_text(json.dumps(st), encoding="utf-8")
+        return 0
+    lister = lister or kick.top_clips
+    downloader = downloader or kick.download
+    fetched, n = set(st.get("fetched") or []), 0
+    for c in camps:
+        if c.get("deadline") and date.fromisoformat(str(c["deadline"])) < date.fromtimestamp(now):
+            continue
+        since = date.fromisoformat(str(c.get("footage_since") or date.fromtimestamp(now - 3 * 86400).isoformat()))
+        max_age = max(3600.0, now - time.mktime(since.timetuple()))
+        try:
+            clips = lister(c["kick"], game=c.get("game") or "", max_age_s=max_age)
+        except Exception as e:  # noqa: BLE001 - one channel page must not stop the rest
+            log(f"Kick {c['kick']}: {type(e).__name__}: {e}")
+            continue
+        for clip in pick_kick_clips(clips, fetched, max_age, KICK_PER_RUN):
+            try:
+                f = downloader(clip, ROOT / "data" / "pc" / "footage" / "kick" / c["kick"])
+            except Exception as e:  # noqa: BLE001
+                log(f"Kick clip {clip['id']}: {type(e).__name__}: {e}")
+                f = None
+            if not f:
+                log(f"Kick clip {clip['id']}: no file (Download needs the signed-in browser)")
+                continue
+            store.put(media.TAG, f"src-{c['id'][:30]}-kick-{clip['id'][-12:]}.mp4", f.read_bytes(), "video/mp4")
+            fetched.add(clip["id"])
+            n += 1
+            log(f"Kick: {c['kick']} clip '{clip.get('title', '')[:50]}' ({clip.get('views', 0):.0f} views) -> "
+                f"{c.get('name', '')[:30]}")
+            try:
+                f.unlink()                     # the cloud copy is the one that counts; keep the PC light
+            except OSError:
+                pass
+    st["fetched"] = sorted(fetched)[-2000:]
+    KICK_STATE.parent.mkdir(parents=True, exist_ok=True)
+    KICK_STATE.write_text(json.dumps(st), encoding="utf-8")
+    return n

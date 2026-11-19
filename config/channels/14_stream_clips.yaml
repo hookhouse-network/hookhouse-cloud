@@ -11,6 +11,7 @@ type: story
 niche: GTA and gaming facts, records, comparisons and the real world behind games (original commentary, no game footage)
 bio: "Gaming facts that hit different. GTA 6 week: every number, every comparison."
 earns_from: [youtube_ads, clipping_campaigns]
+clips_first: true       # 20 Nov: a Short slot becomes a campaign clip when Kick footage of a joined campaign waits (engine/kick.py)
 schedule: {shorts_per_day: 3, long_per_week: 0}   # launch-week hype: 3 Shorts a day (US evening = 4:30-8:30 IST)
 voice: {engine: kokoro, id: am_michael, backup: {engine: kokoro, id: am_adam}}
 style:
