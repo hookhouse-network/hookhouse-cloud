@@ -78,3 +78,13 @@ def _no_http_retries(monkeypatch):
     """engine.core.http retries server errors with waits; tests simulate those errors on purpose (one call each)."""
     from engine.core import http
     monkeypatch.setattr(http.HTTP, "waits", ())
+
+
+@pytest.fixture(autouse=True)
+def _no_real_ledger(monkeypatch, tmp_path):
+    """No test writes events or jobs into the real ledger (data/ledger.db) or the real heal queue."""
+    import engine.core.ledger as led
+    import engine.heal as heal
+    monkeypatch.setenv("LEDGER_DB", str(tmp_path / "ledger_test.db"))
+    monkeypatch.setattr(led, "_DEFAULT", None)
+    monkeypatch.setattr(heal, "QUEUE", tmp_path / "heal_queue_test.json")

@@ -158,9 +158,29 @@ def load_plan(start: date | str) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _audit_statuses(path: Path, plan: dict) -> None:
+    """Lifecycle check (engine/core/lifecycle.py): compares the saved plan with the new one. In enforce mode an
+    illegal change raises before anything is written; in observe mode it is logged and sent to the heal queue."""
+    from .core import ledger, lifecycle
+    try:
+        before = json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
+    except (OSError, ValueError) as e:                     # unreadable old plan: say so, never hide it
+        ledger.event("plan.unreadable", data={"path": str(path), "error": f"{type(e).__name__}: {e}"})
+        before = None
+
+    def report(area, error, channel=""):
+        try:
+            from . import heal
+            heal.report(area, error, channel=channel)
+        except Exception as e:  # noqa: BLE001 - reporting must not stop the save
+            print(f"lifecycle: heal report failed: {e}")
+    lifecycle.audit(before, plan, log_event=ledger.event, report=report)
+
+
 def save_plan(plan: dict) -> Path:
     folder = week_dir(plan["start"])
     folder.mkdir(parents=True, exist_ok=True)
+    _audit_statuses(folder / "plan.json", plan)             # 20 Nov: every status change checked + logged
     tmp = folder / "plan.json.tmp"
     tmp.write_text(json.dumps(plan, indent=2, ensure_ascii=False), encoding="utf-8")
     os.replace(tmp, folder / "plan.json")

@@ -51,8 +51,8 @@ def _load() -> dict:
 
 
 def _save(s: dict) -> None:
-    STATE.parent.mkdir(parents=True, exist_ok=True)
-    STATE.write_text(json.dumps(s, indent=1), encoding="utf-8")
+    from .core.atomic import write_json                  # 20 Nov: crash-safe (tokens, decisions, daily jobs)
+    write_json(STATE, s)
 
 
 def _update_state(fn) -> dict:
@@ -115,7 +115,14 @@ def items(days_back: int = 3, days_ahead: int = 9) -> list[tuple[str, dict]]:
     for p in sorted(weekly.WEEKS_DIR.glob("*/plan.json")) if weekly.WEEKS_DIR.exists() else []:
         try:
             plan = json.loads(p.read_text(encoding="utf-8"))
-        except Exception:  # noqa: BLE001
+        except (OSError, ValueError) as e:              # 20 Nov: a broken plan hid a whole week without a word
+            from .core import ledger
+            ledger.event("plan.unreadable", data={"path": str(p), "error": f"{type(e).__name__}: {e}"})
+            try:
+                from . import heal
+                heal.report("plan", f"weekly plan unreadable: {p.parent.name}: {type(e).__name__}")
+            except Exception as e2:  # noqa: BLE001 - the other weeks still load
+                print(f"plan report failed: {e2}")
             continue
         for it in plan.get("items") or []:
             try:

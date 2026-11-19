@@ -75,8 +75,8 @@ def _load() -> dict:
 
 
 def _save(q: dict) -> None:
-    QUEUE.parent.mkdir(parents=True, exist_ok=True)
-    QUEUE.write_text(json.dumps(q, indent=1, ensure_ascii=False), encoding="utf-8")
+    from .core.atomic import write_json                  # 20 Nov: crash-safe
+    write_json(QUEUE, q)
 
 
 def report(area: str, error, channel: str = "", platform: str = "", now: float | None = None) -> dict:

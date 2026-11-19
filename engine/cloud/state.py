@@ -15,7 +15,7 @@ from ..config import ROOT
 TAG = "state"
 NAME = "state.bin"
 BACKUP = "state.prev.bin"
-PATHS = ["data/system.db", "data/analytics.db", "data/memory.db", "data/publish_log.jsonl", "data/snack_history.json",
+PATHS = ["data/system.db", "data/analytics.db", "data/memory.db", "data/ledger.db", "data/publish_log.jsonl", "data/snack_history.json",
          "data/snack_league.json", "data/state", "data/weeks", "data/pitches", "data/campaigns", "data/campaign_proof",
          "data/permissions", "data/secrets", "data/telegram", "data/templates", "data/reviews",
          "config/owner_todo.yaml", "config/clip_sources.yaml",
