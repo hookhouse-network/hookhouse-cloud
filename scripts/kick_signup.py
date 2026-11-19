@@ -40,18 +40,27 @@ async def form_text(tab) -> str:
                         "|| document.querySelector('[role=dialog]') || document.body).innerText") or ""
 
 
-async def gmail_code(since: float, wait_s: int = 240) -> str | None:
+async def gmail_code(since: float, wait_s: int = 240, exclude: set | None = None) -> str | None:
     """Newest Kick code mail of the last 15 minutes (sign-ups run one at a time)."""
     q = urllib.parse.quote("from:kick newer_than:15m")
     async with _Tab(f"https://mail.google.com/mail/u/0/#search/{q}") as gm:
         while time.time() - since < wait_s:
             await asyncio.sleep(10)
             body = await gm.js('(document.querySelector("[role=main]") || document.body).innerText') or ""
-            m = re.search(r"(?:code|verif)[^\d]{0,80}(\d{6})|(\d{6})[^\d]{0,40}(?:code|verif)", body, re.I)
-            if m:
-                return m.group(1) or m.group(2)
+            codes = re.findall(r"(\d{6}) - Sign Up Verification Code", body)
+            fresh = [c for c in codes if c not in (exclude or set())]
+            if fresh:
+                return fresh[0]                              # newest first; never an older attempt's code
             await gm.js("location.reload()")
     return None
+
+
+async def existing_codes() -> set:
+    q = urllib.parse.quote("from:kick newer_than:1d")
+    async with _Tab(f"https://mail.google.com/mail/u/0/#search/{q}") as gm:
+        await asyncio.sleep(10)
+        body = await gm.js('(document.querySelector("[role=main]") || document.body).innerText') or ""
+    return set(re.findall(r"(\d{6}) - Sign Up Verification Code", body))
 
 
 async def main(names: list[str]) -> None:
@@ -90,6 +99,7 @@ async def main(names: list[str]) -> None:
         if errs:
             say("form says: " + " / ".join(errs)[:300])
             return
+        old_codes = await existing_codes()
         since = time.time()
         clicked = await tab.js("""(() => { const f = document.querySelector('input[name=password]').closest('form');
           const b = [...f.querySelectorAll('button[type=submit]')].find(x => (x.innerText || '').trim() === 'Sign Up');
@@ -100,26 +110,73 @@ async def main(names: list[str]) -> None:
         for k in ("mouseMoved", "mousePressed", "mouseReleased"):
             await tab.cmd("Input.dispatchMouseEvent", {"type": k, "x": clicked[0], "y": clicked[1], "button": "left",
                                                        "clickCount": 1})
-        await asyncio.sleep(8)
+        for _ in range(6):
+            await asyncio.sleep(2)
+            dl = await tab.js("[...document.querySelectorAll('[role=dialog]')].map(d => d.innerText.trim()).filter(t => t && !t.startsWith('Your Privacy')).join(' || ')") or ""
+            say("after Sign Up: " + " / ".join(dl[:300].splitlines()))
         txt = await tab.js("document.body.innerText") or ""
         if re.search(r"captcha|robot|verify you are human|challenge", txt, re.I):
             say("ROBOT CHECK shown: the owner must tick it (visible window)")
             return
-        code_box = await tab.js("!!document.querySelector('input[autocomplete=one-time-code], input[name*=code], "
-                                "input[inputmode=numeric]')")
-        say(f"signed up as {user}; code box: {code_box}")
+        DLG = ("[...document.querySelectorAll('[role=dialog]')].find(d => (d.innerText || '').includes('Email Verification'))")
+        code_box = await tab.js(f"(() => {{ const d = {DLG}; return d ? d.querySelectorAll('input').length : 0; }})()")
+        say(f"signed up as {user}; code fields in the verification dialog: {code_box}")
         if code_box:
-            code = await gmail_code(since)
+            code = await gmail_code(since, exclude=old_codes)
             if not code:
                 say("no Kick code mail within 4 minutes")
                 return
-            await tab.js("""(() => { const e = document.querySelector('input[autocomplete=one-time-code], input[name*=code],
-              input[inputmode=numeric]'); e.focus(); })()""")
+            xy = await tab.js(f"(() => {{ const d = {DLG}; if (!d) return null; const e = d.querySelector('input');"
+                              " const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()")
+            if not xy:
+                say("the verification dialog closed before the code arrived")
+                return
+            info = await tab.js(f"(() => {{ const d = {DLG}; const e = d.querySelector('input'); return [e.type, e.name, e.maxLength, e.inputMode, e.autocomplete, e.outerHTML.slice(0, 200)]; }})()")
+            say(f"code field: {info}")
+            await tab.js(f"(() => {{ const d = {DLG}; d.querySelector('input').focus(); }})()")
+            alive = await tab.js(f"!!({DLG})")
+            say(f"after focus, dialog open: {alive}")
+            await tab.cmd("Network.enable")
             await tab.cmd("Input.insertText", {"text": code})
-            await asyncio.sleep(3)
-            await tab.click_text("Verify", "Confirm", "Submit", "Continue")
-            await asyncio.sleep(8)
-        signed = await tab.js("!document.body.innerText.includes('Log In')")
+            t_end = time.time() + 8
+            while time.time() < t_end:                       # what Kick's server answered (status only, no bodies)
+                try:
+                    r = json.loads(await asyncio.wait_for(tab.ws.recv(), timeout=1))
+                except asyncio.TimeoutError:
+                    continue
+                if r.get("method") == "Network.responseReceived":
+                    u = r["params"]["response"]["url"]
+                    if "kick.com" in u and ("/api/" in u or "/register" in u or "/signup" in u or "verif" in u):
+                        say(f"  server: {r['params']['response']['status']} {u.split('?')[0][-70:]}")
+                    if r["params"]["response"]["status"] >= 400 and "kick.com" in u:
+                        rid = r["params"]["requestId"]
+                        await tab.ws.send(json.dumps({"id": 99999, "method": "Network.getResponseBody", "params": {"requestId": rid}}))
+            await asyncio.sleep(1)
+            alive = await tab.js(f"(() => {{ const d = {DLG}; return d ? 'open: ' + d.querySelector('input').value.length + ' digits; ' + d.innerText.slice(0, 160) : 'closed'; }})()")
+            say(f"after typing: {alive}")
+            await asyncio.sleep(4)
+            dl = await tab.js("[...document.querySelectorAll('[role=dialog],[role=alertdialog]')].map(d => d.innerText.trim())"
+                              ".filter(t => t && !t.startsWith('Your Privacy')).join(' || ')") or ""
+            say("after code: " + " / ".join(dl[:600].splitlines()))
+            btns = await tab.js("[...document.querySelectorAll('[role=dialog] button,[role=alertdialog] button')].filter(b => b.getBoundingClientRect().width > 0).map(b => (b.innerText || b.getAttribute('aria-label') || '').trim())")
+            say(f"buttons: {btns}")
+            if "I accept" in (btns or []):                   # owner 20 Nov: "do all the steps by yourself"
+                box = await tab.js("""(() => { const d = [...document.querySelectorAll('[role=dialog]')].find(x => x.innerText.includes('Please accept the terms'));
+                  const sc = [...d.querySelectorAll('*')].find(e => e.scrollHeight > e.clientHeight + 50 && getComputedStyle(e).overflowY !== 'visible');
+                  const r = (sc || d).getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()""")
+                for _ in range(120):                         # read to the end with the mouse wheel
+                    await tab.cmd("Input.dispatchMouseEvent", {"type": "mouseWheel", "x": box[0], "y": box[1],
+                                                               "deltaX": 0, "deltaY": 1500})
+                    await asyncio.sleep(0.05)
+                await asyncio.sleep(2)
+                st = await tab.js("(() => { const b = [...document.querySelectorAll('[role=dialog] button')].find(x => (x.innerText || '').trim() === 'I accept'); return b ? {disabled: b.disabled, aria: b.getAttribute('aria-disabled')} : null; })()")
+                say(f"I accept button: {st}")
+                await tab.click_text("I accept")
+                await asyncio.sleep(10)
+                dl = await tab.js("[...document.querySelectorAll('[role=dialog],[role=alertdialog]')].map(d => d.innerText.trim())"
+                                  ".filter(t => t && !t.startsWith('Your Privacy')).join(' || ')") or ""
+                say("after accepting: " + " / ".join(dl[:300].splitlines()))
+        signed = await tab.js("![...document.querySelectorAll('button')].some(b => (b.innerText || '').trim() === 'Log In' && b.getBoundingClientRect().width > 0)")
         ACCOUNT.parent.mkdir(parents=True, exist_ok=True)
         ACCOUNT.write_text(json.dumps({"username": user, "email": ALIAS, "created": time.strftime("%Y-%m-%d %H:%M"),
                                        "signed_in": bool(signed)}), encoding="utf-8")

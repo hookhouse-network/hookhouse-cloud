@@ -113,7 +113,9 @@ class _Tab:
         xy = await self.js(f"""(() => {{ const want = {want};
           const el = [...document.querySelectorAll('button,[role=button],[role=menuitem],[role=option],li,a')].find(e => {{
             const t = ((e.innerText || '').trim() || e.getAttribute('aria-label') || e.title || '').trim().toLowerCase(); const r = e.getBoundingClientRect();
-            return want.includes(t) && r.width > 0 && r.height > 0; }});
+            return want.includes(t) && r.width > 0 && r.height > 0; }}) || [...document.querySelectorAll('*')].find(e => {{
+            const t = (e.innerText || '').trim().toLowerCase(); const r = e.getBoundingClientRect();
+            return want.includes(t) && e.children.length <= 1 && r.width > 0 && r.height > 0; }});
           if (!el) return null; el.scrollIntoView({{block: 'center'}}); const r = el.getBoundingClientRect();
           return [r.x + r.width / 2, r.y + r.height / 2]; }})()""")
         if not xy:
@@ -124,9 +126,24 @@ class _Tab:
         return True
 
 
+async def _dismiss(tab) -> None:
+    """New-account pop-ups (welcome-reward survey, cookie choices) cover the page; close them without answering."""
+    xy = await tab.js("""(() => { const d = [...document.querySelectorAll('[role=dialog]')].find(x => /welcome reward|thrilled/i.test(x.innerText));
+      if (!d) return null; const b = [...d.querySelectorAll('button')].find(x => (x.innerText || x.getAttribute('aria-label') || '').trim() === 'Close');
+      if (!b) return null; const r = b.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()""")
+    if xy:
+        for k in ("mouseMoved", "mousePressed", "mouseReleased"):
+            await tab.cmd("Input.dispatchMouseEvent", {"type": k, "x": xy[0], "y": xy[1], "button": "left", "clickCount": 1})
+        await asyncio.sleep(1.5)
+        await tab.click_text("Exit anyways")
+        await asyncio.sleep(1.5)
+    await tab.click_text("Confirm My Choices")
+
+
 async def _list(slug: str, game: str, max_age_s: float, period: tuple[str, ...]) -> list[dict]:
     async with _Tab(f"https://kick.com/{slug}/clips") as tab:
-        await asyncio.sleep(12)                  # no "I am 18+" here: that is the live player's gate (swaps the list out)
+        await asyncio.sleep(12)
+        await _dismiss(tab)                      # no "I am 18+" here: that is the live player's gate (swaps the list out)
         if await tab.click_text("All Time"):                       # the page's own time filter
             await asyncio.sleep(2)
             await tab.click_text(*period)
@@ -150,10 +167,13 @@ async def _download(url: str, dest: Path, wait_s: float) -> Path | None:
     async with _Tab(url) as tab:
         await tab.cmd("Browser.setDownloadBehavior", {"behavior": "allow", "downloadPath": str(dest.resolve())})
         await asyncio.sleep(10)
+        await _dismiss(tab)
         await tab.click_text("I am 18+")
         await asyncio.sleep(2)
         if not await tab.click_text("Download"):                   # Kick's own button (Help Center: Download KICK Clips)
             return None
+        await asyncio.sleep(3)
+        await tab.click_text("Download clip")                      # the dialog's confirm (viewers: with Kick watermark)
         t0 = time.time()
         while time.time() - t0 < wait_s:
             await asyncio.sleep(2)
