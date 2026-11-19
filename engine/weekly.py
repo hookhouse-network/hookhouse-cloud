@@ -646,6 +646,8 @@ def make_item(plan: dict, item: dict, brain, memory=None, log=print) -> None:
         item["out_dir"], item["file"] = str(out), "video.mp4"
     else:
         raise RuntimeError(f"Channel type '{ch['type']}' has no video maker yet")
+    from .training_data import record                  # 19 Nov: our own training set (words now, numbers later)
+    record(item)
 
 
 def make_week(brain, start: date | str | None = None, only_ids: list[str] | None = None, memory=None,

@@ -164,6 +164,11 @@ def fetch(session=HTTP, log=print, conn=None) -> int:
         done += 1
     log(f"Stats: {done} new snapshots saved")
     channel_stats(session, log)
+    try:                                               # 19 Nov: scripts + their numbers -> our own training set
+        from .training_data import build
+        log(f"Training set: {build()} labelled videos")
+    except Exception as e:  # noqa: BLE001 - stats are saved either way
+        log(f"training set: {e}")
     return done
 
 

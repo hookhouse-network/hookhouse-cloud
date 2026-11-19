@@ -74,6 +74,18 @@ def card() -> str:
             "the real Instagram and Facebook links.</p></div>")
 
 
+def training_card() -> str:
+    """Progress of our own training set (fine-tune on Kaggle once READY_AT labelled videos exist)."""
+    from .training_data import status
+    s = status()
+    pct = min(100, round(100 * s["labelled"] / max(1, s["ready_at"])))
+    return (f"<div class=card><h2>🧠 Our own AI model</h2><p>Training set: <b>{s['labelled']}</b> videos with results "
+            f"(of {s['ready_at']} needed) · {s['scripts']} scripts saved</p><div style='background:var(--panel2);"
+            f"border-radius:6px;height:10px'><div style='width:{pct}%;height:10px;border-radius:6px;background:var(--acc)'>"
+            "</div></div><p class=muted>Every video's words are kept with its later numbers. At the target, a free model "
+            "is fine-tuned on our best videos (Kaggle GPU) so it writes in our winning style.</p></div>")
+
+
 CSS = """
 .acc td{white-space:nowrap}.acc-good a{color:#7ff0a8}.acc-warn{color:#ffd27a}.acc-warn a{color:#ffd27a}
 .acc-todo{color:var(--mut)}

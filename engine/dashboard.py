@@ -1332,8 +1332,8 @@ def _studio_css() -> str:
 def _accounts_card() -> str:
     """19 Nov: every channel's accounts on every platform, linked (owner: "all the things should be inter-linked")."""
     try:
-        from .dashboard_accounts import card
-        return card()
+        from .dashboard_accounts import card, training_card
+        return card() + training_card()
     except Exception as ex:  # noqa: BLE001 - the rest of the page still shows
         return f"<div class='card wide'><h2>🔗 Accounts &amp; links</h2><p class=muted>Couldn't build: {_e(ex)}</p></div>"
 
