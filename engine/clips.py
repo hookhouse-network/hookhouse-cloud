@@ -21,6 +21,7 @@ from .media.compose import Finisher, Grader, Look, _blend
 from .media.stickers import emoji_png, load_rgba
 from .media.fonts import FONTS_DIR, ensure_fonts
 from .media.transcribe import transcribe
+from engine.core.http import HTTP
 
 OUT_W, OUT_H = 1080, 1920
 YUNET_URL = ("https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/"
@@ -127,7 +128,7 @@ def fetch_source(src: str, dest_dir: Path) -> Path:
     if "dropbox.com" in src:
         src = re.sub(r"[?&]dl=0", "", src) + ("&" if "?" in src else "?") + "dl=1"
     dest = dest_dir / "source.mp4"
-    with requests.get(src, stream=True, timeout=120) as r:
+    with HTTP.get(src, stream=True, timeout=120) as r:
         r.raise_for_status()
         if "text/html" in r.headers.get("Content-Type", ""):   # a sign-in or "can't scan" page, not the video
             raise RuntimeError("The link opened a web page instead of the video file. Set the file to 'Anyone with "
@@ -148,7 +149,7 @@ def expand_source(link: str, limit: int = 15) -> list[str]:
     m = DRIVE_FOLDER.search(link)
     if not m:
         return [link]
-    r = requests.get(f"https://drive.google.com/embeddedfolderview?id={m.group(1)}", timeout=60)
+    r = HTTP.get(f"https://drive.google.com/embeddedfolderview?id={m.group(1)}", timeout=60)
     r.raise_for_status()
     found = re.findall(r'href="https://drive\.google\.com/file/d/([\w-]+)/view[^"]*"[^>]*>.*?'
                        r'class="flip-entry-title">([^<]+)<', r.text, re.S)
@@ -506,7 +507,7 @@ def _detector(w: int, h: int):
     model = ROOT / "assets" / "models" / "face_detection_yunet_2023mar.onnx"
     if not model.exists():
         model.parent.mkdir(parents=True, exist_ok=True)
-        model.write_bytes(requests.get(YUNET_URL, timeout=120).content)
+        model.write_bytes(HTTP.get(YUNET_URL, timeout=120).content)
     return cv2.FaceDetectorYN.create(str(model), "", (w, h), 0.7, 0.3, 5000)
 
 

@@ -22,6 +22,7 @@ import requests
 import yaml
 
 from .config import ROOT
+from engine.core.http import HTTP
 
 IDEAS = ROOT / "config" / "product_ideas.yaml"
 OUT = ROOT / "data" / "state" / "product_research.json"
@@ -34,7 +35,7 @@ def ideas() -> list[dict]:
     return yaml.safe_load(IDEAS.read_text(encoding="utf-8")) or []
 
 
-def demand(query: str, session=requests) -> dict:
+def demand(query: str, session=HTTP) -> dict:
     """{'median': views, 'top': [(title, views)]} for the most-viewed videos of the last 12 months."""
     from .niche_winners import _auth
     from .publish import add_quota, quota_ok
@@ -73,7 +74,7 @@ def score(idea: dict, dem: dict, buys: int, month: int) -> float:
     return round(d * season * (1 + 0.5 * min(buys, 4)) * EFFORT.get(idea.get("build", "new"), 0.7), 2)
 
 
-def run(session=requests, now: datetime | None = None, log=print) -> list[dict]:
+def run(session=HTTP, now: datetime | None = None, log=print) -> list[dict]:
     from . import comments
     now = now or datetime.now()
     try:

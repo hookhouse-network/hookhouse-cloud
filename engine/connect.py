@@ -21,6 +21,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import requests
 
 from .publish import SECRETS, yt_access_token, yt_token_path
+from engine.core.http import HTTP
 
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube",
           "https://www.googleapis.com/auth/youtube.force-ssl",          # captions upload (SEO v2)
@@ -36,7 +37,7 @@ def consent_url(client_id: str, redirect: str, state: str, scopes: list[str] | N
     return "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(q)
 
 
-def connect_youtube(channel_id: str, port: int = 8799, timeout_s: int = 300, session=requests, opener=None) -> bool:
+def connect_youtube(channel_id: str, port: int = 8799, timeout_s: int = 300, session=HTTP, opener=None) -> bool:
     tok = google_sign_in(SCOPES, port, timeout_s, session, opener, "Sign in with the Google account that owns this channel")
     if not tok:
         return False
@@ -51,7 +52,7 @@ def connect_youtube(channel_id: str, port: int = 8799, timeout_s: int = 300, ses
 GMAIL_TOKEN = SECRETS / "gmail_outreach.json"
 
 
-def connect_gmail(port: int = 8799, timeout_s: int = 300, session=requests, opener=None) -> bool:
+def connect_gmail(port: int = 8799, timeout_s: int = 300, session=HTTP, opener=None) -> bool:
     """The HookHouse Gmail (never a personal address) for creator outreach: permission to SEND only."""
     tok = google_sign_in([GMAIL_SEND], port, timeout_s, session, opener, "Sign in with the HookHouse Gmail")
     if not tok:
@@ -62,7 +63,7 @@ def connect_gmail(port: int = 8799, timeout_s: int = 300, session=requests, open
     return True
 
 
-def google_sign_in(scopes: list[str], port: int = 8799, timeout_s: int = 300, session=requests, opener=None,
+def google_sign_in(scopes: list[str], port: int = 8799, timeout_s: int = 300, session=HTTP, opener=None,
                    prompt: str = "Sign in") -> dict | None:
     """OAuth 2.0 for installed apps: Google's own page, a one-time code to 127.0.0.1, then the token answer."""
     cid, secret = os.environ.get("YOUTUBE_CLIENT_ID"), os.environ.get("YOUTUBE_CLIENT_SECRET")
@@ -111,7 +112,7 @@ def google_sign_in(scopes: list[str], port: int = 8799, timeout_s: int = 300, se
     return tok
 
 
-def meta_long_lived(token: str, session=requests) -> tuple[str, float | None]:
+def meta_long_lived(token: str, session=HTTP) -> tuple[str, float | None]:
     """A token copied from Meta's tools lasts 1-2 hours. With META_APP_ID + META_APP_SECRET in .env it is swapped
     for a 60-day token (official fb_exchange_token flow). Without them the token is kept as it is."""
     app_id, secret = os.environ.get("META_APP_ID"), os.environ.get("META_APP_SECRET")
@@ -126,14 +127,14 @@ def meta_long_lived(token: str, session=requests) -> tuple[str, float | None]:
     return d["access_token"], time.time() + float(d.get("expires_in") or 60 * 86400)
 
 
-def meta_page_token(page_id: str, user_token: str, session=requests) -> str:
+def meta_page_token(page_id: str, user_token: str, session=HTTP) -> str:
     """The Page's own token; made from a 60-day user token it does not expire (used for Facebook Reels)."""
     from .publish import GRAPH
     r = session.get(f"{GRAPH}/{page_id}", params={"fields": "access_token", "access_token": user_token}, timeout=30)
     return (r.json() or {}).get("access_token", "") if r.ok else ""
 
 
-def ig_long_lived(token: str, session=requests) -> tuple[str, float | None]:
+def ig_long_lived(token: str, session=HTTP) -> tuple[str, float | None]:
     """Instagram Login: short token -> 60-day token (ig_exchange_token); needs the app secret in .env."""
     secret = os.environ.get("META_APP_SECRET")
     if not secret:
@@ -145,7 +146,7 @@ def ig_long_lived(token: str, session=requests) -> tuple[str, float | None]:
     return d["access_token"], time.time() + float(d.get("expires_in") or 60 * 86400)
 
 
-def refresh_instagram_tokens(session=requests) -> list[str]:
+def refresh_instagram_tokens(session=HTTP) -> list[str]:
     """Instagram Login tokens last 60 days and can be renewed (ig_refresh_token) once they are a day old: done
     automatically when fewer than 20 days are left, so the owner never has to reconnect."""
     done = []
@@ -177,7 +178,7 @@ def refresh_instagram_tokens(session=requests) -> list[str]:
 
 
 def save_meta(channel_id: str, ig_user_id: str, page_id: str, access_token: str, page_token: str = "",
-              session=requests, exchange: bool = True, login: str = "facebook", expires_at: float | None = None) -> dict:
+              session=HTTP, exchange: bool = True, login: str = "facebook", expires_at: float | None = None) -> dict:
     """login="facebook": Instagram via a Facebook Page (also allows Facebook Reels).
     login="instagram": Instagram API with Instagram Login, no Facebook Page needed (Facebook Reels only if a Page
     id and Page token are given too)."""
@@ -194,7 +195,7 @@ def save_meta(channel_id: str, ig_user_id: str, page_id: str, access_token: str,
     return rec
 
 
-def token_health(session=requests) -> list[str]:
+def token_health(session=HTTP) -> list[str]:
     """Logins that stopped working or end soon (checked every morning; the owner gets one phone message)."""
     from .publish import GRAPH, IG_GRAPH
     probs = []
@@ -238,7 +239,7 @@ def token_health(session=requests) -> list[str]:
 YT_METRICS = "views,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,likes,comments,shares,subscribersGained"
 
 
-def fetch_youtube_metrics(channel_id: str, video_id: str, start: str, end: str, session=requests) -> dict | None:
+def fetch_youtube_metrics(channel_id: str, video_id: str, start: str, end: str, session=HTTP) -> dict | None:
     """Per-video totals from the YouTube Analytics API (dates YYYY-MM-DD). None if the channel isn't connected.
     {} when YouTube has no rows yet (Analytics runs 2-3 days behind): callers must NOT save that as zero views
     (18 Nov: every 2 h / 24 h snapshot was stored as 0 and never fetched again). engagedViews (the Shorts

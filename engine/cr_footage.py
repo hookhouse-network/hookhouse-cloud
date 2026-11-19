@@ -24,6 +24,7 @@ from .config import ROOT
 
 CDP = "http://127.0.0.1:9333"
 import os as _os
+from engine.core.http import HTTP
 # PC: data/pc (data/campaigns is overwritten by each pull). Cloud (18 Nov, logged-in jobs moved there): data/state,
 # which the memory bundle keeps, so each campaign is still checked at most every CHECK_EVERY_S.
 SEEN = ROOT / "data" / ("state" if _os.environ.get("HOOKHOUSE_CLOUD") else "pc") / "footage_checked.json"
@@ -103,7 +104,7 @@ def doc_links(links: list[str]) -> tuple[list[str], str]:
     found, text = [], ""
     for doc_id in list(dict.fromkeys(m.group(1) for u in links for m in [DOC.search(u)] if m))[:3]:
         try:
-            r = requests.get(f"https://docs.google.com/document/d/{doc_id}/export?format=txt", timeout=30)
+            r = HTTP.get(f"https://docs.google.com/document/d/{doc_id}/export?format=txt", timeout=30)
         except requests.RequestException:
             continue
         if r.ok and "text/plain" in r.headers.get("content-type", ""):

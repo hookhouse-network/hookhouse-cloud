@@ -23,6 +23,7 @@ import time
 from pathlib import Path
 
 import requests
+from engine.core.http import HTTP
 
 ROOT = Path(__file__).resolve().parent.parent
 CACHE = ROOT / "data" / "cache" / "scenes"
@@ -242,7 +243,7 @@ def _pollinations(prompt: str, seed: int, size: tuple[int, int]) -> bytes | None
     w, h = (1080, 1920) if size[1] > size[0] else (1920, 1080)     # Z-Image: up to 2.36 MP, so full HD directly
     for attempt in range(2):
         try:
-            r = requests.get(f"https://gen.pollinations.ai/image/{quote(prompt[:1500])}", timeout=180,
+            r = HTTP.get(f"https://gen.pollinations.ai/image/{quote(prompt[:1500])}", timeout=180,
                              params={"model": POLLINATIONS_MODEL, "width": w, "height": h, "seed": seed, "nologo": "true"},
                              headers={"Authorization": f"Bearer {key}"})
         except requests.RequestException:

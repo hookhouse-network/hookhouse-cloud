@@ -71,3 +71,10 @@ def _no_wikipedia_anniversaries(monkeypatch, request):
     import engine.events as ev
     if "real_events" not in request.keywords:
         monkeypatch.setattr(ev, "anniversary_hints", lambda *a, **k: {})
+
+
+@pytest.fixture(autouse=True)
+def _no_http_retries(monkeypatch):
+    """engine.core.http retries server errors with waits; tests simulate those errors on purpose (one call each)."""
+    from engine.core import http
+    monkeypatch.setattr(http.HTTP, "waits", ())

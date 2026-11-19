@@ -23,6 +23,7 @@ import requests
 from .config import ROOT
 from .connect import GMAIL_TOKEN
 from .publish import google_access_token
+from engine.core.http import HTTP
 
 SENT = ROOT / "data" / "state" / "gmail_sent.json"
 OPTOUT = ROOT / "data" / "state" / "outreach_optout.json"
@@ -91,7 +92,7 @@ def build(to: str, subject: str, body: str, thread: dict | None = None) -> tuple
     return msg, mid
 
 
-def send(to: str, subject: str, body: str, thread: dict | None = None, session=requests) -> dict:
+def send(to: str, subject: str, body: str, thread: dict | None = None, session=HTTP) -> dict:
     """Send one email from the HookHouse Gmail. Returns {"id", "thread_id", "message_id", "subject"}."""
     ok, why = ready()
     if not ok:

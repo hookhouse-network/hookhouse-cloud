@@ -26,6 +26,7 @@ from .config import ROOT
 from .media import ffmpeg
 from .media.fonts import FONTS_DIR, ensure_fonts, font_file
 from .media.shaping import pil_draw_text, pil_text_length
+from engine.core.http import HTTP
 
 OUT_W, OUT_H, FPS = 1080, 1920, 30
 BACKCHANNEL = {"yeah", "yes", "yep", "right", "mm", "mhm", "mm-hm", "uh-huh", "okay", "ok", "wow", "sure", "true",
@@ -89,7 +90,7 @@ def _detector(w: int, h: int):
         from .clips import YUNET_URL
         import requests
         model.parent.mkdir(parents=True, exist_ok=True)
-        model.write_bytes(requests.get(YUNET_URL, timeout=120).content)
+        model.write_bytes(HTTP.get(YUNET_URL, timeout=120).content)
     return cv2.FaceDetectorYN.create(str(model), "", (w, h), 0.7, 0.3, 5000)
 
 

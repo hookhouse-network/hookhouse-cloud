@@ -25,6 +25,7 @@ import requests
 import soundfile as sf
 
 from ..config import ROOT
+from engine.core.http import HTTP
 
 API = "https://texttospeech.googleapis.com/v1/text:synthesize"
 SR = 24000
@@ -73,7 +74,7 @@ def markup(text: str) -> str:
     return t.replace("... ", "[pause] ") if t.count("...") <= 2 else t
 
 
-def synthesize(text: str, out_wav: Path, voice_name: str, speed: float = 1.0, session=requests) -> float:
+def synthesize(text: str, out_wav: Path, voice_name: str, speed: float = 1.0, session=HTTP) -> float:
     """Write one line to out_wav (24 kHz mono). Returns seconds. Raises when not configured or over the safe cap."""
     if not key():
         raise RuntimeError("GOOGLE_TTS_API_KEY is not set")

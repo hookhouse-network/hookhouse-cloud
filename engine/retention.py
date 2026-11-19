@@ -20,6 +20,7 @@ from pathlib import Path
 import requests
 
 from .config import ROOT
+from engine.core.http import HTTP
 
 URL = "https://youtubeanalytics.googleapis.com/v2/reports"
 SCHEMA = """
@@ -40,7 +41,7 @@ def connect(path: Path | None = None) -> sqlite3.Connection:
     return conn
 
 
-def fetch_curve(channel_id: str, video_id: str, start: str, end: str, session=requests) -> list[tuple] | None:
+def fetch_curve(channel_id: str, video_id: str, start: str, end: str, session=HTTP) -> list[tuple] | None:
     """[(ratio, watch, relative)] or None when the channel isn't connected."""
     from .publish import yt_access_token
     token = yt_access_token(channel_id, session)
@@ -148,7 +149,7 @@ def _items_by_id(days: int) -> dict:
         return {}
 
 
-def run(session=requests, log=print, conn=None, memory=None, now: float | None = None, videos=None,
+def run(session=HTTP, log=print, conn=None, memory=None, now: float | None = None, videos=None,
         items: dict | None = None) -> int:
     """Reads the curves that are due (4-30 days old, not read yet), at most PER_DAY a day."""
     from .stats_fetch import posted_videos

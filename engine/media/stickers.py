@@ -9,6 +9,7 @@ import numpy as np
 import requests
 
 from ..config import ROOT
+from engine.core.http import HTTP
 
 EMOJI_DIR = ROOT / "assets" / "emoji"
 BASE = "https://raw.githubusercontent.com/googlefonts/noto-emoji/main"
@@ -28,7 +29,7 @@ def emoji_png(emoji: str) -> Path | None:
     EMOJI_DIR.mkdir(parents=True, exist_ok=True)
     for style in ("3D", "2D"):
         try:
-            r = requests.get(f"{BASE}/{style}/png/512/emoji_u{code}.png", timeout=30)
+            r = HTTP.get(f"{BASE}/{style}/png/512/emoji_u{code}.png", timeout=30)
         except requests.RequestException:
             return None
         if r.ok and r.content[:4] == b"\x89PNG":

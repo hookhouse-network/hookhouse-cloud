@@ -65,6 +65,7 @@ class Page:
 # the picture farm (.github/workflows/pictures.yml); SD_DIR / FLUX_DIR point at its download folders there.
 import os as _os
 import sys as _sys
+from engine.core.http import HTTP
 SD_DIR = Path(_os.environ.get("SD_DIR") or ROOT / "tools" / "sdcpp")
 FLUX_DIR = Path(_os.environ.get("FLUX_DIR") or MODELS / "flux")
 SD_EXE = "sd-server.exe" if _sys.platform.startswith("win") else "sd-server"
@@ -81,7 +82,7 @@ def _threads() -> int:
 def sd_server_up() -> bool:
     import requests
     try:
-        return requests.get(f"{SD_URL}/sdapi/v1/options", timeout=5).ok
+        return HTTP.get(f"{SD_URL}/sdapi/v1/options", timeout=5).ok
     except requests.RequestException:
         return False
 

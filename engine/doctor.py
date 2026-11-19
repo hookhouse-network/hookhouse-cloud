@@ -13,6 +13,7 @@ import time
 import requests
 
 from .config import ROOT
+from engine.core.http import HTTP
 
 SECRETS = ROOT / "data" / "secrets"
 
@@ -21,7 +22,7 @@ def _r(area, status, seen, fix=""):
     return {"area": area, "status": status, "seen": seen, "fix": fix}
 
 
-def telegram(session=requests) -> list[dict]:
+def telegram(session=HTTP) -> list[dict]:
     tok = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     if not tok:
         return [_r("Telegram", "bad", "no bot token", "Phase 1: token from @BotFather into .env (TELEGRAM_BOT_TOKEN=)")]
@@ -38,7 +39,7 @@ def telegram(session=requests) -> list[dict]:
     return out
 
 
-def youtube(session=requests) -> list[dict]:
+def youtube(session=HTTP) -> list[dict]:
     from .publish import _quota_state, yt_access_token
     out = []
     if not (os.environ.get("YOUTUBE_CLIENT_ID") and os.environ.get("YOUTUBE_CLIENT_SECRET")):
@@ -72,7 +73,7 @@ def youtube(session=requests) -> list[dict]:
     return out
 
 
-def meta(session=requests) -> list[dict]:
+def meta(session=HTTP) -> list[dict]:
     from .publish import GRAPH, IG_GRAPH
     out = []
     files = sorted(SECRETS.glob("meta_*.json")) if SECRETS.exists() else []
@@ -106,12 +107,12 @@ def meta(session=requests) -> list[dict]:
     return out
 
 
-def threads(session=requests) -> list[dict]:
+def threads(session=HTTP) -> list[dict]:
     from .threads import check
     return check(session)
 
 
-def dailymotion(session=requests) -> list[dict]:
+def dailymotion(session=HTTP) -> list[dict]:
     from .publish import _dm_token, dm_creds
     from .config import channels
     out = []
@@ -183,7 +184,7 @@ def extras() -> list[dict]:
     return out
 
 
-def run(session=requests) -> list[dict]:
+def run(session=HTTP) -> list[dict]:
     out = []
     for fn in (local, telegram, youtube, meta, threads, dailymotion, extras):
         try:

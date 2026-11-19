@@ -7,6 +7,7 @@ from pathlib import Path
 import requests
 
 from ..config import ROOT
+from engine.core.http import HTTP
 
 FONTS_DIR = ROOT / "assets" / "fonts"
 BASE = "https://github.com/google/fonts/raw/main"
@@ -44,7 +45,7 @@ def ensure_fonts() -> Path:
         dest = FONTS_DIR / local
         if dest.exists() and dest.stat().st_size > 10_000:
             continue
-        resp = requests.get(f"{BASE}/{remote}", timeout=60)
+        resp = HTTP.get(f"{BASE}/{remote}", timeout=60)
         resp.raise_for_status()
         dest.write_bytes(resp.content)
     return FONTS_DIR

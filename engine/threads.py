@@ -21,6 +21,7 @@ from pathlib import Path
 import requests
 
 from .config import ROOT
+from engine.core.http import HTTP
 
 GRAPH = "https://graph.threads.net"
 VERSION = "v1.0"
@@ -82,7 +83,7 @@ def _channel_for(username: str, hint: str | None = None) -> str | None:
     return hint
 
 
-def connect(code: str, channel_hint: str | None = None, session=requests) -> str:
+def connect(code: str, channel_hint: str | None = None, session=HTTP) -> str:
     """Code -> short token -> 60-day token, saved for the channel whose Instagram name matches."""
     app_id, secret = os.environ.get("THREADS_APP_ID", "").strip(), os.environ.get("THREADS_APP_SECRET", "").strip()
     if not (app_id and secret):
@@ -110,7 +111,7 @@ def connect(code: str, channel_hint: str | None = None, session=requests) -> str
     return f"✅ Threads @{username} connected to {cid} (60-day login, renewed automatically)."
 
 
-def refresh_all(session=requests, log=print, now: float | None = None) -> int:
+def refresh_all(session=HTTP, log=print, now: float | None = None) -> int:
     """Renews 60-day tokens that are at least a day old and run out within 15 days."""
     now = now or time.time()
     n = 0
@@ -154,7 +155,7 @@ def text_for(meta: dict, youtube_id: str | None = None) -> str:
     return (body + ("\n\n" + tail if tail else "")).strip()[:TEXT_MAX]
 
 
-def ig_video_url(channel_id: str, media_id: str, session=requests) -> str | None:
+def ig_video_url(channel_id: str, media_id: str, session=HTTP) -> str | None:
     """The published Reel's own video link from Instagram (public, short-lived): Threads fetches it once."""
     from .publish import GRAPH as FB_GRAPH, IG_GRAPH, meta_creds
     c = meta_creds(channel_id)
@@ -170,7 +171,7 @@ def ig_video_url(channel_id: str, media_id: str, session=requests) -> str | None
     return None
 
 
-def post_video(channel_id: str, video_url: str, text: str, session=requests, dry_run: bool = True,
+def post_video(channel_id: str, video_url: str, text: str, session=HTTP, dry_run: bool = True,
                item_id: str = "", poll_s: float = 10.0, max_polls: int = 60):
     from .publish import Action, _log
     act = Action("threads", channel_id, item_id, "publish Threads video", details={"chars": len(text)})
@@ -220,7 +221,7 @@ def post_video(channel_id: str, video_url: str, text: str, session=requests, dry
     return act
 
 
-def check(session=requests) -> list[dict]:
+def check(session=HTTP) -> list[dict]:
     """Doctor lines: each connected profile answers, and how long its login lasts."""
     out = []
     for p in sorted(SECRETS.glob("threads_*.json")) if SECRETS.exists() else []:

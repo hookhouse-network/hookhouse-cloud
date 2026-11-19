@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from engine.core.http import HTTP
 
 OUR_PLATFORMS = ("youtube", "instagram")
 AD = re.compile(r"#(ad|advertisement|sponsored)\b", re.I)
@@ -53,7 +54,7 @@ def logo_file(campaign: dict, folder: Path) -> Path | None:
     from PIL import Image
     for url in campaign.get("logo_urls") or []:
         try:
-            r = requests.get(url, timeout=60)
+            r = HTTP.get(url, timeout=60)
             r.raise_for_status()
             im = Image.open(io.BytesIO(r.content)).convert("RGBA")
         except Exception:  # noqa: BLE001 - try the next one

@@ -27,6 +27,7 @@ from pathlib import Path
 import requests
 
 from .config import ROOT
+from engine.core.http import HTTP
 
 SECRETS = ROOT / "data" / "secrets"
 LOG = ROOT / "data" / "publish_log.jsonl"
@@ -65,12 +66,12 @@ def yt_token_path(channel_id: str) -> Path:
     return SECRETS / f"youtube_{channel_id}.json"
 
 
-def yt_access_token(channel_id: str, session=requests) -> str | None:
+def yt_access_token(channel_id: str, session=HTTP) -> str | None:
     """Refreshes the stored OAuth token. None if the channel is not connected yet."""
     return google_access_token(yt_token_path(channel_id), session)
 
 
-def google_access_token(p: Path, session=requests) -> str | None:
+def google_access_token(p: Path, session=HTTP) -> str | None:
     """Fresh access token from a stored Google refresh token (data/secrets/*.json); None if not connected."""
     cid, secret = os.environ.get("YOUTUBE_CLIENT_ID"), os.environ.get("YOUTUBE_CLIENT_SECRET")
     if not p.exists() or not cid or not secret:
@@ -121,7 +122,7 @@ def youtube_metadata(meta: dict, publish_at: str | None, made_for_kids: bool = F
             "status": status}
 
 
-def youtube_upload(channel_id: str, video: Path, meta: dict, publish_at: str | None, session=requests,
+def youtube_upload(channel_id: str, video: Path, meta: dict, publish_at: str | None, session=HTTP,
                    dry_run: bool = True) -> Action:
     from .links import footer as _footer
     foot = _footer(channel_id, ch_lang(channel_id), kids=bool(meta.get("made_for_kids"))) if not meta.get("clip") else ""
@@ -199,7 +200,7 @@ def _yt_reason(resp) -> str:
         return ""
 
 
-def youtube_delete(channel_id: str, video_id: str, session=requests) -> bool:
+def youtube_delete(channel_id: str, video_id: str, session=HTTP) -> bool:
     """Removes a scheduled upload (used when the owner changes or rejects a video after approving it)."""
     try:
         token = yt_access_token(channel_id, session)
@@ -216,7 +217,7 @@ def youtube_delete(channel_id: str, video_id: str, session=requests) -> bool:
     return ok
 
 
-def youtube_reschedule(channel_id: str, video_id: str, publish_at: str, session=requests) -> bool:
+def youtube_reschedule(channel_id: str, video_id: str, publish_at: str, session=HTTP) -> bool:
     """Moves a scheduled (private) upload to a new publish time. videos.update replaces the whole status part, so
     the current status is read first and only publishAt changes (made-for-kids, AI label etc. stay as they are)."""
     try:
@@ -245,7 +246,7 @@ def youtube_reschedule(channel_id: str, video_id: str, publish_at: str, session=
     return ok
 
 
-def youtube_thumbnail(channel_id: str, video_id: str, image: Path, session=requests, dry_run: bool = True) -> Action:
+def youtube_thumbnail(channel_id: str, video_id: str, image: Path, session=HTTP, dry_run: bool = True) -> Action:
     """Custom thumbnail (thumbnails.set, ~50 units; needs a verified channel; max 50 MB). Shorts too since 3 Nov 2026,
     but only after YouTube finished processing the Short (see process_pending_thumbnails)."""
     act = Action("youtube", channel_id, "", f"thumbnail {image.name} -> {video_id}")
@@ -274,7 +275,7 @@ def queue_short_thumbnail(channel_id: str, video_id: str, image: Path) -> None:
     PENDING_THUMBS.write_text(json.dumps(rows), encoding="utf-8")
 
 
-def process_pending_thumbnails(session=requests) -> int:
+def process_pending_thumbnails(session=HTTP) -> int:
     """Set queued Shorts thumbnails once YouTube says processing succeeded (videos.list, 1 unit each)."""
     if not PENDING_THUMBS.exists():
         return 0
@@ -337,7 +338,7 @@ def already_posted(it: dict, ignore_youtube_id: str | None = None) -> list[str]:
 CAPTION_UNITS = 400
 
 
-def youtube_captions(channel_id: str, video_id: str, srt: Path, language: str, session=requests,
+def youtube_captions(channel_id: str, video_id: str, srt: Path, language: str, session=HTTP,
                      dry_run: bool = True) -> Action:
     """Our own captions file (exact words, correct Hindi): search reads it and sound-off viewers get real subtitles."""
     act = Action("youtube", channel_id, "", f"captions {srt.name} -> {video_id} ({language})")
@@ -365,7 +366,7 @@ def youtube_captions(channel_id: str, video_id: str, srt: Path, language: str, s
     return act
 
 
-def youtube_add_to_playlist(channel_id: str, video_id: str, playlist_id: str, session=requests,
+def youtube_add_to_playlist(channel_id: str, video_id: str, playlist_id: str, session=HTTP,
                             dry_run: bool = True) -> Action:
     act = Action("youtube", channel_id, "", f"add {video_id} to playlist {playlist_id}")
     token = None if dry_run else yt_access_token(channel_id, session)
@@ -406,7 +407,7 @@ def playlist_title(channel_id: str, fmt: str) -> str:
     return custom or (f"{name}: full episodes" if fmt == "long" else f"{name}: Shorts")
 
 
-def ensure_playlist(channel_id: str, title: str, session=requests, kids: bool = False) -> str | None:
+def ensure_playlist(channel_id: str, title: str, session=HTTP, kids: bool = False) -> str | None:
     """The playlist's id, creating it once (playlists.insert, ~50 units)."""
     cache = json.loads(PLAYLISTS.read_text(encoding="utf-8")) if PLAYLISTS.exists() else {}
     pid = (cache.get(channel_id) or {}).get(title)
@@ -427,7 +428,7 @@ def ensure_playlist(channel_id: str, title: str, session=requests, kids: bool = 
     return pid
 
 
-def ensure_podcast(channel_id: str, playlist_id: str, session=requests) -> bool:
+def ensure_podcast(channel_id: str, playlist_id: str, session=HTTP) -> bool:
     """Mark the channel's full-episodes playlist as a podcast show (YouTube Music podcasts): a square playlist image
     (playlistImages.insert, 50 units) then status.podcastStatus=enabled. Done once; remembered in playlists.json."""
     cache = json.loads(PLAYLISTS.read_text(encoding="utf-8")) if PLAYLISTS.exists() else {}
@@ -578,7 +579,7 @@ def share_link(video: Path, hours: float = 2.0):
     return f"{WORKER_URL}/v/{asset['id']}/{exp}/{sig}", cleanup
 
 
-def _ig_container(host: str, ig: str, tok: str, video: Path, params: dict, session=requests):
+def _ig_container(host: str, ig: str, tok: str, video: Path, params: dict, session=HTTP):
     """Create the media container: public link first (works for every login type), direct upload as the fallback.
     Returns (container id or None, error text, cleanup)."""
     link = share_link(video) if session is requests else None
@@ -601,7 +602,7 @@ def _ig_container(host: str, ig: str, tok: str, video: Path, params: dict, sessi
     return c["id"], "", lambda: None
 
 
-def instagram_reel(channel_id: str, video: Path, caption: str, trial: bool = False, session=requests,
+def instagram_reel(channel_id: str, video: Path, caption: str, trial: bool = False, session=HTTP,
                    dry_run: bool = True, poll_s: float = 5.0, item_id: str = "", ai: bool = False,
                    paid: bool = False) -> Action:
     act = Action("instagram", channel_id, item_id, f"publish Reel {video.name}" + (" as Trial Reel" if trial else ""),
@@ -676,7 +677,7 @@ def story_clip(video: Path, out: Path, seconds: float = 15.0, banner: str = "NEW
     return out
 
 
-def instagram_story(channel_id: str, video: Path, session=requests, dry_run: bool = True, poll_s: float = 5.0,
+def instagram_story(channel_id: str, video: Path, session=HTTP, dry_run: bool = True, poll_s: float = 5.0,
                     item_id: str = "") -> Action:
     """Publish a video Story (Content Publishing API, media_type=STORIES; professional accounts)."""
     act = Action("instagram", channel_id, item_id, f"publish Story {video.name}")
@@ -710,7 +711,7 @@ def instagram_story(channel_id: str, video: Path, session=requests, dry_run: boo
     return act
 
 
-def facebook_reel(channel_id: str, video: Path, description: str, session=requests, dry_run: bool = True,
+def facebook_reel(channel_id: str, video: Path, description: str, session=HTTP, dry_run: bool = True,
                   item_id: str = "") -> Action:
     act = Action("facebook", channel_id, item_id, f"cross-post Reel {video.name} to the Facebook Page")
     creds = None if dry_run else meta_creds(channel_id)
@@ -767,7 +768,7 @@ def dm_creds(channel_id: str) -> dict | None:
     return None
 
 
-def _dm_token(creds: dict, session=requests) -> str:
+def _dm_token(creds: dict, session=HTTP) -> str:
     key = creds["client_id"]
     tok = _DM_TOKENS.get(key)
     if tok and tok[1] > time.time() + 60:
@@ -781,7 +782,7 @@ def _dm_token(creds: dict, session=requests) -> str:
     return d["access_token"]
 
 
-def dailymotion_upload(channel_id: str, video: Path, meta: dict, item_id: str = "", session=requests,
+def dailymotion_upload(channel_id: str, video: Path, meta: dict, item_id: str = "", session=HTTP,
                        dry_run: bool = True) -> Action:
     """Our own video on Dailymotion: upload session -> file -> create the public video with the right labels."""
     act = Action("dailymotion", channel_id, item_id, f"upload {video.name}")
@@ -876,7 +877,7 @@ def _safe(fn, platform: str, channel_id: str, item_id: str, what: str) -> Action
         return act
 
 
-def upload_item(it: dict, dry_run: bool = True, session=requests, platforms=("youtube", "instagram", "facebook"),
+def upload_item(it: dict, dry_run: bool = True, session=HTTP, platforms=("youtube", "instagram", "facebook"),
                 publish_at: str | None = "item") -> list[Action]:
     """Uploads ONE owner-approved plan item to the chosen platforms (safety checks first). publish_at="item" keeps
     the item's own time (YouTube schedules it); None posts now."""
@@ -1057,7 +1058,7 @@ def _hub_link(it: dict) -> str:
     return ""
 
 
-def plan_uploads(week: str | None = None, dry_run: bool = True, session=requests) -> list[Action]:
+def plan_uploads(week: str | None = None, dry_run: bool = True, session=HTTP) -> list[Action]:
     """Turns the owner's APPROVED items of a week into upload actions (dry run unless dry_run=False)."""
     from . import weekly
     week = week or weekly.latest_week()

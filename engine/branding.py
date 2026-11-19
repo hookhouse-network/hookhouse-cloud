@@ -17,6 +17,7 @@ import requests
 
 from .config import ROOT, channels as all_channels
 from .publish import SECRETS, YT_API, add_quota, quota_ok, yt_access_token, yt_token_path
+from engine.core.http import HTTP
 
 STATE = ROOT / "data" / "state" / "branding.json"
 BRAND = ROOT / "output" / "brand"
@@ -85,7 +86,7 @@ def merged_settings(current: dict, ch: dict, banner_url: str = "") -> dict:
     return bs
 
 
-def apply(ch: dict, session=requests, force: bool = False, log=print) -> str:
+def apply(ch: dict, session=HTTP, force: bool = False, log=print) -> str:
     """Write one channel's branding. Returns a short result line."""
     cid = ch["id"]
     if not yt_token_path(cid).exists():
@@ -135,7 +136,7 @@ def apply(ch: dict, session=requests, force: bool = False, log=print) -> str:
     return f"{ch['name']}: About, keywords, country, language" + (" and banner" if banner_url else "") + " written"
 
 
-def apply_all(session=requests, log=print) -> list[str]:
+def apply_all(session=HTTP, log=print) -> list[str]:
     """Daily (09:00 job) and right after connecting: every connected channel whose branding is missing or old."""
     out = []
     for ch in all_channels():

@@ -20,6 +20,7 @@ from datetime import datetime, timedelta, timezone
 import requests
 
 from .config import ROOT
+from engine.core.http import HTTP
 
 API = "https://www.googleapis.com/youtube/v3"
 KEEP_DAYS = 30
@@ -43,7 +44,7 @@ QUERIES = {   # what a viewer of each channel searches for (first = Shorts, seco
 TAGS = re.compile(r"\s*#\S+")
 
 
-def _auth(session=requests) -> tuple[dict, dict] | None:
+def _auth(session=HTTP) -> tuple[dict, dict] | None:
     """An API key (YOUTUBE_API_KEY) or the login of any connected channel."""
     key = os.environ.get("YOUTUBE_API_KEY", "").strip()
     if key:
@@ -60,7 +61,7 @@ def _auth(session=requests) -> tuple[dict, dict] | None:
     return None
 
 
-def search(ch: dict, long: bool = False, days: int = 14, n: int = 8, session=requests) -> list[dict]:
+def search(ch: dict, long: bool = False, days: int = 14, n: int = 8, session=HTTP) -> list[dict]:
     """The most-viewed recent videos for the channel's niche: [{id, title, channel, views, published}]."""
     from .publish import add_quota, quota_ok
     auth = _auth(session)
@@ -102,7 +103,7 @@ def purge(memory) -> int:
     return cur.rowcount or 0
 
 
-def refresh(memory, log=print, session=requests) -> dict[str, list[dict]]:
+def refresh(memory, log=print, session=HTTP) -> dict[str, list[dict]]:
     """Weekly: fetch each niche's current winners into memory; returns them for the owner's message."""
     from .config import channels
     from .policy import topic_flags

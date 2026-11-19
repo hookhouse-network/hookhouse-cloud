@@ -20,6 +20,7 @@ from pathlib import Path
 import requests
 
 from .config import ROOT
+from engine.core.http import HTTP
 
 YT = "https://www.googleapis.com/youtube/v3"
 SCHEMA = """
@@ -82,7 +83,7 @@ def _ts(iso: str) -> float:
         return time.time()
 
 
-def fetch_youtube(channel_id: str, video_id: str, session=requests) -> list[dict]:
+def fetch_youtube(channel_id: str, video_id: str, session=HTTP) -> list[dict]:
     from .publish import add_quota, quota_ok, yt_access_token
     tok = yt_access_token(channel_id, session)
     if not tok or not quota_ok(1):
@@ -107,7 +108,7 @@ def fetch_youtube(channel_id: str, video_id: str, session=requests) -> list[dict
     return out
 
 
-def fetch_instagram(channel_id: str, media_id: str, session=requests) -> list[dict]:
+def fetch_instagram(channel_id: str, media_id: str, session=HTTP) -> list[dict]:
     from .publish import GRAPH, IG_GRAPH, meta_creds
     c = meta_creds(channel_id)
     if not c:
@@ -242,7 +243,7 @@ def replies_today(conn, now: float | None = None) -> int:
     return conn.execute("SELECT COUNT(*) FROM comments WHERE replied_at > ?", (now - 86400,)).fetchone()[0]
 
 
-def reply(n: int, text: str | None = None, conn=None, session=requests) -> str:
+def reply(n: int, text: str | None = None, conn=None, session=HTTP) -> str:
     """Posts the approved reply (owner's tap or /reply). Returns a line for Telegram."""
     conn = conn or connect()
     row = conn.execute("SELECT platform, comment_id, channel, draft, status FROM comments WHERE n=?", (n,)).fetchone()
@@ -316,7 +317,7 @@ def purge(conn, now: float | None = None) -> int:
     return cur.rowcount
 
 
-def daily(brain=None, log=print, session=requests, conn=None, send=None, videos=None) -> dict:
+def daily(brain=None, log=print, session=HTTP, conn=None, send=None, videos=None) -> dict:
     conn = conn or connect()
     purge(conn)
     calls = new = 0

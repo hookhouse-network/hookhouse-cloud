@@ -15,6 +15,7 @@ import requests
 from . import analytics
 from .config import ROOT
 from .publish import GRAPH, IG_GRAPH, LOG, SECRETS
+from engine.core.http import HTTP
 
 BUCKETS = (2, 24, 48, 168)
 
@@ -131,7 +132,7 @@ def _instagram(v: dict, session) -> dict | None:
             "avg_view_s": round(avg_ms / 1000, 1) if avg_ms else None}
 
 
-def fetch(session=requests, log=print, conn=None) -> int:
+def fetch(session=HTTP, log=print, conn=None) -> int:
     conn = conn or analytics.connect()
     # repair (18 Nov): Analytics answered "no rows yet" with zeros, which were saved as real snapshots and never
     # fetched again. Their signature: watch % exactly 0 (public counters leave it empty), taken within 3 days.
@@ -169,7 +170,7 @@ def fetch(session=requests, log=print, conn=None) -> int:
 TERMS = ROOT / "data" / "state" / "search_terms.json"
 
 
-def search_terms(session=requests, log=print, days: int = 28) -> dict:
+def search_terms(session=HTTP, log=print, days: int = 28) -> dict:
     """Weekly, per connected channel: the YouTube searches that brought views (our own channel's data, YouTube
     Analytics insightTrafficSourceDetail for YT_SEARCH). Kept 12 weeks. Drift alert (idea from claude-seo's
     seo-drift): search views down 30%+ on last week. The terms also go to the planner as topic hints."""
@@ -215,7 +216,7 @@ def top_terms(channel_id: str, n: int = 8) -> list[tuple[str, int]]:
     return [tuple(x) for x in (hist[-1]["terms"] if hist else [])][:n]
 
 
-def channel_stats(session=requests, log=print) -> int:
+def channel_stats(session=HTTP, log=print) -> int:
     """Subscribers / followers per connected account (YouTube Data API, Instagram Graph API) -> account_stats."""
     from . import db
     from .config import channels
@@ -264,7 +265,7 @@ def live_stats() -> dict:
         return {"videos": {}, "channels": {}, "history": {}}
 
 
-def live(session=requests, log=print) -> dict:
+def live(session=HTTP, log=print) -> dict:
     """{'videos': {id: {views, likes, comments, title, channel, at}}, 'channels': {cid: {subs, views, videos,
     followers_ig}}, 'history': {cid: [[day, subs, views]...]}} -> data/state/live_stats.json."""
     import os

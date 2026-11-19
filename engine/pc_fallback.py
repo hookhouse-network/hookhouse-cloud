@@ -33,6 +33,7 @@ from pathlib import Path
 import requests
 
 from .config import ROOT, load_env
+from engine.core.http import HTTP
 
 STATE = ROOT / "data" / "state"
 CUTOFF_FILE = STATE / "pc_cutoff.txt"
@@ -90,7 +91,7 @@ def slot_ts(it: dict) -> float:
 _YT_CACHE: dict[str, tuple[float, list[dict]]] = {}
 
 
-def yt_uploads(channel_id: str, session=requests) -> list[dict]:
+def yt_uploads(channel_id: str, session=HTTP) -> list[dict]:
     """The channel's latest uploads incl. private/scheduled ones: [{id, title, at}] (at = publishAt or publishedAt).
     About 3 quota units; cached 10 minutes."""
     hit = _YT_CACHE.get(channel_id)
@@ -561,7 +562,7 @@ def new_dash_key() -> str:
 
 
 # ---------------- handover ----------------
-def github_back(session=requests) -> bool:
+def github_back(session=HTTP) -> bool:
     from .cloud import store
     try:
         r = session.get(f"https://api.github.com/repos/{store.repo()}",

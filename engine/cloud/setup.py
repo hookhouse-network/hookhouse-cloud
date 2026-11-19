@@ -20,6 +20,7 @@ from pathlib import Path
 import requests
 
 from ..config import ROOT
+from engine.core.http import HTTP
 
 REPO_NAME = "hookhouse"
 LOCAL_ONLY = {"HOOKHOUSE_CLOUD", "HOOKHOUSE_REPO", "CODE_REPO", "GH_TOKEN", "USE_CLAUDE_CLI"}     # PC settings, not sent to the cloud
@@ -202,7 +203,7 @@ def gh_secret(full: str, name: str, value: str) -> None:
 
 def cf_kv_namespace(acct: str, token: str, title: str = "hookhouse") -> str:
     h = {"Authorization": f"Bearer {token}"}
-    r = requests.get(f"{CF}/accounts/{acct}/storage/kv/namespaces", headers=h, params={"per_page": 100}, timeout=30)
+    r = HTTP.get(f"{CF}/accounts/{acct}/storage/kv/namespaces", headers=h, params={"per_page": 100}, timeout=30)
     r.raise_for_status()
     for ns in r.json().get("result", []):
         if ns.get("title") == title:
@@ -213,7 +214,7 @@ def cf_kv_namespace(acct: str, token: str, title: str = "hookhouse") -> str:
 
 
 def cf_subdomain(acct: str, token: str) -> str:
-    r = requests.get(f"{CF}/accounts/{acct}/workers/subdomain", headers={"Authorization": f"Bearer {token}"}, timeout=30)
+    r = HTTP.get(f"{CF}/accounts/{acct}/workers/subdomain", headers={"Authorization": f"Bearer {token}"}, timeout=30)
     r.raise_for_status()
     return r.json()["result"]["subdomain"]
 
