@@ -533,12 +533,22 @@ def open_dashboard() -> str:
     """Desktop icon (owner 18 Nov: "a shortcut or icon that runs the system and I can see the dashboard"): starts
     the PC stand-in window if it isn't running (and the cloud hasn't taken over), then opens the live dashboard."""
     import subprocess
+    import sys
     import webbrowser
     started = ""
     if not HANDED_FILE.exists() and not standin_running():
         subprocess.Popen(["cmd", "/c", "start", "HookHouse PC stand-in", "/min",
                           str(ROOT / "scripts" / "pc_standin.cmd")], cwd=str(ROOT))
         started = "System started. "
+    try:                                         # 19 Nov: keep the PC light (the folder had grown past 24 GB)
+        from .cleanup import due_on_pc
+        if due_on_pc():
+            logf = open(ROOT / "data" / "logs" / "cleanup.log", "a", encoding="utf-8")   # noqa: SIM115 - child owns it
+            subprocess.Popen([sys.executable, "-c", "from engine.cleanup import run_pc; run_pc()"], cwd=str(ROOT),
+                             stdout=logf, stderr=subprocess.STDOUT, creationflags=0x08000000)   # no window
+            started += "Clean-up running in the background. "
+    except Exception:  # noqa: BLE001 - the dashboard opens either way
+        pass
     link = dash_link()
     if not link:
         return started + "No DASH_KEY in .env: ask Claude to set up the dashboard key."

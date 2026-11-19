@@ -23,6 +23,25 @@ LOCK = ROOT / "data" / "state" / "render.lock"
 KEEP_POSTED_DAYS = 1      # big files of posted videos: 1 day (the platforms have them; disk is tight)
 BIG = {".mp4", ".wav", ".mov", ".mkv", ".webm", ".m4a", ".aac", ".flac"}
 LIVE = {"planned", "making", "made", "approved", "redo", "needs_source", "failed"}
+CACHES = (("cache/images", 14), ("cache/footage", 14), ("cache/scenes", 14), ("cache/posters", 14),
+          ("cache/dash_previews", 4), ("test", 7), ("pc/footage", 30))
+PC_EVERY_H = 20               # the desktop icon cleans at most this often (the PC no longer runs daily jobs)
+PC_STAMP = ROOT / "data" / "state" / "pc_cleanup.txt"
+
+
+def due_on_pc() -> bool:
+    try:
+        return time.time() - float(PC_STAMP.read_text(encoding="utf-8")) > PC_EVERY_H * 3600
+    except (OSError, ValueError):
+        return True
+
+
+def run_pc(log=print) -> dict:
+    """The desktop icon's background clean-up (cloud-only since 18 Nov: nothing else cleans the PC)."""
+    res = run(apply=True, log=log)
+    PC_STAMP.parent.mkdir(parents=True, exist_ok=True)
+    PC_STAMP.write_text(str(time.time()), encoding="utf-8")
+    return res
 
 
 def rendering() -> bool:
@@ -125,6 +144,13 @@ def plan(now: float | None = None) -> list[tuple[Path, str]]:
                 todo.append((d, "old render not used by any plan" if _finished(d) else "failed or unfinished render"))
     for p in (ROOT / "data").glob("tmp_*"):
         todo.append((p, "temporary file"))
+    # 19 Nov (owner: "the folder got bigger and bigger, >24 GB"): download caches and test renders are rebuilt on
+    # demand, so old ones go too
+    for sub, days in CACHES:
+        base = ROOT / "data" / sub
+        for f in base.rglob("*") if base.exists() else []:
+            if f.is_file() and (now - f.stat().st_mtime) / 86400 > days:
+                todo.append((f, f"{sub} older than {days} days"))
     prev = ROOT / "data" / "telegram" / "previews"
     for f in prev.glob("*.mp4") if prev.exists() else []:
         if (now - f.stat().st_mtime) / 86400 > 3:
