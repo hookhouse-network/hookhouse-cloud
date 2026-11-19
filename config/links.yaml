@@ -8,16 +8,16 @@
 hot_take_hq:            {youtube: "@hottakehqofficial", instagram: "hottakehqofficial", live: true}
 unsolved_after_dark:    {youtube: "@creepycaseclub", instagram: "creepycaseclubhq", live: true}
 clutch_tales:           {youtube: "@clutchtaleshq", instagram: "clutchtaleshq", live: true}
-ending_decoded:         {youtube: "@endingdecodedhq", instagram: "endingdecodedhq", instagram_live: true, live: true}
-money_cheat_codes:      {youtube: "@moneycheatcodeshq", instagram: "moneycheatcodeshq", instagram_live: true, live: true}
-itihaas_ke_raaz:        {youtube: "@itihaaskeraazhq", instagram: "itihaaskeraazhq", instagram_live: true, live: true}
-cricket_ke_kisse:       {youtube: "@cricketkekissehindi", instagram: "cricketkekissehindi", instagram_live: true, live: true}
-picture_abhi_baaki_hai: {youtube: "@pictureabhibaakihaihq", instagram: "pictureabhibaakihaihq", instagram_live: true, live: true}
+ending_decoded:         {youtube: "@endingdecodedhq", instagram: "endingdecodedhq", instagram_live: true, threads_live: true, live: true}
+money_cheat_codes:      {youtube: "@moneycheatcodeshq", instagram: "moneycheatcodeshq", instagram_live: true, threads_live: true, live: true}
+itihaas_ke_raaz:        {youtube: "@itihaaskeraazhq", instagram: "itihaaskeraazhq", instagram_live: true, threads_live: true, live: true}
+cricket_ke_kisse:       {youtube: "@cricketkekissehindi", instagram: "cricketkekissehindi", instagram_live: true, threads_live: true, live: true}
+picture_abhi_baaki_hai: {youtube: "@pictureabhibaakihaihq", instagram: "pictureabhibaakihaihq", instagram_live: true, threads_live: true, live: true}
 brain_snack:            {youtube: "@brainsnackdose", instagram: "brainsnackdose", live: true}
 bloop_and_friends:      {youtube: "@bloopandfriendshq", live: true}
-cosmos_unboxed:         {youtube: "@cosmosunboxedhq", instagram: "cosmosunboxedhq", instagram_live: true, live: true}
-deep_blue_files:        {youtube: "@deepbluefileshq", instagram: "deepbluefiles", instagram_live: true, live: true}
-wild_instinct:          {youtube: "@thewildinstincthq", instagram: "wildinstinctstories", instagram_live: true, live: true}
+cosmos_unboxed:         {youtube: "@cosmosunboxedhq", instagram: "cosmosunboxedhq", instagram_live: true, threads_live: true, live: true}
+deep_blue_files:        {youtube: "@deepbluefileshq", instagram: "deepbluefiles", instagram_live: true, threads_live: true, live: true}
+wild_instinct:          {youtube: "@thewildinstincthq", instagram: "wildinstinctstories", instagram_live: true, threads_live: true, live: true}
 stream_clips:           {youtube: "@StreamClipsDaily", instagram: "streamclipsdaily", live: false}
 
 # Which channels recommend each other (same language and a related audience; never more than two).

@@ -36,6 +36,8 @@ def social_lines(cid: str) -> list[str]:
     ig = str(links.get("instagram") or "").lstrip("@") if _ig_connected(cid) else ""
     if ig:
         out.append(f"📸 Instagram: https://www.instagram.com/{ig}")
+        if links.get("threads_live") or (SECRETS / f"threads_{cid}.json").exists():
+            out.append(f"🧵 Threads: https://www.threads.com/@{ig}")
     fb = str(links.get("facebook") or "")
     if not fb:
         try:

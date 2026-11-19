@@ -37,8 +37,12 @@ def cells(cid: str, row: dict) -> dict[str, tuple[str, str, str]]:
     page = meta.get("page_id")
     out["facebook"] = (("good", "Page", f"https://www.facebook.com/{page}") if page else ("todo", "Page to create", ""))
     th = _j(f"threads_{cid}.json")
-    out["threads"] = (("good", "@" + ig if ig else "connected", f"https://www.threads.net/@{ig}") if th
-                      else ("todo", "to connect", ""))
+    if th:
+        out["threads"] = ("good", "@" + ig if ig else "connected", f"https://www.threads.com/@{ig}")
+    elif row.get("threads_live") and ig:            # profile exists; automatic posting not connected yet
+        out["threads"] = ("warn", "@" + ig + " (posting not connected)", f"https://www.threads.com/@{ig}")
+    else:
+        out["threads"] = ("todo", "to create", "")
     dm = _j("dailymotion.json")
     out["dailymotion"] = (("good", "HookHouse Media", "https://www.dailymotion.com/hookhousemedia") if dm and
                           row.get("dailymotion", True) else ("todo", "-", ""))
