@@ -1,4 +1,9 @@
-"""Kaggle as our free GPU (owner 19 Nov: "divide the tasks between these clouds"). GitHub Actions only orchestrates:
+"""DISABLED FOR THE BUSINESS (19 Nov, owner: "make sure this will not end up in same result as github"). Kaggle's Terms
+of Use limit the service to "your own internal, personal, non-commercial use", and its Acceptable Use Policy names
+"server farming" as abuse. A daily picture batch for our channels is commercial and farm-like: never run it (or any
+fine-tuning for the business) on Kaggle. start() refuses unless KAGGLE_PERSONAL_TEST=1 is set by hand.
+
+Original idea: Kaggle as our free GPU (owner 19 Nov: "divide the tasks between these clouds"). GitHub Actions only orchestrates:
 it uploads a jobs file as a private Kaggle dataset, starts the private notebook kaggle/hookhouse_gpu (FLUX.1-schnell,
 Apache-2.0, on Kaggle's free T4), polls its status and downloads the pictures. No model runs on GitHub's runners.
 Needs KAGGLE_API_TOKEN (.env, PC-made; reaches the cloud with the env sync). Kaggle allows 30 GPU hours a week.
@@ -45,7 +50,14 @@ def upload_jobs(images: list[dict], note: str = "jobs") -> str:
     return out
 
 
+class KaggleNotAllowed(RuntimeError):
+    pass
+
+
 def start() -> str:
+    if os.environ.get("KAGGLE_PERSONAL_TEST") != "1":
+        raise KaggleNotAllowed("Kaggle is personal/non-commercial only (Terms of Use) and bans server farming (AUP): "
+                               "the business pipeline never runs there")
     meta = {"id": KERNEL, "title": "hookhouse-gpu", "code_file": "hookhouse_gpu.py", "language": "python",
             "kernel_type": "script", "is_private": True, "enable_gpu": True, "enable_internet": True,
             "dataset_sources": [DATASET], "competition_sources": [], "kernel_sources": [], "model_sources": []}

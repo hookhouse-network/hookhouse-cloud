@@ -59,3 +59,11 @@ def test_post_is_never_retried(monkeypatch):
 def test_client_errors_are_not_retried(monkeypatch):
     calls = _fake(monkeypatch, "get", [R(404), R(200)])
     assert _Http(waits=(0,), sleep=lambda s: None).get("u").status_code == 404 and len(calls) == 1
+
+
+def test_kaggle_never_starts_for_the_business(monkeypatch):
+    """19 Nov: Kaggle's terms are personal/non-commercial and ban server farming (owner: not another GitHub)."""
+    from engine import kaggle_gpu
+    monkeypatch.delenv("KAGGLE_PERSONAL_TEST", raising=False)
+    with pytest.raises(kaggle_gpu.KaggleNotAllowed):
+        kaggle_gpu.start()

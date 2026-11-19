@@ -83,7 +83,7 @@ def training_card() -> str:
             f"(of {s['ready_at']} needed) · {s['scripts']} scripts saved</p><div style='background:var(--panel2);"
             f"border-radius:6px;height:10px'><div style='width:{pct}%;height:10px;border-radius:6px;background:var(--acc)'>"
             "</div></div><p class=muted>Every video's words are kept with its later numbers. At the target, a free model "
-            "is fine-tuned on our best videos (Kaggle GPU) so it writes in our winning style.</p></div>")
+            "is fine-tuned on our best videos (on a GPU service that allows commercial use) so it writes in our winning style.</p></div>")
 
 
 CSS = """

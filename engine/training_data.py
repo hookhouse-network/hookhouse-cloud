@@ -7,7 +7,8 @@ its later results, so a model can be fine-tuned on our winners once there is eno
   average % viewed, likes per 100 views) into examples.jsonl, and a 0-100 score is computed relative to the channel's
   own median (so small and big channels compare fairly).
 - status(): how close we are to a useful set (READY_AT labelled videos; guides: <500 rarely beats a good prompt).
-The fine-tuning itself runs later on Kaggle's free GPU (Unsloth + an Apache-2.0 model), never on GitHub Actions.
+The fine-tuning itself needs a GPU home that allows COMMERCIAL use (not Kaggle: its terms are personal/non-commercial
+and ban server farming; never GitHub Actions). The owner picks it when the set is ready.
 """
 from __future__ import annotations
 
