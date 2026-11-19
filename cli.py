@@ -505,7 +505,7 @@ def cmd_cloud(args):
         from engine.cloud.store import Store
         print(book_farm.work(Store(), shard=args.shard, shards=args.of, minutes=float(args.budget)))
     elif args.action == "helper":
-        runner.helper(once=args.once)
+        runner.helper(once=args.once, videos_only=args.videos_only)
     else:
         from engine.cloud import setup
         env = setup.read_env()
@@ -669,6 +669,7 @@ def main(argv=None):
     cl.add_argument("--of", type=int, default=1, help="farm: how many farm machines run together")
     cl.add_argument("--budget", default="40", help="render: minutes to spend")
     cl.add_argument("--once", action="store_true", help="helper: one round, then stop")
+    cl.add_argument("--videos-only", action="store_true", help="helper: only make videos (option A, 19 Nov)")
     cl.add_argument("--light", action="store_true", help="tick: only the Telegram inbox (runs started by a message)")
     cl.set_defaults(fn=cmd_cloud)
 

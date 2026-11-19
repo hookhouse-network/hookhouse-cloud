@@ -116,8 +116,19 @@ def merge_helper(store, log=_log) -> int:
                 autopilot.update_item(info["start"], info["id"], status="made", made_at=info.get("made_at"),
                                       out_dir=str(ROOT / info["out_rel"]), file=info.get("file"),
                                       cloud_asset=media.asset_name(info["id"]), topic=info.get("topic"),
-                                      angle=info.get("angle"), error=None, attempts=0, retry_at=None, made_by="pc")
+                                      angle=info.get("angle"), error=None, attempts=0, retry_at=None, made_by="pc",
+                                      feeling=info.get("feeling"), now_hook=info.get("now_hook"),
+                                      planned_topic=info.get("planned_topic"))
                 n += 1
+                rec = info.get("training")                 # 19 Nov: PC-made videos join the cloud's learning loops
+                if rec:
+                    from ..training_data import DIR, SCRIPTS
+                    DIR.mkdir(parents=True, exist_ok=True)
+                    with SCRIPTS.open("a", encoding="utf-8") as fh:
+                        fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+                    if rec.get("hook_type"):
+                        from ..content_tuning import record_hook
+                        record_hook(info["id"], it["channel"], rec["hook_type"])
         finally:
             store.delete(media.TAG, name)
             store.delete(media.TAG, f"claim-{info.get('id')}.json")
@@ -144,6 +155,64 @@ def ensure_media(store, log=_log) -> int:
         if folder and str(folder) != it["out_dir"]:
             autopilot.update_item(start, it["id"], out_dir=str(folder))
             n += 1
+    return n
+
+
+CATCH_UP_DAYS = 7
+CATCH_UP_PLATFORMS = ("instagram", "facebook", "threads", "dailymotion")
+
+
+def posted_platforms(item_id: str) -> set[str]:
+    """Platforms the publish log shows this video already went to (real posts only)."""
+    from ..publish import LOG
+    done = set()
+    try:
+        for ln in LOG.read_text(encoding="utf-8").splitlines():
+            try:
+                a = json.loads(ln)
+            except ValueError:
+                continue
+            if a.get("item_id") == item_id and a.get("done") and not (a.get("details") or {}).get("dry_run") \
+                    and not str(a.get("what", "")).startswith(("delete", "captions", "thumbnail", "add ")):
+                done.add(a.get("platform"))
+    except OSError:
+        pass
+    return done
+
+
+def catch_up_platforms(store, log=_log, max_per_run: int = 4) -> int:
+    """Owner 19 Nov: "the already approved videos should also be uploaded on the platforms that did not get them, do
+    not upload the same thing again and again". Posted videos of the last CATCH_UP_DAYS go once to each platform the
+    publish log shows they never reached (an account connected later). Each video x platform is tried ONCE (state
+    catch_up), so a platform that isn't connected can't make it repeat or double post."""
+    from .. import autopilot
+    from ..publish import upload_item
+    s = autopilot._load()
+    tried = s.get("catch_up", {})
+    cutoff, n = time.time() - CATCH_UP_DAYS * 86400, 0
+    for start, it in autopilot.items(CATCH_UP_DAYS + 1, 0):
+        if n >= max_per_run:
+            break
+        if it.get("status") != "posted" or (it.get("posted_at") or 0) < cutoff:
+            continue
+        missing = [p for p in CATCH_UP_PLATFORMS
+                   if p not in posted_platforms(it["id"]) and f"{it['id']}|{p}" not in tried]
+        if not missing:
+            continue
+        for p in missing:                                  # record first: never twice, even if the upload crashes
+            autopilot._update_state(lambda st, k=f"{it['id']}|{p}": st.setdefault("catch_up", {}).__setitem__(k, time.time()))
+        try:
+            folder = media.ensure_local(store, it)
+        except Exception as e:  # noqa: BLE001
+            log(f"catch-up {it['id']}: no video file ({e})")
+            continue
+        if not folder:
+            continue
+        acts = upload_item(dict(it, out_dir=str(folder)), dry_run=False, platforms=tuple(missing), publish_at=None)
+        got = [a.platform for a in acts if a.done and a.item_id and not a.what.startswith("SKIPPED")]
+        if got:
+            n += 1
+            log(f"catch-up {it['id']}: now also on {', '.join(got)}")
     return n
 
 
@@ -334,6 +403,7 @@ def tick(log=_log, light: bool = False) -> None:
              ("missed", lambda: autopilot._missed(log)),
              ("preflight", lambda: __import__("engine.preflight", fromlist=["run"]).run(log=log)),   # logins
              ("post", lambda: autopilot._post_due(log)),
+             ("catch_up", lambda: catch_up_platforms(store, log)),   # 19 Nov: platforms connected after posting
              ("ask", lambda: autopilot._ask_due(log)),
              ("daily", lambda: autopilot._daily(log)),
              ("sources", lambda: autopilot._needs_source_notice(log)),
@@ -491,40 +561,47 @@ def _one_helper(port: int = 47614) -> bool:
     return True
 
 
-def helper(once: bool = False, every_s: int = 300, log=_log) -> None:
-    """The PC as helper: whenever it is on, make the next unclaimed videos (any length) and hand them to the cloud."""
+def helper(once: bool = False, every_s: int = 300, log=_log, videos_only: bool = False) -> None:
+    """The PC as helper: whenever it is on, make the next unclaimed videos (any length) and hand them to the cloud.
+    videos_only (owner 19 Nov, option A: "start making videos now"): the PC only makes videos; posting, Telegram,
+    the dashboard and every other job stay in the cloud (GitHub Actions stays light: one render a day there)."""
     if not _one_helper():
         log("Another PC helper is already running on this PC; this copy stops (two would make videos twice).")
         return
-    log("PC helper: making videos for the cloud (Ctrl+C to stop; the cloud keeps running without the PC)")
+    log("PC helper: making videos for the cloud (Ctrl+C to stop; the cloud keeps running without the PC)"
+        + (" [videos only]" if videos_only else ""))
     while True:
+        if videos_only:
+            _ensure_chrome(log)
         try:
-            _daily_pins(log)                               # Pinterest needs the signed-in PC browser
+            if not videos_only:
+                _daily_pins(log)                           # Pinterest needs the signed-in PC browser
         except Exception as e:  # noqa: BLE001 - marketing never stops video making
             log(f"pins: {e}")
-        try:
-            _books_job(log)                                # KDP needs the signed-in PC browser too
-        except Exception as e:  # noqa: BLE001
-            log(f"books: {e}")
-        try:
-            from .. import books_v2                        # owner 17 Nov: redesigned books from leftover night quota
-            log("book art: " + books_v2.ensure_night_worker(log))     # cloud + night backup (owner 18 Nov)
-        except Exception as e:  # noqa: BLE001
-            log(f"book art: {e}")
-        try:                                               # the logged-in session -> the cloud (18 Nov)
-            from .browser_session import export
-            export(Store(), log)
-        except Exception as e:  # noqa: BLE001
-            log(f"browser session: {e}")
-        try:                                               # .env changed on the PC -> the cloud gets it (18 Nov)
-            from .setup import sync_env_secret
-            sync_env_secret(log)
-        except Exception as e:  # noqa: BLE001
-            log(f"cloud keys: {e}")
-        try:
-            _ensure_chrome(log)
-        except Exception as e:  # noqa: BLE001
-            log(f"chrome: {e}")
+        if not videos_only:
+            try:
+                _books_job(log)                            # KDP needs the signed-in PC browser too
+            except Exception as e:  # noqa: BLE001
+                log(f"books: {e}")
+            try:
+                from .. import books_v2                    # owner 17 Nov: redesigned books from leftover night quota
+                log("book art: " + books_v2.ensure_night_worker(log))     # cloud + night backup (owner 18 Nov)
+            except Exception as e:  # noqa: BLE001
+                log(f"book art: {e}")
+            try:                                           # the logged-in session -> the cloud (18 Nov)
+                from .browser_session import export
+                export(Store(), log)
+            except Exception as e:  # noqa: BLE001
+                log(f"browser session: {e}")
+            try:                                           # .env changed on the PC -> the cloud gets it (18 Nov)
+                from .setup import sync_env_secret
+                sync_env_secret(log)
+            except Exception as e:  # noqa: BLE001
+                log(f"cloud keys: {e}")
+            try:
+                _ensure_chrome(log)
+            except Exception as e:  # noqa: BLE001
+                log(f"chrome: {e}")
         try:
             store = Store()
             try:
@@ -549,9 +626,16 @@ def helper(once: bool = False, every_s: int = 300, log=_log) -> None:
                 item = make_one(start, it, log)
                 folder = Path(item["out_dir"])
                 media.upload(store, item["id"], folder)
+                try:
+                    from ..training_data import _scripts
+                    training = _scripts().get(item["id"])
+                except Exception:  # noqa: BLE001
+                    training = None
                 store.put(media.TAG, f"done-{item['id']}.json", json.dumps({
                     "id": item["id"], "start": start, "out_rel": media.rel_out(folder), "file": item.get("file"),
-                    "topic": item.get("topic"), "angle": item.get("angle"), "made_at": time.time()}).encode())
+                    "topic": item.get("topic"), "angle": item.get("angle"), "made_at": time.time(),
+                    "feeling": item.get("feeling"), "now_hook": item.get("now_hook"),
+                    "planned_topic": item.get("planned_topic"), "training": training}, ensure_ascii=False).encode())
                 _wake_cloud(log)
                 continue                                   # straight to the next one while the PC is on
         except KeyboardInterrupt:
