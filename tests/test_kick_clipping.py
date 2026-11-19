@@ -37,6 +37,7 @@ def test_pick_skips_gambling_old_seen_and_odd_lengths():
              {"id": "4", "title": "seen", "age_s": 10, "seconds": 40},
              {"id": "5", "title": "too short", "age_s": 10, "seconds": 5},
              {"id": "6", "title": "Glitch", "age_s": 10, "seconds": 155},
+             {"id": "8", "title": "Stripclub", "age_s": 10, "seconds": 155},
              {"id": "7", "title": "third", "age_s": 10, "seconds": 30}]
     assert [c["id"] for c in cr_footage.pick_kick_clips(clips, {"4"}, 86400, 2)] == ["2", "6"]
 
