@@ -88,15 +88,19 @@ class OpenAICompatibleProvider(Provider):
     def __init__(self, name: str, base_url: str, model: str, key_env: str):
         self.name, self.base_url, self.model, self.key_env = name, base_url.rstrip("/"), model, key_env
 
+    def _url(self) -> str:
+        """base_url may name env values as ${NAME} (Cloudflare Workers AI puts the account id in the path)."""
+        return os.path.expandvars(self.base_url)
+
     def available(self) -> bool:
-        return bool(os.environ.get(self.key_env))
+        return bool(os.environ.get(self.key_env)) and "$" not in self._url()
 
     def complete(self, prompt: str, system: str = "", temperature: float = 0.7) -> str:
         messages = ([{"role": "system", "content": system}] if system else []) + [
             {"role": "user", "content": prompt}]
         try:
             resp = requests.post(
-                f"{self.base_url}/chat/completions",
+                f"{self._url()}/chat/completions",
                 json={"model": self.model, "messages": messages, "temperature": temperature},
                 headers={"Authorization": f"Bearer {os.environ[self.key_env]}"},
                 timeout=TIMEOUT,

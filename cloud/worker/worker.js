@@ -118,6 +118,7 @@ const MENU_KB = { keyboard: [[{ text: "📋 My tasks" }, { text: "📥 Waiting f
                              [{ text: "❓ Help" }]],
                   resize_keyboard: true, is_persistent: true };
 const HELP = "👋 HookHouse, in short\n\n" +
+  "Fastest: tap 🎬 Studio (left of the message box) to watch, approve, change or reject every video in one place.\n\n" +
   "Use the buttons at the bottom:\n" +
   "📋 My tasks: what is left for you, and what is approved and coming\n" +
   "📥 Waiting for me: videos and books that need your OK\n" +

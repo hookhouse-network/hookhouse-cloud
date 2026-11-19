@@ -342,6 +342,21 @@ def channels_text() -> str:
     return head + "\n".join(lines)
 
 
+def studio_button(link: str | None = None) -> bool:
+    """Owner 19 Nov: "make the Telegram process simple, clear, fast". Telegram's menu button (Bot API
+    setChatMenuButton, type web_app) opens the live Studio inside Telegram in one tap: review player, Approve & post /
+    Change / Reject, calendar, numbers, with no link to find and no waiting for a cloud run to answer. Set for the
+    owner's chat only (the link carries the private dashboard key); re-set every morning, so it heals itself."""
+    if link is None:
+        from .pc_fallback import dash_link
+        link = dash_link()
+    chat = _chat()
+    if not (link and link.startswith("https://") and chat):
+        return False
+    return bool(api("setChatMenuButton", chat_id=chat,
+                    menu_button={"type": "web_app", "text": "🎬 Studio", "web_app": {"url": link}}))
+
+
 def send_dashboard() -> None:
     """Rebuild the monitoring pad and send it as a file: tap it on the phone to open the full page."""
     from .dashboard import build
@@ -499,6 +514,7 @@ MENU_KB = {"keyboard": [[{"text": "📋 My tasks"}, {"text": "📥 Waiting for m
            "resize_keyboard": True, "is_persistent": True}
 
 HELP = ("👋 HookHouse, in short\n\n"
+        "Fastest: tap 🎬 Studio (left of the message box) to watch, approve, change or reject every video in one place.\n\n"
         "Use the buttons at the bottom:\n"
         "📋 My tasks: what is left for you, and what is approved and coming\n"
         "📥 Waiting for me: videos and books that need your OK\n"

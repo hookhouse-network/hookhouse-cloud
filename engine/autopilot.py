@@ -907,6 +907,7 @@ def _daily(log) -> None:
                          ("stats", lambda: stats_fetch.fetch(log=log)), ("digest", tb.digest), ("report", tb.report),
                          ("logins", _check_logins), ("waiting", _morning_waiting), ("branding", _branding),
                          ("threads", _threads_refresh), ("retention", lambda: _retention(log)),
+                         ("studio_button", tb.studio_button),                 # 19 Nov: Studio inside Telegram
                          ("milestones", lambda: __import__("engine.milestones", fromlist=["check"]).check(log=log)),
                          ("news_topics", lambda: __import__("engine.news_topics", fromlist=["refresh"]).refresh(log=log))):
             try:
