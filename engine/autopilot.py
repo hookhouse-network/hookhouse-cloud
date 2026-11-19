@@ -671,7 +671,8 @@ def _make_due(brain_fn, log) -> None:
             weekly.make_item(plan, item, brain, memory=memory, log=lambda m: log("   " + str(m)))
             update_item(start, item["id"], status="made", made_at=time.time(), out_dir=item.get("out_dir"),
                         file=item.get("file"), error=None, attempts=0, retry_at=None, topic=item.get("topic"),
-                        angle=item.get("angle"))
+                        angle=item.get("angle"), planned_topic=item.get("planned_topic"),
+                        feeling=item.get("feeling"), now_hook=item.get("now_hook"))
             try:
                 preview_file(item)                   # phone copy ready now, so the approval message is quick
             except Exception:  # noqa: BLE001

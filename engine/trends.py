@@ -140,6 +140,27 @@ def google_trends(geo: str) -> list[dict]:
     return parse_trends_rss(_get(GT_RSS.format(geo=geo)).text, geo)
 
 
+def youtube_popular(region: str, limit: int = 25) -> list[dict]:
+    """What is trending on YouTube itself today (official Data API chart, 1 quota unit). 19 Nov (owner: "our content
+    looks outdated, not trending"): the topics and formats viewers are watching right now, as ideas for our angles."""
+    import os
+    key = os.environ.get("YOUTUBE_API_KEY") or os.environ.get("YT_KEY")
+    if not key:
+        return []
+    r = _get("https://www.googleapis.com/youtube/v3/videos", params={
+        "part": "snippet,statistics", "chart": "mostPopular", "regionCode": region, "maxResults": limit, "key": key})
+    out = []
+    for v in r.json().get("items") or []:
+        sn, st = v.get("snippet") or {}, v.get("statistics") or {}
+        title = _unescape(sn.get("title") or "").strip()
+        if not title:
+            continue
+        out.append({"source": f"youtube:{region}", "title": title, "key": title,
+                    "score": int(st.get("viewCount") or 0), "lang": sn.get("defaultAudioLanguage") or "",
+                    "desc": sn.get("channelTitle") or "", "extract": ", ".join((sn.get("tags") or [])[:6])})
+    return out
+
+
 def parse_trends_rss(xml: str, geo: str) -> list[dict]:
     out = []
     for block in re.findall(r"<item>(.*?)</item>", xml, re.S):
@@ -186,8 +207,8 @@ def channel_profiles() -> list[dict]:
 
 def _eligible(it: dict, market: str) -> bool:
     if market == "US":
-        return it["source"] in ("wikipedia:en", "google_trends:US")
-    return it["source"] in ("wikipedia:hi", "wikipedia:en", "google_trends:IN")
+        return it["source"] in ("wikipedia:en", "google_trends:US", "youtube:US")
+    return it["source"] in ("wikipedia:hi", "wikipedia:en", "google_trends:IN", "youtube:IN")
 
 
 def assign_with_brain(brain, items: list[dict], profiles: list[dict]) -> dict[str, list[dict]]:
@@ -196,7 +217,9 @@ def assign_with_brain(brain, items: list[dict], profiles: list[dict]) -> dict[st
     lines = []
     for i, it in enumerate(items):
         size = (f"{it['score']:,} views, {it['spike']:g}x usual" if it.get("spike") and it["spike"] < 99 else
-                f"{it['score']:,} views, new page") if it["source"].startswith("wikipedia") else f"{it['score']:,}+ searches"
+                f"{it['score']:,} views, new page") if it["source"].startswith("wikipedia") else (
+            f"trending YouTube video, {it['score']:,} views" if it["source"].startswith("youtube") else
+            f"{it['score']:,}+ searches")
         what = it.get("desc") or it.get("extract", "")[:90]
         lines.append(f"{i}: {it['title']} - {what} - {it['source']} ({size})")
     chans = "\n".join(f"{p['id']}: {p['profile']} (market {p['market']})" for p in profiles)
@@ -246,6 +269,10 @@ def hint_text(it: dict) -> str:
         about = f" ({it['desc']})" if it.get("desc") else ""
         jump = f", {it['spike']:g}x its usual" if it.get("spike") and it["spike"] < 99 else ", new page"
         base = f"Trending now: {it['title']}{about}: {it['score']:,} {lang} Wikipedia views yesterday{jump}"
+    elif src.startswith("youtube"):
+        geo = src.split(":")[1]
+        base = (f"Trending on YouTube in {'India' if geo == 'IN' else 'the US'} today: \"{it['title']}\" "
+                f"({it['score']:,} views; the subject people watch now, never copy the video)")
     else:
         geo = src.split(":")[1]
         base = f"Trending search in {'India' if geo == 'IN' else 'the US'}: \"{it['title']}\" ({it['score']:,}+ searches)"
@@ -279,6 +306,10 @@ def collect(day: date | None = None, log=print) -> dict:
             items += google_trends(geo)
         except Exception as e:  # noqa: BLE001
             errors.append(f"google_trends {geo}: {e}")
+        try:
+            items += youtube_popular(geo)
+        except Exception as e:  # noqa: BLE001
+            errors.append(f"youtube_popular {geo}: {e}")
     safe, dropped = [], []
     for it in items:
         ok, why = is_safe(it)

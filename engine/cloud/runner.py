@@ -339,7 +339,9 @@ def tick(log=_log, light: bool = False) -> None:
              ("sources", lambda: autopilot._needs_source_notice(log)),
              ("thumbs", lambda: autopilot._shorts_thumbnails(log)),
              ("live_stats", lambda: _live_due() and __import__("engine.stats_fetch", fromlist=["live"]).live(log=log)),
-             ("plan", lambda: autopilot._ensure_plan(autopilot.default_brain, log))]
+             ("plan", lambda: autopilot._ensure_plan(autopilot.default_brain, log)),
+             # 19 Nov: the live dashboard (page + review-player previews) is the cloud's job again after the outage
+             ("dashboard", lambda: __import__("engine.pc_fallback", fromlist=["x"]).publish_dashboard(kv, log))]
     errors: dict[str, str] = {}
     for name, fn in steps:
         try:
@@ -402,7 +404,8 @@ def render(budget_min: float = 40, log=_log) -> int:
             autopilot.update_item(start, item["id"], status="made", made_at=time.time(), out_dir=item["out_dir"],
                                   file=item.get("file"), cloud_asset=media.asset_name(item["id"]), error=None,
                                   attempts=0, retry_at=None, topic=item.get("topic"), angle=item.get("angle"),
-                                  made_by="cloud")
+                                  planned_topic=item.get("planned_topic"), feeling=item.get("feeling"),
+                                  now_hook=item.get("now_hook"), made_by="cloud")
             made += 1
             log(f"made {item.get('channel_name')} in {(time.time() - t0) / 60:.0f} min")
         except Exception as e:  # noqa: BLE001

@@ -46,7 +46,8 @@ the first 2 seconds. Never promise anything the video does not show (YouTube rem
 STEP 3 - BEATS (the structure top story Shorts use in 2026).
 - Beat 1 = COLD OPEN: drop the viewer into the most dramatic true moment, mid-action, as a scene
   ("He put his sons in the lifeboat, but instead of climbing in..."). Stakes + an exact number if there is one
-  ("India need 15 runs off 6 balls."). No greetings, no "in this video", no "did you know", no "imagine".
+  ("India need 15 runs off 6 balls."). No greetings, no "in this video", no "did you know", no "imagine", and never
+  open with a date, a year or a full name (viewers swipe before the point arrives): open with the action or the claim.
 - Beats 2-3 = "You see," / "It started..." backstory: who, where, when (by 4-8 seconds).
 - Middle = escalation; every 6-10 seconds a new question, number or reveal. Around 40-60% a "But..." twist.
 - End = the payoff, ideally ironic or surprising. NO call to action, no "follow for more", no "subscribe".
@@ -567,6 +568,15 @@ def script_flags(script: dict) -> list[str]:
     return topic_flags(" ".join(str(x) for x in parts), mode="topic")
 
 
+def _tuning_rules(cid: str) -> str:
+    """19 Nov: the channel's own numbers (swipe-away, watch %, likes, plateaus) -> rules for this script."""
+    try:
+        from .content_tuning import writer_rules
+        return writer_rules(cid)
+    except Exception:  # noqa: BLE001 - the script is still written with the base rules
+        return ""
+
+
 def write_script(brain, channel: dict, topic: str, fmt: str = "short", memory=None) -> dict:
     f = dict(FORMATS[fmt])
     if fmt == "short" and (channel.get("spec") or {}).get("short_words"):
@@ -595,6 +605,7 @@ def write_script(brain, channel: dict, topic: str, fmt: str = "short", memory=No
         long_rules=(LONG_RULES.format(catchphrase=channel.get("catchphrase") or "a calm, memorable closing line")
                     if fmt == "long" else ""),
         rules=json.dumps(channel.get("content_rules", {})) + "\n" + (channel.get("writer_rules") or "") + "\n"
+        + _tuning_rules(channel["id"]) + "\n"
         + never_rules_text() + (
             "" if visuals.ai_image_available() else
             "\nAI images are switched OFF right now: never use visual \"ai\". Use photo, footage or text, and give "

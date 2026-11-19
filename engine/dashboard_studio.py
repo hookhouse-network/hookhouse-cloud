@@ -119,10 +119,7 @@ def lessons_html(cid: str, ctx: dict) -> str:
         notes = channel_notes(cid)
     except Exception:  # noqa: BLE001
         notes = []
-    if notes:
-        blocks.append("<h3>Changed in the next videos</h3><ul class=imp>" + "".join(
-            f"<li class=good><span class=dot></span><span>{_e(n)}</span></li>" for n in notes) + "</ul>")
-    if not blocks:
+    if not blocks:                                   # no review yet: say why, then what changes anyway
         posted = [it for it in ctx["items"] if it.get("channel") == cid and it.get("status") == "posted"]
         nxt = sorted((it.get("publish_at") or "") for it in ctx["items"] if it.get("channel") == cid
                      and it.get("status") in ("made", "approved", "scheduled"))
@@ -130,6 +127,9 @@ def lessons_html(cid: str, ctx: dict) -> str:
                if not posted else "Too few views yet for a review (it needs a day of numbers).")
         blocks.append(f"<p class=muted>{why}" + (f" Next video ready for the slot {_e(nxt[0][:16].replace('T', ' '))}."
                                                  if nxt else "") + "</p>")
+    if notes:
+        blocks.append("<h3>Changed in the next videos</h3><ul class=imp>" + "".join(
+            f"<li class=good><span class=dot></span><span>{_e(n)}</span></li>" for n in notes) + "</ul>")
     return "<h3>🧠 What the numbers taught us</h3>" + "".join(blocks)
 
 

@@ -339,7 +339,8 @@ class Maker:
             item = make_one(start, it, log)
             autopilot.update_item(start, item["id"], status="made", made_at=time.time(), out_dir=item["out_dir"],
                                   file=item.get("file"), error=None, attempts=0, retry_at=None,
-                                  topic=item.get("topic"), angle=item.get("angle"), made_by="pc")
+                                  topic=item.get("topic"), angle=item.get("angle"), made_by="pc",
+                                  planned_topic=item.get("planned_topic"), feeling=item.get("feeling"))
             self._count()
             log(f"made {item.get('channel_name')} {item.get('kind')} in {(time.time() - t0) / 60:.0f} min")
         except Exception as e:  # noqa: BLE001
@@ -412,7 +413,7 @@ def make_preview(it: dict) -> Path:
     return out
 
 
-def push_previews(kv, log=_log, only: str | None = None) -> int:
+def push_previews(kv, log=_log, only: str | None = None, limit: int = 6) -> int:
     """Previews of the videos waiting for the owner go to KV (pv:<item>:meta + pv:<item>:<n>), so the dashboard can
     play them on the phone too. Previews of posted / rejected videos are removed. Returns how many were added."""
     from . import autopilot
@@ -431,6 +432,8 @@ def push_previews(kv, log=_log, only: str | None = None) -> int:
         sig = _preview_sig(it)
         if have.get(it["id"], {}).get("sig") == sig:
             continue
+        if added >= limit:                     # light, bounded work per run (cloud runners too)
+            break
         if sum(int(v.get("size") or 0) for v in have.values()) > PREVIEW_BUDGET:
             log("previews: storage budget reached, the rest wait")
             break

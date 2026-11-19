@@ -154,6 +154,10 @@ def fetch(session=requests, log=print, conn=None) -> int:
             continue
         if m is None:
             continue
+        if m.get("engaged_views") is not None and m.get("views") and m.get("stayed_pct") is None:
+            # 19 Nov (owner: "more than 50% just swipe"): engaged views / views = Studio's "viewed" share (the rest
+            # swiped away). It was fetched but never stored, so no review could see the swipe problem.
+            m["stayed_pct"] = round(100.0 * float(m["engaged_views"]) / float(m["views"]), 1)
         analytics.record(conn, item_id=v["item"], channel=v["channel"], platform=v["platform"], video_id=v["id"],
                          hook=v["title"], posted_at=v["posted_at"], hours_after=b, format=v.get("format"), **m)
         done += 1

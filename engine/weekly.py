@@ -178,17 +178,26 @@ TOPIC_PROMPT = """You plan next week's videos for the channel "{name}".
 Niche: {niche}
 Audience: {audience}. Videos are in {language}. Today is {today}.
 
-Suggest {n} different video topics. Rules:
+Suggest {n} different video topics. Rules (owner 19 Nov: our videos look outdated and get swiped; they must be
+trending, funny, emotional, nostalgic, interesting):
+- SCROLL-STOP FIRST: a stranger scrolling the feed must stop for the title alone. Score each topic 1-10 for that
+  ("scroll_stop"); only topics you honestly score 8+ count.
+- CURRENT: at least 2 of every 3 topics tie into something people talk about THIS week (the live trends below, a match,
+  a film or show, a festival, the season, a viral moment, a new gadget or price). The rest must still connect to the
+  viewer's life today; never a dusty history lesson for its own sake.
+- FEELING: each topic delivers ONE strong feeling: funny, emotional, nostalgic, shocking, satisfying, relatable or awe.
+  Mix the feelings across the week.
 - Each topic is specific (a named person, event, place, object or question) and true, checkable in solid sources.
-- Mix evergreen topics with timely ones (anniversaries, festivals, seasons, sports or film events in the next 2 weeks).
+- SEARCHABLE: the topic contains the words people actually type this week (names, the trend term), so search and
+  suggested videos can find it.
 - Each topic has a curiosity hook the video can fully pay off. No misleading clickbait.
-- Vary the story type (mystery, record, mistake, origin story, twist, myth-busting, "what happened next") so the
-  videos never feel like a template.
+- Vary the story type (mystery, record, mistake, origin story, twist, myth-busting, "what happened next", "then vs now")
+  so the videos never feel like a template.
 - Never repeat or closely resemble these past topics: {avoid}
 - Never pick a topic that another of our channels already has this week: {taken}
 {never}
 {style}{memory}{hints}
-{cluster}Return JSON only: {{"topics": [{{"topic": "...", "angle": "one-line hook", "why": "why it gets views now"}}],
+{cluster}Return JSON only: {{"topics": [{{"topic": "...", "angle": "one-line hook", "why": "why it gets views now", "feeling": "funny|emotional|nostalgic|shocking|satisfying|relatable|awe", "now_hook": "the current trend, event or everyday link (or \"evergreen\")", "scroll_stop": 8}}],
 "hub": 0, "spokes": [{{"topic": "...", "angle": "...", "why": "..."}}]}}"""
 CLUSTER_RULE = """- TOPIC CLUSTER (hub and spokes, the way top search strategies plan content): set "hub" to the index of the
   topic that makes the best 9-12 minute long video (rich, several twists), and write 2 "spokes": extra Short topics, each
@@ -239,6 +248,14 @@ def past_topics(channel_id: str, limit: int = 80) -> list[str]:
     return out[:limit]
 
 
+def _weak(t: dict, floor: int = 7) -> bool:
+    """A topic the writer scored under `floor` for stopping the scroll (missing score = kept)."""
+    try:
+        return t.get("scroll_stop") is not None and float(t["scroll_stop"]) < floor
+    except (TypeError, ValueError):
+        return False
+
+
 def pick_topics(brain, ch: dict, n: int, memory=None, hints: list[str] | None = None,
                 taken: list[str] | None = None, log=print, cluster_out: dict | None = None) -> list[dict]:
     """cluster_out (a dict) asks for a hub topic (index, for the long video) and 2 spoke Shorts, filled in place."""
@@ -256,6 +273,11 @@ def pick_topics(brain, ch: dict, n: int, memory=None, hints: list[str] | None = 
     try:                                                 # lessons from the end-of-day reviews (18 Nov)
         from .daily_review import planner_hints
         hints += planner_hints(ch["id"])
+    except Exception:  # noqa: BLE001
+        pass
+    try:                                                 # 19 Nov: this channel's own numbers -> what must change
+        from .content_tuning import topic_hints
+        hints += topic_hints(ch["id"])
     except Exception:  # noqa: BLE001
         pass
     prompt = TOPIC_PROMPT.format(
@@ -279,6 +301,10 @@ def pick_topics(brain, ch: dict, n: int, memory=None, hints: list[str] | None = 
                                      and not topic_flags(f"{x.get('topic', '')} {x.get('angle', '')}", mode="topic")][:2]
         for t in (data.get("topics") or []):
             if not (isinstance(t, dict) and t.get("topic")) or len(topics) >= n:
+                continue
+            if _weak(t):                                # 19 Nov: the writer itself rated it below scroll-stop
+                log(f"Topic dropped (scroll-stop {t.get('scroll_stop')}): {t.get('topic')}")
+                dropped.append(t["topic"])
                 continue
             flags = topic_flags(f"{t.get('topic', '')} {t.get('angle', '')}", mode="topic")
             if flags:                                   # owner's rule: never-topics are dropped, not just warned
@@ -386,7 +412,7 @@ def plan_week(brain, start: date | None = None, only: list[str] | None = None, m
                 "channel": ch["id"], "channel_name": ch["name"], "number": ch.get("number"),
                 "kind": kind, "publish_at": when.isoformat(),
                 "topic": t.get("topic"), "angle": t.get("angle"), "why": t.get("why"),
-                "role": t.get("role"), "hub": t.get("hub"),
+                "role": t.get("role"), "hub": t.get("hub"), "feeling": t.get("feeling"), "now_hook": t.get("now_hook"),
                 "status": "planned" if kind_type in BUILDABLE else "not_built",
                 "out_dir": None, "file": None, "error": None, "note": None, "log": None})
     plan = {"start": start.isoformat(), "created": time.time(),
@@ -545,6 +571,33 @@ def _make_clip(plan: dict, item: dict, brain, ch: dict, memory, log) -> tuple[st
     raise RuntimeError("The spare clips were gone; the next run cuts new ones")
 
 
+def _refresh_topic(plan: dict, item: dict, ch: dict, brain, memory=None, log=print) -> None:
+    """Right before a Short is made: today's trends vs the topic planned days ago; the stronger one is made (owner
+    19 Nov: "our content looks outdated, not trending"). The planned topic stays in the plan as planned_topic."""
+    try:
+        from .trends import trend_hints
+        fresh = trend_hints(brain, log=log).get(ch["id"], [])
+    except Exception:  # noqa: BLE001
+        fresh = []
+    planned = f"{item['topic']}" + (f" (angle: {item['angle']})" if item.get("angle") else "")
+    hints = fresh + [f"PLANNED EARLIER (keep it only if nothing above beats it on scroll-stop): {planned}"]
+    taken = [it.get("topic") for it in plan.get("items", []) if it.get("topic") and it is not item]
+    try:
+        got = pick_topics(brain, ch, 1, memory=memory, hints=hints, taken=taken, log=log)
+    except Exception as e:  # noqa: BLE001 - the planned topic is still fine
+        log(f"topic refresh: {type(e).__name__}: {e}")
+        return
+    item["refreshed"] = True
+    if not got:
+        return
+    t = got[0]
+    if t["topic"].strip().lower() != str(item["topic"]).strip().lower():
+        item["planned_topic"] = item["topic"]
+        log(f"Fresher topic for {ch['name']}: {t['topic']} (was: {item['topic']})")
+    item.update(topic=t["topic"], angle=t.get("angle") or item.get("angle"), why=t.get("why") or item.get("why"),
+                feeling=t.get("feeling"), now_hook=t.get("now_hook"))
+
+
 def make_item(plan: dict, item: dict, brain, memory=None, log=print) -> None:
     from .config import channel as get_channel
     ch = get_channel(item["channel"])
@@ -554,9 +607,15 @@ def make_item(plan: dict, item: dict, brain, memory=None, log=print) -> None:
         got = pick_topics(brain, ch, 1, memory=memory, taken=taken, log=log)
         if got:
             item["topic"], item["angle"], item["why"] = got[0]["topic"], got[0].get("angle"), got[0].get("why")
+    if ch["type"] == "story" and item.get("kind") != "long" and item.get("topic") and brain is not None \
+            and item.get("status") != "redo" and not item.get("refreshed") and item.get("role") not in ("hub", "spoke"):
+        _refresh_topic(plan, item, ch, brain, memory, log)
     topic = item.get("topic") or ""
     if item.get("angle"):
         topic = f"{topic} (angle: {item['angle']})"
+    if item.get("feeling"):
+        topic = f"{topic}\nThe feeling this video must deliver: {item['feeling']}" + (
+            f" (why now: {item['now_hook']})" if item.get("now_hook") else "")
     if item.get("status") == "redo" and item.get("note"):
         topic = f"{topic}\nThe owner asked for this change: {item['note']}"
     if ch["type"] == "story":
