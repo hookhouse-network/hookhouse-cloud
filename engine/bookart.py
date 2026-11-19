@@ -76,7 +76,8 @@ SD_URL = f"http://127.0.0.1:{SD_PORT}"
 def _threads() -> int:
     """All cores on the cloud farm machine (it does nothing else); two spare on a PC."""
     n = _os.cpu_count() or 4
-    return n if _os.environ.get("HOOKHOUSE_CLOUD") else max(1, n - 2)
+    from .core.where import in_runner
+    return n if in_runner() else max(1, n - 2)
 
 
 def sd_server_up() -> bool:

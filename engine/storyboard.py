@@ -163,7 +163,8 @@ def _quota() -> dict:
 
 def _block(source: str) -> None:
     """Free daily allowance used up: skip this source until 00:00 UTC (both reset daily)."""
-    path = QUOTA if os.environ.get("HOOKHOUSE_CLOUD") else QUOTA_PC
+    from .core.where import in_runner
+    path = QUOTA if in_runner() else QUOTA_PC
     q = _read(path)
     tomorrow = dt.datetime.now(dt.timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0) + dt.timedelta(days=1)
     q[source] = tomorrow.timestamp()

@@ -139,3 +139,11 @@ def test_pc_picture_block_survives_the_cloud_pull(monkeypatch):
     sb.QUOTA.parent.mkdir(parents=True, exist_ok=True)
     sb.QUOTA.write_text('{"cloudflare": 0}', encoding="utf-8")      # the pull replaced data/state with the cloud's copy
     assert sb.images_blocked()                          # still remembered: no 20-minute failed videos all night
+
+
+def test_pc_with_cloud_mode_is_not_the_runner(monkeypatch):
+    from engine.core.where import in_runner
+    monkeypatch.setenv("HOOKHOUSE_CLOUD", "1")            # the PC's .env says cloud mode is on ...
+    assert not in_runner()                                # ... but it is not the GitHub runner
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    assert in_runner()

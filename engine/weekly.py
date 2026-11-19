@@ -494,7 +494,8 @@ PC_CLIP_USED = ROOT / "data" / "pc" / "clip_used.json"
 def remember_used_on_pc(source: str) -> None:
     """The PC's pulled clip_pool.json is replaced on every pull; this list survives until the cloud has merged."""
     import os
-    if os.environ.get("HOOKHOUSE_CLOUD"):
+    from .core.where import in_runner
+    if in_runner():
         return
     try:
         used = json.loads(PC_CLIP_USED.read_text(encoding="utf-8"))

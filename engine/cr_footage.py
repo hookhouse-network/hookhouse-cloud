@@ -27,7 +27,8 @@ import os as _os
 from engine.core.http import HTTP
 # PC: data/pc (data/campaigns is overwritten by each pull). Cloud (18 Nov, logged-in jobs moved there): data/state,
 # which the memory bundle keeps, so each campaign is still checked at most every CHECK_EVERY_S.
-SEEN = ROOT / "data" / ("state" if _os.environ.get("HOOKHOUSE_CLOUD") else "pc") / "footage_checked.json"
+from .core.where import in_runner as _in_runner
+SEEN = ROOT / "data" / ("state" if _in_runner() else "pc") / "footage_checked.json"
 WATCH = ROOT / "data" / "pc" / "join_watch.json"         # campaigns opened on the PC for the owner to Join
 CHECK_EVERY_S = 30 * 60
 LOCKED = re.compile(r"visible once you join|join to unlock", re.I)

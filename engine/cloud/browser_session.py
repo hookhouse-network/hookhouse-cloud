@@ -129,7 +129,8 @@ def start_cloud_chrome(store, log=print, wait_s: float = 25) -> bool:
 def cloud_jobs(store, log=print) -> int:
     """Cloud tick: the logged-in jobs that used to need the PC. Campaign pages + Frame.io footage for now (KDP and
     pins need the book/pin files in the cloud first)."""
-    if not os.environ.get("HOOKHOUSE_CLOUD"):
+    from ..core.where import in_runner
+    if not in_runner():               # 20 Nov: the PC also has HOOKHOUSE_CLOUD=1
         return 0
     if not start_cloud_chrome(store, log):
         return 0
