@@ -47,6 +47,9 @@ def social_lines(cid: str) -> list[str]:
             fb = ""
     if fb:
         out.append(f"📘 Facebook: {fb}")
+    pin = str(links.get("pinterest") or "").lstrip("@")
+    if pin:                                            # 19 Nov: Pinterest business accounts
+        out.append(f"📌 Pinterest: https://www.pinterest.com/{pin}")
     return out
 
 
