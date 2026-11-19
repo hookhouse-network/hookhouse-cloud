@@ -53,13 +53,6 @@ def duration(path: Path) -> float:
     return float(probe(path)["format"]["duration"])
 
 
-def video_size(path: Path) -> tuple[int, int]:
-    for s in probe(path)["streams"]:
-        if s.get("codec_type") == "video":
-            return int(s["width"]), int(s["height"])
-    raise ValueError(f"No video stream in {path}")
-
-
 # Shared export settings: good quality, small files (Telegram previews stay under 50 MB).
 # maxrate 8M = YouTube's recommended 1080p upload rate; stops film grain from bloating files.
 H264 = ["-c:v", "libx264", "-preset", "medium", "-crf", "20", "-maxrate", "8M", "-bufsize", "16M",

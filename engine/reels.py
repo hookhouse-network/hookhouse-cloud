@@ -29,22 +29,6 @@ def trimmed_variant(video: Path, out: Path, trim_end: float = 0.5) -> Path:
     return out
 
 
-def hook_overlay_variant(video: Path, out: Path, old_hook: str, new_hook: str, y: int = 300,
-                         trim_end: float = 0.3) -> Path:
-    """Covers the clip's white hook box with a new one (other wording), drawn at least as big as the old."""
-    from .clipv3 import hook_box
-    old = hook_box(old_hook)
-    new = hook_box(new_hook, min_w=old.shape[1], min_h=old.shape[0])
-    png = out.with_suffix(".hook.png")
-    Image.fromarray(new[..., [2, 1, 0, 3]]).save(png)
-    dur = ffmpeg.duration(video)
-    ffmpeg.run(["-i", str(video), "-i", str(png), "-filter_complex",
-                f"[0:v][1:v]overlay=(main_w-{new.shape[1]})/2:{y}", "-t", f"{max(1.0, dur - trim_end):.3f}",
-                *ffmpeg.H264, *ffmpeg.AAC, "-movflags", "+faststart", str(out)])
-    png.unlink(missing_ok=True)
-    return out
-
-
 def snack_reel(out_dir: Path, meta: dict, channel: dict) -> dict:
     """Brain Snack: trimmed re-encode (loops keep their full length), second title, own cover."""
     video = out_dir / "video.mp4"

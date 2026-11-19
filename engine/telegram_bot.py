@@ -13,10 +13,8 @@ from __future__ import annotations
 import json
 import os
 import secrets
-import shutil
 import sys
 import time
-from pathlib import Path
 
 import requests
 
@@ -525,7 +523,7 @@ MORE = ("Extra commands (you rarely need these):\n"
 
 def tasks_text() -> str:
     """📋 My tasks (owner 17 Nov: "a command that tells me the remaining and approved tasks")."""
-    from datetime import datetime, timedelta
+    from datetime import timedelta
     from . import autopilot, books, db, todo
     now = autopilot._now()
     lines = ["📋 Your tasks", ""]

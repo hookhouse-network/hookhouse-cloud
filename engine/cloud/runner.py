@@ -493,7 +493,6 @@ def _one_helper(port: int = 47614) -> bool:
 
 def helper(once: bool = False, every_s: int = 300, log=_log) -> None:
     """The PC as helper: whenever it is on, make the next unclaimed videos (any length) and hand them to the cloud."""
-    from .. import autopilot
     if not _one_helper():
         log("Another PC helper is already running on this PC; this copy stops (two would make videos twice).")
         return

@@ -233,16 +233,6 @@ def text_items(lines: list[str], language: str, accent: str, x: int, y: int, max
     return items
 
 
-def _hero_pick(images: list[Image.Image]) -> list[Image.Image]:
-    """Prefer, among the 3 most relevant pictures, one with a clear subject (the list arrives sorted by relevance)."""
-    if len(images) < 2:
-        return images
-    top = images[:3]
-    scored = [(0 if _mask(im) is None else 1, -i, im) for i, im in enumerate(top)]
-    scored.sort(key=lambda t: (t[0], t[1]), reverse=True)
-    return [im for _, _, im in scored] + images[3:]
-
-
 def _text_spot(crop: Image.Image, m: np.ndarray | None) -> str:
     """Where the words cover the least: top-left ('left'), top-right ('right') or bottom-left ('bottom').
     Cost = how much of the subject is there + how busy (edgy) the picture is there. Never bottom-right (the badge)."""

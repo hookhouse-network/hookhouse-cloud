@@ -14,7 +14,7 @@ import json
 import sys
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import ImageDraw
 
 from . import store_copy, store_covers
 from .config import ROOT

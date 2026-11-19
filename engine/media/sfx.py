@@ -2,10 +2,8 @@
 no licenses needed."""
 from __future__ import annotations
 
-from pathlib import Path
 
 import numpy as np
-import soundfile as sf
 
 SR = 48000
 
@@ -533,13 +531,3 @@ def duck(music: np.ndarray, voice: np.ndarray, amount: float = 0.6) -> np.ndarra
     return music[:n] * gain[:n]
 
 
-def write_library(folder: Path) -> dict[str, Path]:
-    folder.mkdir(parents=True, exist_ok=True)
-    sounds = {"whoosh": whoosh(), "impact": impact(), "riser": riser(), "pop": pop(), "tick": tick(),
-              "bass_drop": bass_drop(), "ding": ding()}
-    paths = {}
-    for name, data in sounds.items():
-        p = folder / f"{name}.wav"
-        sf.write(p, np.column_stack([data, data]).astype(np.float32), SR)
-        paths[name] = p
-    return paths

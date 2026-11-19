@@ -17,7 +17,6 @@ import math
 import statistics
 import time
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 import requests
 import yaml

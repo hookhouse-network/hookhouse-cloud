@@ -108,11 +108,6 @@ def _arrow(draw: ImageDraw.ImageDraw, tip: tuple[int, int], angle_deg: float, le
     draw.polygon(shrink, fill=color)
 
 
-def _circle(draw: ImageDraw.ImageDraw, box: tuple[int, int, int, int], color: str = "#FF1E1E") -> None:
-    draw.ellipse(box, outline="white", width=18)
-    draw.ellipse(box, outline=color, width=11)
-
-
 def _text_ass(items: list[dict], language: str) -> str:
     """items: {text, font, size, x, y, fg, bg (strip colour or None), outline, align (7=top-left, 5=center), rot}"""
     sp = 0   # letter spacing 0 keeps Hindi letters joined
@@ -304,6 +299,3 @@ def make_set(images: list[Path], thumb: dict, out_dir: Path, *, accent: str, lan
 
 
 # Older helper kept for the CLI
-def make_variants(images: list[Path], texts: list[str], out_dir: Path, accent: str, language: str = "en",
-                  n: int = 3) -> list[Path]:
-    return make_set(images, {"text": texts[0] if texts else ""}, out_dir, accent=accent, language=language)

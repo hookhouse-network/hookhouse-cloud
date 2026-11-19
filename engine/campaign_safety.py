@@ -11,11 +11,10 @@ Source: research_notes/Channel growth and earnings plan/campaign_payments_fraud.
 from __future__ import annotations
 
 import difflib
-import hashlib
 import re
 import sqlite3
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -269,32 +268,6 @@ def check_submission(conn, sub: dict, campaign: dict | None = None) -> list[str]
         if tag.lower() not in caption:
             issues.append(f"Missing required tag {tag}")
     return issues
-
-
-def record_submission(conn, sub: dict) -> int:
-    cur = conn.execute("INSERT INTO submissions(campaign_id, payer_id, account, post_url, posted_at, submitted_at, "
-                       "edit_hash, disclosure_s, video_s, status, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-                       (sub.get("campaign_id"), sub.get("payer_id"), sub.get("account"), sub.get("post_url"),
-                        sub.get("posted_at"), sub.get("submitted_at"), sub.get("edit_hash"), sub.get("disclosure_s"),
-                        sub.get("video_s"), sub.get("status", "submitted"), sub.get("notes")))
-    conn.commit()
-    return cur.lastrowid
-
-
-def add_evidence(conn, path: Path, kind: str, submission_id: int | None = None, campaign_id: str | None = None) -> int:
-    """Evidence is append-only: a copy goes into data/evidence/ with its hash; files are never overwritten."""
-    path = Path(path)
-    data = path.read_bytes()
-    digest = hashlib.sha256(data).hexdigest()
-    dest_dir = ROOT / "data" / "evidence" / time.strftime("%Y%m")
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    dest = dest_dir / f"{digest[:16]}_{path.name}"
-    if not dest.exists():
-        dest.write_bytes(data)
-    cur = conn.execute("INSERT INTO evidence(submission_id, campaign_id, kind, captured_at, sha256, path) VALUES "
-                       "(?,?,?,?,?,?)", (submission_id, campaign_id, kind, time.time(), digest, str(dest)))
-    conn.commit()
-    return cur.lastrowid
 
 
 EVIDENCE_SCHEDULE_H = [1, 24, 72, 168, 336, 720]      # analytics screenshots after posting (hours)

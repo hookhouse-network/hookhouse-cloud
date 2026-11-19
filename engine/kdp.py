@@ -12,7 +12,7 @@ import json
 import sys
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import ImageDraw
 
 from .config import ROOT
 from . import store_copy, store_covers

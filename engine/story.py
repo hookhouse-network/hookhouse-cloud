@@ -304,28 +304,6 @@ def _too_plain(path, strict: bool = False) -> bool:
         return False
 
 
-def _detail_focus(path, j: int) -> tuple[float, float]:
-    """Where a closer second shot should look: the most detailed area of the picture, never plain sky or a blank
-    margin (a fixed upper-left focus once filled a whole shot with white sky)."""
-    try:
-        import cv2
-        img = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
-        if img is None:
-            raise ValueError
-        img = cv2.resize(img, (64, 64))
-        e = np.abs(cv2.Laplacian(img.astype(np.float32), cv2.CV_32F))
-        best, pick = -1.0, (0.5, 0.45)
-        for fy in (0.3, 0.45, 0.6):
-            for fx in (0.3, 0.5, 0.7):
-                y0, x0 = int(fy * 64) - 16, int(fx * 64) - 16
-                score = float(e[max(0, y0):y0 + 32, max(0, x0):x0 + 32].mean()) - (0.5 if fx == 0.5 and j % 2 else 0.0)
-                if score > best:
-                    best, pick = score, (fx, fy)
-        return pick
-    except Exception:  # noqa: BLE001 - framing is a nicety
-        return (0.35 + 0.3 * (j % 2), 0.45)
-
-
 _NUM = re.compile(r"\d[\d,]*(?:\.\d+)?")
 
 

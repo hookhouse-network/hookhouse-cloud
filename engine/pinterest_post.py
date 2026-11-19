@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 import re
 import time
-from pathlib import Path
 
 from .config import ROOT
 from . import store_covers
@@ -91,7 +90,6 @@ def post_one(p, pid: str, k: int, pin: dict, plan: dict) -> None:
 
 def post(max_pins: int = MAX_PER_RUN, log=print) -> list[str]:
     from playwright.sync_api import sync_playwright
-    from .store_publish import _page
     done = []
     todo = queue()[:max_pins]
     if not todo:

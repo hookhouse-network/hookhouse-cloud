@@ -28,7 +28,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from . import weekly
-from .config import ROOT, settings
+from .config import ROOT
 
 STATE = ROOT / "data" / "state" / "autopilot.json"
 PREVIEWS = ROOT / "data" / "telegram" / "previews"

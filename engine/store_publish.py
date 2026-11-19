@@ -129,18 +129,6 @@ def payhip_rows(p) -> list[tuple[str, str, str]]:
     return rows
 
 
-def payhip_delete(p, edit_url: str) -> None:
-    p.goto(edit_url, timeout=90000, wait_until="domcontentloaded")
-    p.wait_for_timeout(2500)
-    p.once("dialog", lambda d: d.accept())
-    p.locator("a", has_text=re.compile(r"^\s*Delete\s*$")).first.click()
-    p.wait_for_timeout(3000)
-    confirm = p.locator("button, a, input[type=submit]", has_text=re.compile(r"^\s*(Delete|Yes|Confirm)", re.I)).filter(visible=True)
-    if confirm.count():
-        confirm.last.click()
-        p.wait_for_timeout(3000)
-
-
 J_ROW_MENU = r"""(code) => {
   const a = Array.from(document.querySelectorAll('a')).find(x => (x.getAttribute('href') || '').endsWith('/product/edit/' + code));
   if (!a) return false;
@@ -166,13 +154,6 @@ def payhip_delete_product(p, code: str) -> bool:
         if not p.evaluate(J_ROWS):
             break
     return False
-
-
-def payhip_has_file(p, code: str) -> bool:
-    p.goto(f"https://payhip.com/product/edit/{code}", timeout=90000, wait_until="domcontentloaded")
-    p.wait_for_timeout(2500)
-    t = p.evaluate("() => document.body.innerText")
-    return bool(re.search(r"\.(pdf|zip|xlsx|mp3)\b", t, re.I))
 
 
 def payhip_add(p, pid: str) -> str:

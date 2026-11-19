@@ -19,7 +19,6 @@ import json
 import re
 import time
 import urllib.request
-from pathlib import Path
 
 from .config import ROOT
 
@@ -151,17 +150,6 @@ def watched() -> list[dict]:
         return json.loads(WATCH.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return []
-
-
-def open_for_join(campaigns: list[dict]) -> int:
-    """Open each campaign page in the PC browser for the owner's Join tap, and watch it until joined."""
-    have = {c["id"] for c in watched()}
-    rows = watched() + [{"id": c["id"], "name": c.get("name"), "url": c["url"]} for c in campaigns if c["id"] not in have]
-    WATCH.parent.mkdir(parents=True, exist_ok=True)
-    WATCH.write_text(json.dumps(rows, indent=1), encoding="utf-8")
-    for c in campaigns:
-        _cdp_json("/json/new?" + c["url"], method="PUT")
-    return len(campaigns)
 
 
 def _seen() -> dict:

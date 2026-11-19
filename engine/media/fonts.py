@@ -64,11 +64,6 @@ def title_font(language: str, kind: str = "story") -> str:
     return look(kind)["title_hi" if language == "hi" else "title_en"]
 
 
-def font_for(language: str) -> str:
-    """Older helper: caption font for a language."""
-    return caption_font(language)
-
-
 def font_file(family: str) -> Path:
     ensure_fonts()
     return FONTS_DIR / FONTS[family][1]

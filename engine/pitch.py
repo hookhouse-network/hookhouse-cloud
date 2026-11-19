@@ -13,11 +13,10 @@ Nothing is ever sent automatically: the owner sends from their own account.
 from __future__ import annotations
 
 import html
-import json
 import re
 import sqlite3
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 from .config import ROOT

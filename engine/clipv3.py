@@ -13,7 +13,6 @@
 from __future__ import annotations
 
 import json
-import math
 import re
 import subprocess
 from dataclasses import dataclass, field
@@ -102,11 +101,6 @@ class Scene:
     size: tuple
     faces: list = field(default_factory=list)       # [(t, [(cx, cy, w, h, eye_y), ...])]
     thumbs: list = field(default_factory=list)      # [(t, 36x64 float32)]
-
-
-def analyse_faces(video: Path, start: float, end: float, fps: float = 10.0) -> tuple[list[Track], tuple[int, int]]:
-    sc = analyse(video, start, end, fps)
-    return sc.tracks, sc.size
 
 
 def analyse(video: Path, start: float, end: float, fps: float = 10.0) -> Scene:

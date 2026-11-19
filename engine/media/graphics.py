@@ -10,7 +10,6 @@ All drawn by our own code with free commercial-use fonts (OFL / Apache-2.0).
 """
 from __future__ import annotations
 
-import math
 import re
 from pathlib import Path
 

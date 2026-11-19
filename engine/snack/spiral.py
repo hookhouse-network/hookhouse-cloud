@@ -11,7 +11,7 @@ import numpy as np
 from numba import njit
 
 from . import audio as au
-from .canvas import W, H, add_glow, blit, hue_bgr, radial_bg, rounded_rect, text_sprite, zoom
+from .canvas import W, add_glow, blit, hue_bgr, radial_bg, rounded_rect, text_sprite, zoom
 
 CX, CY = 540.0, 960.0
 R_GUIDE, R_WIN = 486.0, 62.0

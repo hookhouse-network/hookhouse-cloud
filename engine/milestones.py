@@ -9,7 +9,6 @@ and YouTube's own check in Studio decides in the end.
 from __future__ import annotations
 
 import json
-import time
 
 from .config import ROOT
 

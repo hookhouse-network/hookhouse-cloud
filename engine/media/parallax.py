@@ -103,6 +103,3 @@ class Parallax:
         return cv2.remap(self.img, mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
 
 
-def pick_move(i: int, rng: np.random.Generator | None = None) -> str:
-    rng = rng or np.random.default_rng(i)
-    return MOVES[int(rng.integers(0, len(MOVES)))]

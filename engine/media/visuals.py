@@ -292,33 +292,5 @@ def best_match(candidates: list[Visual], scene_text: str, used: set) -> tuple[Vi
     return fresh[i], float(scores[i])
 
 
-def find_visual(scene: dict, palette: list[str], dest_dir: Path, index: int, language: str = "en",
-                style: str = "", used: set | None = None, min_match: float = 0.78,
-                size: tuple[int, int] = (1080, 1920)) -> Visual:
-    """AI for mood scenes; real photos (best match) for real people/places/events."""
-    used = used if used is not None else set()
-    kind = scene.get("visual_type", "photo")
-    query = scene.get("visual_query") or scene.get("narration", "")[:60]
-    scene_text = f"{query}. {scene.get('narration', '')}"
-    if kind == "ai":
-        v = ai_image(scene.get("ai_prompt") or query, style)
-        if v:
-            return v
-    candidates = wikimedia(query) + pexels(query)
-    pick, score = best_match(candidates, scene_text, used)
-    if pick and (score >= min_match or kind == "photo" and not ai_image_available()):
-        used.add(pick.path)
-        pick.meta["match"] = round(score, 3)
-        return pick
-    v = ai_image(scene.get("ai_prompt") or f"{query}, {scene.get('narration', '')[:120]}", style)
-    if v:
-        return v
-    if pick:
-        used.add(pick.path)
-        pick.meta["match"] = round(score, 3)
-        return pick
-    return title_card(scene.get("on_screen_text") or query, palette, dest_dir / f"card_{index:02d}.jpg", language, size)
-
-
 def ai_image_available() -> bool:
     return bool(os.environ.get("CLOUDFLARE_ACCOUNT_ID") and os.environ.get("CLOUDFLARE_API_TOKEN")) or         (ROOT / "data" / "gpu_batch").exists()

@@ -76,25 +76,3 @@ def footer(channel_id: str, language: str = "en", kids: bool = False) -> str:
     return "\n".join(lines)
 
 
-def plan_md(chans: list[dict]) -> str:
-    """What to add by hand in YouTube Studio > Customization > Links, and in each Instagram bio."""
-    d = data()
-    out = ["# Links plan (YouTube channel links + Instagram bios)", "",
-           "YouTube Studio > Customization > Basic info > Links (up to 14). Instagram: Edit profile > Links (up to 5).",
-           "Set live: true in config/links.yaml when a channel's accounts exist, so descriptions start linking them.", ""]
-    for ch in chans:
-        me = d.get(ch["id"]) or {}
-        sibs = [d.get(s, {}).get("youtube", s) for s in (d.get("siblings") or {}).get(ch["id"], [])]
-        out.append(f"## {ch['name']} ({'live' if me.get('live') else 'not live yet'})")
-        if ch.get("made_for_kids"):
-            out.append("- Made for Kids: no social links (YouTube rule); optional link: the counting activity book once "
-                       "it is published.")
-            out.append("")
-            continue
-        if me.get("instagram"):
-            out.append(f"- YouTube links: Instagram @{me['instagram']}" + (f"; sister channels {', '.join(sibs)}" if sibs else ""))
-            out.append(f"- Instagram bio link: the YouTube channel {me.get('youtube', '')} (or its full-episodes playlist)")
-        else:
-            out.append(f"- YouTube links: sister channels {', '.join(sibs)}")
-        out.append("")
-    return "\n".join(out)

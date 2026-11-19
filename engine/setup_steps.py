@@ -270,7 +270,6 @@ KEYS = {
     "NVIDIA_API_KEY": ("NVIDIA key", check_nvidia, r"\bnvapi-[A-Za-z0-9_\-]{60,70}\b", ["build.nvidia.com", "org.ngc.nvidia.com"]),
     "CEREBRAS_API_KEY": ("Cerebras key", check_cerebras, r"\bcsk-[A-Za-z0-9]{40,60}\b", ["cloud.cerebras.ai"]),
     "POLLINATIONS_KEY": ("Pollinations key", check_pollinations, r"\bsk_[A-Za-z0-9]{20,80}\b", ["enter.pollinations.ai"]),
-    "HF_TOKEN": ("Hugging Face token", check_hf, r"\bhf_[A-Za-z0-9]{30,40}\b", ["huggingface.co"]),
     "PEXELS_API_KEY": ("Pexels API key", check_pexels, r"\b[A-Za-z0-9]{56}\b", ["www.pexels.com"]),
     "CLOUDFLARE_ACCOUNT_ID": ("Cloudflare account id", check_cloudflare_account, r"dash\.cloudflare\.com/([0-9a-f]{32})", ["dash.cloudflare.com"]),
     "CLOUDFLARE_API_TOKEN": ("Cloudflare API token", check_cloudflare_token, r"\b[A-Za-z0-9_\-]{40,60}\b", ["dash.cloudflare.com"]),

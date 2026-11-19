@@ -758,35 +758,6 @@ def _digit(k: int, size: int = 250) -> np.ndarray:
 
 # ---------- camera ----------
 
-def _no_cut(cx: float, z: float, keep: str) -> float:
-    """Slide a shot sideways so no character is cut by the frame edge: each one is fully in or fully out.
-    The speaker (keep) always stays fully in."""
-    w = CW / z
-    half = {n: spec[2] * 0.55 for n, spec in CAST.items()}
-
-    def clamp(c):
-        return min(max(c, w / 2), CW - w / 2)
-
-    cx = clamp(cx)
-    for _ in range(4):
-        left, right = cx - w / 2, cx + w / 2
-        moved = False
-        for name, spec in CAST.items():
-            a, b = spec[4] - half[name], spec[4] + half[name]
-            if not (a < left < b or a < right < b):
-                continue
-            ka, kb = CAST[keep][4] - half[keep], CAST[keep][4] + half[keep]
-            options = [a - left, b - left] if a < left < b else [b - right, a - right]   # include / exclude
-            for d in sorted(options, key=abs):
-                nc = clamp(cx + d)
-                if nc - w / 2 <= ka and nc + w / 2 >= kb:
-                    cx, moved = nc, True
-                    break
-        if not moved:
-            break
-    return cx
-
-
 def _solo_frame(who: str, z: float) -> tuple[float, float]:
     """A close shot of one speaker in which no other character is cut by the frame edge: zoom in until only the
     speaker is in shot (a clean close-up), or out until the whole group fits."""

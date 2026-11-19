@@ -101,28 +101,6 @@ NEEDS_LABEL = {"threads_login": "the channel's Threads is connected (setup assis
                "pinterest_claim": "Pinterest claims the Instagram (Pinterest makes the Pins); winners pack until then"}
 
 
-def write_money_map(chans: list[dict], path) -> None:
-    """docs/money_map.md from this registry: every channel, every platform, how each one earns."""
-    out = ["# HookHouse money map: every channel, every platform, every income stream", "",
-           "- **✅ auto**: the system posts it by itself after your approval. No work for you.",
-           "- **📲 winners**: no free posting API, so you post by hand, but only our best videos: every evening the "
-           "bot sends the top 3 of the last 2 days with a ready caption (about a minute each). Paid campaign clips "
-           "come right after posting.",
-           "- **⏳ later**: waits for a one-time step (an audience, an invite, or a product you upload once).",
-           "- Missing platforms are not allowed: Bloop is for children (13+ apps are off by law, COPPA); campaign "
-           "clips only go where the campaign's licence allows.", ""]
-    for row in money_map(chans):
-        ch = next(c for c in chans if c["id"] == row["channel"])
-        out += [f"## {row['name']} ({ch.get('type')}, {'Hindi' if ch.get('language') == 'hi' else 'English'}): "
-                f"{len(row['platforms'])} platforms", "| Platform | Posting | How it earns |", "|---|---|---|"]
-        out += [f"| {p['platform']} | {MODE_LABEL.get(p['post'], p['post'])}"
-                + (f" once {NEEDS_LABEL.get(p['needs'], p['needs'])}" if p.get("needs") else "")
-                + f" | {p['money']} |" for p in row["platforms"]]
-        out += [f"| (extra) | - | {x} |" for x in EXTRA.get(ch.get("type"), [])] + [""]
-    from pathlib import Path as _P
-    _P(path).write_text("\n".join(out) + "\n", encoding="utf-8")
-
-
 def money_map(chans: list[dict]) -> list[dict]:
     """Per channel: every platform it uses, how it is posted and how it earns (dashboard + docs)."""
     out = []

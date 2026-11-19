@@ -12,7 +12,6 @@ post only after approval, ideas from repeated requests), built our own way:
 - Viewer ideas reach the weekly topic planner as hints. Comment data is deleted after 30 days (API policy)."""
 from __future__ import annotations
 
-import json
 import re
 import sqlite3
 import time

@@ -89,14 +89,6 @@ def chunk_words(words: list[Word], max_words: int = 3, max_chars: int = 18, max_
     return chunks
 
 
-def _rounded_rect_path(w: int, h: int, r: int) -> str:
-    """ASS vector drawing (\\p1) of a rounded rectangle, top-left at 0,0."""
-    r = max(1, min(r, w // 2, h // 2))
-    k = int(r * 0.45)                                # bezier handle for a quarter circle
-    return (f"m {r} 0 l {w - r} 0 b {w - k} 0 {w} {k} {w} {r} l {w} {h - r} b {w} {h - k} {w - k} {h} {w - r} {h} "
-            f"l {r} {h} b {k} {h} 0 {h - k} 0 {h - r} l 0 {r} b 0 {k} {k} 0 {r} 0")
-
-
 def _hook_single_box(hook: str, hs, size: tuple[int, int], hook_end: float, sp: int) -> list[str]:
     """The hook as one white rounded box (soft shadow) with black text, at most 2 lines: the TikTok-native look.
     Text is measured with the real font so the box always fits."""

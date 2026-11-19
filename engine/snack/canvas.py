@@ -175,11 +175,6 @@ def rounded_rect(frame: np.ndarray, x0: int, y0: int, x1: int, y1: int, r: int, 
     roi[:] = (roi * (1 - a) + np.array(color, np.float32) * a).astype(np.uint8)
 
 
-def ease_out_back(t: float, s: float = 1.7) -> float:
-    t = min(max(t, 0.0), 1.0) - 1
-    return t * t * ((s + 1) * t + s) + 1
-
-
 def ease_out(t: float) -> float:
     t = min(max(t, 0.0), 1.0)
     return 1 - (1 - t) ** 3

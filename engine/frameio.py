@@ -13,7 +13,6 @@ import time
 import urllib.request
 from pathlib import Path
 
-import requests
 
 CDP = "http://127.0.0.1:9333"
 VIDEO = re.compile(r"\.(mp4|mov|m4v)$", re.I)

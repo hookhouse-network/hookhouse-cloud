@@ -10,7 +10,6 @@ writer's fact-check still runs on every script.
 from __future__ import annotations
 
 import html
-import json
 import re
 from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime

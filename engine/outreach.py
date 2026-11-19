@@ -16,9 +16,7 @@ website or About page.
 """
 from __future__ import annotations
 
-import re
 import time
-from pathlib import Path
 
 import yaml
 
@@ -286,5 +284,3 @@ def summary() -> str:
             "\nNew pitches come every Monday. Free trial: /trial <name> <file link>")
 
 
-def slug_ok(pid: str) -> bool:
-    return bool(re.fullmatch(r"[a-z0-9-]{1,40}", pid or ""))
