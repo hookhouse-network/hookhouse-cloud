@@ -11,6 +11,14 @@ topic_hints:   # research 10 Nov: AI-tools content has high ad rates and sponsor
   - "A free AI tool that replaces a paid one, and what it costs the old company"
   - "The real cost of running AI: chips, power and data centres explained"
   - "A famous company's money mistake, explained in numbers"
+  # 19-30 Nov 2026 (owner: GTA 6 is the hottest topic; it launched 19 Nov): money/business angles only, NO game
+  # footage, no Rockstar art or characters, no story spoilers (Rockstar policy: footage is non-commercial fan use only).
+  # Visuals: our charts, real-world Miami/Florida photos, stock, Penny the mascot.
+  - "PRIORITY THIS WEEK: GTA 6 launch money - how much it made in its first 24 hours vs the biggest movie openings ever"
+  - "PRIORITY THIS WEEK: why GTA 6 cost about $2 billion to make, and how Take-Two earns that back (in numbers)"
+  - "PRIORITY THIS WEEK: the $70 vs $100 game price fight: what GTA 6's price means for your wallet and every other game"
+  - "PRIORITY THIS WEEK: how GTA V's online mode made more money than most movies ever did, and what GTA 6 copies"
+  - "PRIORITY THIS WEEK: the real Miami behind Vice City: housing prices, tourism and the money of the city it copies"
 bio: "Money tricks school never taught you."
 earns_from: [youtube_ads]
 schedule: {shorts_per_day: 1, long_per_week: 1}

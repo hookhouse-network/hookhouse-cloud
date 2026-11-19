@@ -187,10 +187,18 @@ def test_open_dashboard_starts_the_system_only_when_needed(monkeypatch, tmp_path
     opened, started = [], []
     monkeypatch.setattr("webbrowser.open", lambda u: opened.append(u))
     monkeypatch.setattr("subprocess.Popen", lambda *a, **k: started.append(a))
+    makers = []                                          # 19 Nov, option A: the icon starts the PC video maker
+
+    class Done:
+        stdout = "PC video maker started (hidden)."
+    monkeypatch.setattr("subprocess.run", lambda *a, **k: makers.append(a) or Done())
+    monkeypatch.setattr("engine.cleanup.due_on_pc", lambda: False)
     monkeypatch.setattr(pf, "standin_running", lambda port=47615: True)
     assert pf.open_dashboard() == "Dashboard opened in your browser." and not started
     monkeypatch.setattr(pf, "standin_running", lambda port=47615: False)
     assert pf.open_dashboard().startswith("System started.") and len(started) == 1
+    assert not makers                                    # before the handover the stand-in did everything
     (tmp_path / "handed.txt").write_text("1")
-    pf.open_dashboard()
-    assert len(started) == 1 and len(opened) == 3        # after the handover: never restarted
+    msg = pf.open_dashboard()
+    assert len(started) == 1 and len(opened) == 3        # after the handover: the stand-in is never restarted
+    assert len(makers) == 1 and "Video maker started" in msg

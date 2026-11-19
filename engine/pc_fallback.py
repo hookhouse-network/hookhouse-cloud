@@ -541,6 +541,15 @@ def open_dashboard() -> str:
         subprocess.Popen(["cmd", "/c", "start", "HookHouse PC stand-in", "/min",
                           str(ROOT / "scripts" / "pc_standin.cmd")], cwd=str(ROOT))
         started = "System started. "
+    if HANDED_FILE.exists():                     # 19 Nov, option A: the icon also starts the hidden PC video maker
+        try:
+            r = subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+                                str(ROOT / "scripts" / "start_pc_maker.ps1")], cwd=str(ROOT), capture_output=True,
+                               text=True, timeout=60, creationflags=0x08000000)
+            started += ("Video maker started. " if "started" in r.stdout else
+                        "Video maker already running. " if "already" in r.stdout else "")
+        except Exception:  # noqa: BLE001 - the dashboard opens either way
+            pass
     try:                                         # 19 Nov: keep the PC light (the folder had grown past 24 GB)
         from .cleanup import due_on_pc
         if due_on_pc():
