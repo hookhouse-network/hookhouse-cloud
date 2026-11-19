@@ -275,9 +275,14 @@ def snapshot(kv, log=_log) -> None:
         waiting = sum(1 for _s, it in autopilot.items(2, 9) if it["status"] == "made")
     except Exception:  # noqa: BLE001
         waiting = None
+    try:                                                   # 20 Nov: 📥 Waiting for me answers at once with cards
+        queue = telegram_bot.queue_cards()
+    except Exception as e:  # noqa: BLE001 - without it the Worker starts a run for the button
+        log(f"snapshot queue: {type(e).__name__}: {e}")
+        queue = None
     try:
         kv.put("snapshot", {"status": telegram_bot.status_text(), "texts": texts, "waiting": waiting,
-                            "at": time.time()})
+                            "queue": queue, "at": time.time()})
     except Exception as e:  # noqa: BLE001
         log(f"snapshot: {e}")
 

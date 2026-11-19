@@ -484,23 +484,69 @@ def source_pick(choice: str) -> None:
 
 
 # ---------------- /queue: what is waiting ----------------
-def send_queue() -> None:
-    """The next 2 days: what waits for the owner's tap (re-sent with buttons), what is approved, what is being made."""
+QUEUE_CARDS_MAX = 10
+KIND_LABEL = {"short": "Short", "long": "Long video", "clip": "Clip", "story": "Short"}
+
+
+def _card_title(it: dict) -> str:
+    """The video's title (upload.json / clips.json), else its planned topic."""
+    from pathlib import Path
+    folder = Path(it.get("out_dir") or "")
+    try:
+        meta = json.loads((folder / "upload.json").read_text(encoding="utf-8"))
+        if meta.get("title"):
+            return str(meta["title"])
+    except (OSError, ValueError):
+        pass
+    try:
+        for c in json.loads((folder / "clips.json").read_text(encoding="utf-8")):
+            if c.get("file") == it.get("file") and c.get("title"):
+                return str(c["title"])
+    except (OSError, ValueError, TypeError):
+        pass
+    return str(it.get("topic") or it.get("planned_topic") or "(untitled)")
+
+
+def queue_cards() -> dict:
+    """Owner 20 Nov: "telegram must have a button for waiting for approval that gives the list of videos that need my
+    approval". Every video waiting for the owner (any day, soonest slot first), one card each with ✅ / ✏️ / ❌.
+    Only videos that already passed the campaign + reach gates (= were offered once) get buttons; ones still being
+    checked are counted, never shown with buttons (the gates stay in charge). Kept in the snapshot so the Worker
+    answers the button at once."""
     from . import autopilot
-    rows = [(st, it) for st, it in autopilot.items(0, 2)]
-    if not rows:
-        send("Nothing planned in the next 2 days.")
-        return
-    label = {"made": "waiting for you", "approved": "approved ✅", "making": "being made", "redo": "remaking",
-             "planned": "will be made", "failed": "failed, retrying", "needs_source": "needs footage",
-             "posted": "posted", "rejected": "rejected", "missed": "missed"}
-    lines = [f"{autopilot._when(it):%a %H:%M} · {it['channel_name']} · {label.get(it['status'], it['status'])}"
-             for _, it in rows]
-    send("🗓 Next 2 days\n" + "\n".join(lines[:40]))
     s = autopilot._load()
-    for start, it in rows:
-        if it["status"] == "made" and autopilot.asked_current(s, it):
-            autopilot.ask(start, it, reminder=True, mark=False)   # the buttons again, without the video
+    waiting = sorted(((st, it) for st, it in autopilot.items(3, 14) if it["status"] == "made"),
+                     key=lambda x: autopilot._when(x[1]))
+    ready = [(st, it) for st, it in waiting if autopilot.asked_current(s, it)]
+    checking = len(waiting) - len(ready)
+    cards = []
+    for st, it in ready[:QUEUE_CARDS_MAX]:
+        tok = autopilot.token(st, it["id"], str(it.get("made_at") or ""))
+        text = (f"🎬 {it.get('channel_name') or it['channel']} · {KIND_LABEL.get(it.get('kind'), it.get('kind', ''))}\n"
+                f"{_card_title(it)[:180]}\n"
+                f"⏰ posts {autopilot._when(it):%a %d %b, %H:%M}")
+        cards.append({"tok": tok, "text": text, "reply_markup": {"inline_keyboard": [[
+            {"text": "✅ Approve & post", "callback_data": f"ap:{tok}"},
+            {"text": "✏️ Change", "callback_data": f"ch:{tok}"},
+            {"text": "❌ Reject", "callback_data": f"rj:{tok}"}]]}})
+    if not waiting:
+        header = "📥 Nothing is waiting for you right now. 👍"
+    else:
+        header = f"📥 {len(ready)} video(s) need your OK" + (f" · {checking} more being checked" if checking else "")
+        if len(ready) > QUEUE_CARDS_MAX:
+            header += f"\nShowing the first {QUEUE_CARDS_MAX}; the rest are in 🎬 Studio."
+        header += "\nWatch any of them in 🎬 Studio (button left of the message box)."
+    header_kb = ({"inline_keyboard": [[{"text": f"✅ Approve all {len(ready)}", "callback_data": "aa:all"}]]}
+                 if len(ready) > 1 else None)
+    return {"header": header, "header_kb": header_kb, "cards": cards, "count": len(ready), "checking": checking}
+
+
+def send_queue() -> None:
+    """📥 Waiting for me: the header, then one card per waiting video with its buttons."""
+    q = queue_cards()
+    send(q["header"], reply_markup=q["header_kb"]) if q["header_kb"] else send(q["header"])
+    for c in q["cards"]:
+        send(c["text"], reply_markup=c["reply_markup"])
 
 
 # Owner 17 Nov 2026: "make the telegram smooth and easily understandable, i got confused". Six plain buttons stay at
@@ -816,6 +862,8 @@ def handle(update: dict, conn=None) -> None:
         if data.startswith("ch:"):
             s["awaiting_change"] = {"tok": tok, "at": time.time()}
             _save(s)
+            if os.environ.get("HOOKHOUSE_CLOUD"):             # 20 Nov: the Worker already asked at the tap
+                return
             send("✏️ What should I change? Type it in one message, for example: \"make the hook scarier\", "
                  "\"use a different first picture\". Only the title? Type \"title 2\" or \"title: your words\" (no remake needed).",
                  reply_markup={"force_reply": True})

@@ -314,8 +314,21 @@ export default {
       return new Response("ok");
     }
     if (/^\/queue\b/.test(text) || text === "📥 Waiting for me") {
-      // the videos themselves need a cloud run; say at once how many and that they are coming
+      // 20 Nov (owner: "a button for waiting for approval that gives the list of videos that need my approval"):
+      // the cards come from the snapshot at once; videos already decided since then are left out.
       const snap = JSON.parse((await env.HH.get("snapshot")) || "{}");
+      const q = snap.queue;
+      if (q && Array.isArray(q.cards)) {
+        const open = [];
+        for (const c of q.cards) if (!(await env.HH.get(`dec:${c.tok}`))) open.push(c);
+        const decided = q.cards.length - open.length;
+        let head = q.header;
+        if (decided) head = open.length || q.checking ? `📥 ${open.length} video(s) still need your OK (you decided ${decided} already)` +
+          (q.checking ? ` · ${q.checking} more being checked` : "") : "📥 All done: nothing is waiting for you. 👍";
+        await tg(env, "sendMessage", { chat_id: chat, text: head, ...(open.length > 1 && q.header_kb ? { reply_markup: q.header_kb } : {}) });
+        for (const c of open) await tg(env, "sendMessage", { chat_id: chat, text: c.text, reply_markup: c.reply_markup });
+        return new Response("ok");
+      }
       const n = snap.waiting;
       await tg(env, "sendMessage", { chat_id: chat, text: n === 0 ? "📥 Nothing is waiting for you right now. 👍" :
         `📥 ${n ?? "Your"} video(s) waiting. Sending them with ✅ / ✏️ / ❌ buttons in a few minutes…` });
@@ -334,6 +347,21 @@ export default {
       return new Response("ok");
     }
     await env.HH.put(`upd:${String(update.update_id).padStart(12, "0")}`, JSON.stringify(update), { expirationTtl: 7 * 86400 });
+    const dec = cq && /^(ap|rj|ch):([0-9a-f]{6,16})$/.exec(cq.data || "");
+    if (dec) {
+      // 20 Nov: the tap shows its result on the card at once (the cloud run does the work a moment later)
+      const [, act, tok] = dec;
+      await env.HH.put(`dec:${tok}`, act, { expirationTtl: 3 * 86400 });
+      const label = { ap: "✅ Approved: posts at its slot", rj: "❌ Rejected", ch: "✏️ Change: type what to fix" }[act];
+      await tg(env, "answerCallbackQuery", { callback_query_id: cq.id, text: label });
+      if (cq.message) await tg(env, "editMessageReplyMarkup", { chat_id: chat, message_id: cq.message.message_id,
+        reply_markup: { inline_keyboard: [[{ text: label, callback_data: "noop" }]] } });
+      if (act === "ch") await tg(env, "sendMessage", { chat_id: chat, reply_markup: { force_reply: true }, text:
+        "✏️ What should I change? Type it in one message, for example: \"make the hook scarier\", \"use a different " +
+        "first picture\". Only the title? Type \"title 2\" or \"title: your words\" (no remake needed)." });
+      await wakeInbox(env, true);
+      return new Response("ok");
+    }
     if (cq && cq.data === "c") {
       await tg(env, "answerCallbackQuery", { callback_query_id: cq.id, text: "✅ Saved. Joining and fetching footage now…" });
       await wakeInbox(env, true);                    // the owner is waiting: no 10-minute debounce

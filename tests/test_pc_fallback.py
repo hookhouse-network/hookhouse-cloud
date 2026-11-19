@@ -165,7 +165,10 @@ def test_studio_buttons_follow_status(tmp_path):
     planned = dict(made, id="i3", status="planned")
     html = st.content_card({"id": "cosmos_unboxed"}, {"items": [made, cloud_only, planned]})
     assert "hhAct('upload','i1')" in html and "hhAct('approve','i1')" in html
-    assert "hhAct('upload','i2')" not in html and "Make a PC version" in html
+    # 20 Nov: a file that isn't on this machine still gets the decisions (the cloud fetches it to post); only
+    # "Upload now" needs the file here. The old GitHub-outage "Make a PC version" is gone.
+    assert "hhAct('upload','i2')" not in html and "Make a PC version" not in html
+    assert all(f"hhAct('{op}','i2')" in html for op in ("approve", "change", "reject"))
     assert "hhAct('make','i3')" in html
 
 

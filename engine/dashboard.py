@@ -644,8 +644,9 @@ def _needs(items: list[dict], todos: list[dict]) -> list[tuple[str, str]]:
                      key=lambda x: x["publish_at"])
     if waiting:
         w = _when(waiting[0])
-        out.append(("warn", f"{len(waiting)} video(s) wait for your tap in Telegram. First one posts {w:%a %H:%M} "
-                            f"({waiting[0].get('channel_name')}). Lost the message? Send /queue."))
+        out.append(("warn", f"{len(waiting)} video(s) wait for your OK. First one posts {w:%a %H:%M} "
+                            f"({waiting[0].get('channel_name')}). Approve them in 📥 Needs your OK at the top, or with "
+                            "📥 Waiting for me in Telegram."))
     failed = [it for it in items if it.get("status") == "failed" and (it.get("attempts") or 0) >= 3]
     if failed:
         out.append(("bad", f"{len(failed)} video(s) failed 3 times: see Plan & jobs."))
@@ -1396,10 +1397,17 @@ def build() -> Path:
             ("Subscribers + followers", _num(yt_f + ig_f),
              _e(f"YouTube {_num(yt_f)} · Instagram {_num(ig_f)}") + (f" · <span class=up>+{_num(gained)}</span>" if gained else ""), "", ""),
             ("Money received", f"₹{received:,.0f}", _e(f"${pending:,.0f} pending"), "", ""),
-            ("Channels live", f"{live_n} / {len(chans)}", _e(f"YouTube {yt_n} · Instagram {ig_n} connected"), "",
+            ("Channels connected", f"{live_n} / {len(chans)}", _e(f"YouTube {yt_n} · Instagram {ig_n}"), "",
              "bad" if not live_n else "")]
-    kpi_html = "".join(f"<div class='kpi {cls}'><small>{_e(k)}</small><b>{_e(v)}</b><div class=ksub>{sub}</div>{sp}</div>"
+    kpi_html = "".join(f"<div class='kpi {cls}'" + (" onclick=\"location.hash='inbox'\" style='cursor:pointer'"
+                                                     if k == "Waiting for your tap" else "")
+                       + f"><small>{_e(k)}</small><b>{_e(v)}</b><div class=ksub>{sub}</div>{sp}</div>"
                        for k, v, sub, sp, cls in kpis)
+    try:                                                     # 20 Nov: the decisions come first on the page
+        from .dashboard_studio import inbox_card
+        inbox_html = inbox_card(ctx, poster=_poster)
+    except Exception as e:  # noqa: BLE001 - the rest of the page still builds; the error shows in the inbox
+        inbox_html = f"<div class='card wide inbox' id=inbox><h2>📥 Needs your OK</h2><p>⚠️ {_e(str(e)[:200])}</p></div>"
     needs = "".join(f"<li class={lv}><span class=dot></span><span>{_e(t)}</span></li>" for lv, t in _needs(items, todos)) \
         or "<li class=good><span class=dot></span>Nothing needs you right now</li>"
     health = "".join(f"<li><span class='lv {lv}'></span>{_e(k)}<span class=v>{_e(v)}</span></li>" for lv, k, v in _health(items))
@@ -1418,7 +1426,8 @@ def build() -> Path:
                     f"<td class=muted>{_e(c.get('account') or '-')}</td></tr>" for c in open_camps[:7]) \
         or "<tr><td class=muted colspan=3>none open</td></tr>"
     overview = f"""<section id=overview class=page>
-<div class=top><div><h1>HookHouse monitoring pad</h1><div class=muted>Updated {now:%d %b %Y, %H:%M} IST · tap a channel or a time slot for details</div></div></div>
+<div class=top><div><h1>HookHouse Studio</h1><div class=muted>Updated {now:%d %b %Y, %H:%M} IST · decisions first, then numbers</div></div></div>
+{inbox_html}
 <div class=kpis6>{kpi_html}</div>
 <div class=ovgrid><div class=mainc>
 <div class="card c-week"><h2>🗓 Next 7 days</h2>{_timeline(items, chans, ctx)}</div>

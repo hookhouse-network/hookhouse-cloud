@@ -218,11 +218,11 @@ def _card(w: datetime, it: dict, poster, pv: dict) -> dict:
     st = it.get("status", "planned")
     label, cls = STATUS.get(st, (st, ""))
     local = has_file(it)
-    btns = [(op, txt) for op, txt in BUTTONS.get(st, []) if local or op in ("make", "reject", "change")]
+    # 20 Nov (owner: "the system must have approval, reject, change buttons"): Approve / Change / Reject are
+    # decisions, so they show whether or not the file is on the machine that built this page (the cloud fetches it
+    # when posting). Only "Upload now" needs the file here.
+    btns = [(op, txt) for op, txt in BUTTONS.get(st, []) if local or op != "upload"]
     note = ""
-    if st in ("made", "missed", "approved") and not local:
-        note = "File is in the cloud store (GitHub is down): make a PC version, or wait for GitHub."
-        btns = ([("make", "🎬 Make a PC version")] if st == "made" else []) + [b for b in btns if b[0] == "reject"]
     if st == "failed" and it.get("error"):
         note = "Last try: " + str(it["error"]).split("\n")[0][:160]
     title = (it.get("meta") or {}).get("title") or it.get("title") or it.get("topic") or "topic picked when made"
@@ -258,6 +258,41 @@ def _card(w: datetime, it: dict, poster, pv: dict) -> dict:
     chip = (f"<button class='cchip st-{_e(st)}' onclick=\"hhOpen('{iid}')\" title='{_e(str(title)[:80])}'>"
             f"{w:%H:%M} {_e(it.get('kind'))}</button>")
     return {"card": card, "row": row, "chip": chip, "day": w.date(), "status": st}
+
+
+def inbox_card(ctx: dict, poster=None, limit: int = 12) -> str:
+    """📥 Needs your OK (owner 20 Nov: "re-design in the best useful way"): the first thing on the page is every video
+    waiting for a decision, any channel, soonest slot first, each with its player and Approve / Change / Reject."""
+    now = datetime.now(IST)
+    try:
+        from .pc_fallback import previews
+        pv = previews()
+    except Exception as e:  # noqa: BLE001 - the inbox still shows (without players)
+        print(f"inbox previews: {e}")
+        pv = {}
+    waiting = []
+    for it in ctx["items"]:
+        if it.get("status") not in ("made", "missed"):
+            continue
+        try:
+            w = datetime.fromisoformat(it["publish_at"])
+        except (KeyError, ValueError, TypeError):
+            continue
+        w = (w if w.tzinfo else w.replace(tzinfo=IST)).astimezone(IST)
+        if w >= now - timedelta(days=3):
+            waiting.append((w, it))
+    waiting.sort(key=lambda x: (x[1].get("status") != "made", x[0]))
+    cards = [_card(w, it, poster, pv)["card"].replace("id='sc-", "id='ib-", 1) for w, it in waiting[:limit]]
+    more = (f"<p class=muted>{len(waiting) - limit} more below in each channel's Studio.</p>"
+            if len(waiting) > limit else "")
+    if not cards:
+        body = "<p class=inbox-empty>🎉 Nothing is waiting for you. New videos appear here (and in Telegram) as they are made.</p>"
+    else:
+        body = f"<div class=sgrid>{''.join(cards)}</div>{more}"
+    n = sum(1 for _w, it in waiting if it.get("status") == "made")
+    return (f"<div class='card wide inbox' id=inbox><h2>📥 Needs your OK <span class='pill warn'>{n}</span></h2>"
+            "<p class=muted style='margin-top:-6px'>Watch, then ✅ Approve & post, ✏️ Change or ❌ Reject. Nothing is "
+            f"posted without your ✅. Same buttons as 📥 Waiting for me in Telegram.</p>{body}</div>")
 
 
 def content_card(ch: dict, ctx: dict, poster=None) -> str:
@@ -308,8 +343,11 @@ CSS = """
 font-size:13px;cursor:pointer}.sbtn:hover{border-color:var(--acc)}.sbtn.op-upload{border-color:#2f7d4f}
 .sbtn.op-reject{border-color:#7d2f33}.sres{font-size:13px;margin-top:6px;white-space:pre-wrap;word-break:break-word}
 body.hh-live [hh-off]{display:none}
+.inbox{border-color:#7a5b14}.inbox-empty{font-size:16px;padding:8px 0}
+.inbox .spv.still.empty{height:44px;min-height:0;aspect-ratio:auto}
 .livebadge{position:fixed;right:12px;bottom:12px;z-index:9;background:var(--panel2);border:1px solid var(--line);
 border-radius:999px;padding:6px 12px;font-size:12px;color:var(--mut)}.livebadge b{color:#7ff0a8}
+@media(max-width:700px){.livebadge{position:static;display:inline-block;margin:10px 12px 18px}}
 .livebadge.off b{color:#ffd27a}.lrow{display:flex;gap:10px;align-items:center;padding:6px 0;border-top:1px solid var(--line)}
 .lrow img{width:96px;height:54px;object-fit:cover;border-radius:6px;flex:none}.lrow .t{flex:1;min-width:0}
 .lrow .n{font-size:12px;color:var(--mut)}
@@ -384,7 +422,7 @@ var bx=document.querySelectorAll('[data-res="'+item+'"]'),box={set textContent(t
 fetch('cmd?k='+encodeURIComponent(K),{method:'POST',headers:{'content-type':'application/json'},
 body:JSON.stringify({op:op,item:item,note:note,force:force})}).then(function(r){return r.json()}).then(function(j){
 if(!j.id){box.textContent='⚠️ '+(j.error||'not accepted');return}
-box.textContent=j.pc?'⏳ Queued, the PC picks it up within a minute…':'⏳ Queued (the PC is off: it runs when the PC is back on).';
+box.textContent='⏳ Queued: done within a few minutes (you get the answer here and in Telegram)…';
 var n=0,t=setInterval(function(){n++;fetch('res?k='+encodeURIComponent(K)+'&id='+j.id).then(function(r){return r.json()}).then(function(s){
 if(s.text)box.textContent=s.text;if(s.state==='done'||s.state==='error'||n>400){clearInterval(t);
 if(s.text&&s.text.indexOf('Tap again and confirm')>=0&&confirm(s.text+'\n\nPost anyway?')){
