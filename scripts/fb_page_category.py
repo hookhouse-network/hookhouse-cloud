@@ -108,4 +108,5 @@ async def main():
             print(f"{r[0]}: Create Page button {'READY' if r[1] else 'not ready'}")
 
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())

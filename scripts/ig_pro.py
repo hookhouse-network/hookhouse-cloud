@@ -82,4 +82,5 @@ async def main():
         print("waiting for the owner:", "press Continue" if seen else "(no Continue dialog seen: look at the screenshot)")
 
 
-asyncio.run(asyncio.wait_for(main(), 150))
+if __name__ == "__main__":
+    asyncio.run(asyncio.wait_for(main(), 150))

@@ -99,6 +99,42 @@ BIOS = {   # (Instagram <= 150 chars, Facebook Page bio <= 101 chars); 18 Nov v3
 }
 
 
+def ig_bio(cid: str) -> str:
+    """Instagram bio with a follow line for the channel's YouTube instead of the generic last line (owner 19 Nov: "all
+    the cross platform links should be mentioned in the bios and ask to follow"). Instagram allows 150 characters."""
+    bio = BIOS[cid][0]
+    try:
+        from .links import data
+        yt = str((data().get(cid) or {}).get("youtube") or "")
+    except Exception:  # noqa: BLE001
+        yt = ""
+    if not yt:
+        return bio
+    lines = bio.split("\n")
+    linked = "\n".join(lines[:2] + [f"▶️ Follow on YouTube: {yt}"])
+    return linked if len(linked) <= 150 else bio
+
+
+def fb_description(cid: str, about: str = "") -> str:
+    """Facebook Page description (255 characters): the channel line + where else to follow it."""
+    try:
+        from .links import data, _ig_connected
+        row = data().get(cid) or {}
+    except Exception:  # noqa: BLE001
+        return about[:255]
+    parts = []
+    if row.get("youtube"):
+        parts.append(f"YouTube: youtube.com/{row['youtube']}")
+    if row.get("instagram") and _ig_connected(cid):
+        parts.append(f"Instagram: instagram.com/{str(row['instagram']).lstrip('@')}")
+    follow = ("Follow us. " + " | ".join(parts)) if parts else ""
+    room = 255 - len(follow) - 2
+    if not follow:
+        return about[:255]
+    head = about if len(about) <= room else about[:room].rsplit(" ", 1)[0]
+    return (head + "\n\n" + follow).strip()
+
+
 def jobs() -> list[tuple[str, str, str, tuple[int, int]]]:
     """(channel, kind, prompt, size) for every picture to draw."""
     out = []

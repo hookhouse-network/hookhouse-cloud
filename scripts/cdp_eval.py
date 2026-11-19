@@ -23,4 +23,5 @@ async def main(part: str, idx: int, expr: str):
                 sys.stdout.buffer.write((out + "\n").encode("utf-8"))
                 return
 
-asyncio.run(main(sys.argv[1], int(sys.argv[2]), sys.argv[3]))
+if __name__ == "__main__":
+    asyncio.run(main(sys.argv[1], int(sys.argv[2]), sys.argv[3]))

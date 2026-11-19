@@ -55,4 +55,5 @@ async def main():
         await ws.send(json.dumps({"id": 2, "method": "Page.bringToFront"}))
 
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())

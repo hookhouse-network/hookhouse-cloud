@@ -34,7 +34,7 @@ async def main(cid):
                 r = json.loads(await ws.recv())
                 if r.get("id") == n:
                     return r["result"]["result"].get("value")
-        bio = brand_art.BIOS[cid][0]
+        bio = brand_art.ig_bio(cid)
         print("bio:", await js(SET % json.dumps(bio)))
         time.sleep(1)
         print(await js(SUBMIT))
@@ -45,4 +45,5 @@ async def main(cid):
         sys.stdout.buffer.write(f"saved bio matches: {saved == bio}\n---\n{saved}\n".encode("utf-8"))
 
 
-asyncio.run(main(sys.argv[1]))
+if __name__ == "__main__":
+    asyncio.run(main(sys.argv[1]))

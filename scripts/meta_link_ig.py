@@ -165,4 +165,5 @@ async def main():
             continue
         print(f"{cid}: Instagram @{handle} {sw}; Page: {await fb_link(page, handle)}", flush=True)
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())

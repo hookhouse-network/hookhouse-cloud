@@ -45,7 +45,7 @@ async def main(cid):
         user = await js('(() => { const a = document.body.innerText.split("\\n").map(s => s.trim()); '
                         'return a[a.indexOf("Edit profile") + 1] || ""; })()')
         print("logged in as:", user)
-        bio = brand_art.BIOS[cid][0]
+        bio = brand_art.ig_bio(cid)
         xy = await js('(() => { const t = document.querySelector("textarea"); if (!t) return null; t.scrollIntoView('
                       '{block: "center"}); const b = t.getBoundingClientRect(); return [b.x + 20, b.y + 20]; })()')
         if xy:
@@ -82,4 +82,5 @@ async def main(cid):
                                        x.lower() or "couldn" in x.lower())[:200] or "(no message)")
 
 
-asyncio.run(main(sys.argv[1]))
+if __name__ == "__main__":
+    asyncio.run(main(sys.argv[1]))

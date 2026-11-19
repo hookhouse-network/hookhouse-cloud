@@ -51,4 +51,5 @@ async def main(perms):
             time.sleep(3)
 
 
-asyncio.run(main(sys.argv[1:]))
+if __name__ == "__main__":
+    asyncio.run(main(sys.argv[1:]))

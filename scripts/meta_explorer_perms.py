@@ -62,4 +62,5 @@ async def main():
         sys.stdout.buffer.write(f"in the list now: {len(got)}/{len(PERMS)}; missing: {missing}\n".encode())
 
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())

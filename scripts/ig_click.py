@@ -59,4 +59,5 @@ async def main(args):
         sys.stdout.buffer.write((" | ".join(lines[:cut])[:500] + "\n").encode("utf-8"))
 
 
-asyncio.run(main(sys.argv[1:]))
+if __name__ == "__main__":
+    asyncio.run(main(sys.argv[1:]))

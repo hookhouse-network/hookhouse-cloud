@@ -100,4 +100,5 @@ async def main(args):
         print(f"{c['name']}: {await fill(tab, c['name'], bio)}")
 
 
-asyncio.run(main(sys.argv[1:]))
+if __name__ == "__main__":
+    asyncio.run(main(sys.argv[1:]))

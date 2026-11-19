@@ -92,4 +92,5 @@ async def main(cid):
         print(f"{cid}: picture uploaded, crop {'done' if done else 'n/a'}, publish {'pressed' if pub else 'NOT found'} {msg or ''}")
 
 
-asyncio.run(main(sys.argv[1]))
+if __name__ == "__main__":
+    asyncio.run(main(sys.argv[1]))

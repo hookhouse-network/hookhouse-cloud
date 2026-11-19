@@ -49,4 +49,5 @@ async def main(part, text, idx):
             body = "(window closed)"
         sys.stdout.buffer.write(f"clicked {text!r} ({xy[2]} match(es))\n{body}\n".encode("utf-8"))
 
-asyncio.run(main(sys.argv[1], sys.argv[2], int(sys.argv[3]) if len(sys.argv) > 3 else 0))
+if __name__ == "__main__":
+    asyncio.run(main(sys.argv[1], sys.argv[2], int(sys.argv[3]) if len(sys.argv) > 3 else 0))

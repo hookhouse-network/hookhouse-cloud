@@ -50,7 +50,7 @@ for f in sorted((ROOT / "data" / "secrets").glob("meta_*.json")):
     from engine.links import data as links
     ch = channel(cid)
     yt = ((links().get(cid) or {}).get("youtube") or (ch.get("handles") or {}).get("youtube") or "").lstrip("@")
-    fields = {"about": bio, "description": str(ch.get("about") or "")[:255]}
+    fields = {"about": bio, "description": brand_art.fb_description(cid, str(ch.get("about") or ""))}
     if yt:
         fields["website"] = f"https://www.youtube.com/@{yt}"
     for k, v in fields.items():

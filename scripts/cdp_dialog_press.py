@@ -55,4 +55,5 @@ async def main(part, text):
     sys.stdout.buffer.write(f"clicked {text!r}\ndialog: {(d or 'none')[:500]}\nnew windows: {list(new.values())}\n"
                             .replace("\n\n", "\n").encode("utf-8"))
 
-asyncio.run(main(sys.argv[1], sys.argv[2]))
+if __name__ == "__main__":
+    asyncio.run(main(sys.argv[1], sys.argv[2]))

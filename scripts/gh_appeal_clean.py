@@ -113,4 +113,5 @@ async def submit():
 
 
 cmd = sys.argv[1]
-asyncio.run(start() if cmd == "start" else code(sys.argv[2]) if cmd == "code" else submit())
+if __name__ == "__main__":
+    asyncio.run(start() if cmd == "start" else code(sys.argv[2]) if cmd == "code" else submit())

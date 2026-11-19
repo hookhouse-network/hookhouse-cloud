@@ -49,4 +49,5 @@ def main():
         print(f"  {a['name']}: IG {(a.get('instagram_business_account') or {}).get('username') or '-'}")
 
 
-main()
+if __name__ == "__main__":
+    main()

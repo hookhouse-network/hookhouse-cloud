@@ -61,4 +61,5 @@ async def main():
     for t in tabs:
         sys.stdout.buffer.write((await fix(t) + "\n").encode("utf-8"))
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
