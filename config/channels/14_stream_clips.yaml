@@ -31,7 +31,7 @@ look:
 spec: {short_words: "130-165 words (about 45-55 seconds)", short_wpm: 185, shot_s: 1.4, hook_shot_s: 1.0}
 caption: {font: "Bebas Neue", pop: true}
 writer_rules: "Gaming spec: beat 1 is a striking number or comparison in 8 words or fewer (e.g. 'GTA 6's map is bigger than GTA 5 and Red Dead combined' only if true); compare with earlier GTA games using exact public numbers (release year, price, sales, budget, map size); say 'reportedly' for unofficial figures and label rumours as rumours; never describe the story or ending (no spoilers); never claim to be Rockstar or official."
-topic_style: "Viral gaming Shorts: comparisons (then vs now), records and money, real places behind the game, surprising development facts, 'things you missed' about the public trailers (described in words, never shown)."
+topic_style: "Viral gaming Shorts (19 Nov research on what GTA 6 launch clippers see working): quick map/size comparisons, rapid-fire 'battles' with a score (GTA 6 vs GTA 5, round by round), release-timing debates, GTA nostalgia (2002 vs 2026), records and money, real places behind the game, punchy one-liner roasts (light, never mean), 'things you missed' in the public trailers described in words. Speed matters: topics of the last 48 hours first."
 topic_hints:
   - "PRIORITY: GTA 6 vs GTA 5 in numbers: map size, budget, price, players on day one"
   - "PRIORITY: every main GTA game ranked by copies sold, from GTA III to GTA 6"
@@ -41,6 +41,9 @@ topic_hints:
   - "PRIORITY: why GTA 6 took 12+ years: the longest gap in the series, explained"
   - "PRIORITY: GTA 6's first-day money vs the biggest movie openings ever"
   - "Lucia: the first female lead in a main GTA game since 1997 and why it matters (no story spoilers)"
+  - "PRIORITY: GTA 6 vs GTA 5 battle in 5 rounds (map, price, budget, sales, wait time): who wins each round?"
+  - "PRIORITY: 2002 Vice City vs 2026 Vice City: nostalgia in numbers (what a 2002 kid got vs what you get now)"
+  - "PRIORITY: GTA 6 took longer than some whole console generations: the release-date saga in 50 seconds"
 about: "Gaming facts that hit different. GTA 6, records, comparisons and the real world behind your favourite games, explained in under a minute. Original commentary, no game footage."
 keywords: ["GTA 6", "GTA 6 facts", "GTA 6 vs GTA 5", "gaming facts", "GTA comparison", "Vice City"]
 handles: {"youtube": "@StreamClipsDaily", "youtube_backup": "@StreamClipsHQ", "instagram": "streamclipsdaily", "instagram_backup": "stream.clips.daily"}

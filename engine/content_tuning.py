@@ -29,7 +29,9 @@ FIRST_SECOND = (
     "FIRST SECOND (owner's Studio: more than half of viewers swipe away, they decide in 1-2 seconds): beat 1 is the most "
     "striking moment or claim of the whole video, 8 words or fewer, spoken from the very first frame (no scene-setting, "
     "no date first, no name first, no 'In 1963'); the picture already moves and shows the subject; the hook text is "
-    "on screen from frame one. Open a question the viewer needs answered and answer it only at the very end.")
+    "on screen from frame one: voice, on-screen text and a moving picture START TOGETHER (viral faceless Shorts open "
+    "with all three at once, never just one). Open a question the viewer needs answered and answer it only at the "
+    "very end.")
 FEELING = (
     "FEELING: every video must make the viewer FEEL one thing strongly (funny, emotional, nostalgic, shocking, "
     "satisfying, relatable or awe). Pick it before writing and serve it in every beat; a neutral documentary tone "

@@ -61,3 +61,27 @@ def test_posted_platforms_ignores_extras_and_dry_runs(tmp_path, monkeypatch):
         {"item_id": "b", "platform": "instagram", "done": True, "what": "reel"}]) + "\n", encoding="utf-8")
     monkeypatch.setattr(publish, "LOG", f)
     assert runner.posted_platforms("a") == {"facebook"}
+
+
+def test_replan_request_runs_once(tmp_path, monkeypatch):
+    from datetime import datetime
+    from engine import autopilot, weekly
+    cfg = tmp_path / "config"
+    cfg.mkdir()
+    (cfg / "replan.yaml").write_text("requests:\n  - {id: r1, channels: [stream_clips]}\n", encoding="utf-8")
+    monkeypatch.setattr("engine.config.CONFIG_DIR", cfg)
+    weeks = tmp_path / "weeks"
+    for w in ("2026-11-16", "2026-11-23", "2026-12-07"):
+        (weeks / w).mkdir(parents=True)
+        (weeks / w / "plan.json").write_text("{}")
+    monkeypatch.setattr(weekly, "WEEKS_DIR", weeks)
+    state = {}
+    monkeypatch.setattr(autopilot, "_load", lambda: state)
+    monkeypatch.setattr(autopilot, "_update_state", lambda fn: fn(state) or state)
+    monkeypatch.setattr(autopilot, "_now", lambda: datetime(2026, 11, 20, 1, 0))
+    monkeypatch.setattr(autopilot, "default_brain", lambda: (None, None))
+    calls = []
+    monkeypatch.setattr(weekly, "plan_week", lambda brain, start, only, memory, log: calls.append((str(start), only)))
+    assert runner.run_replans(log=lambda m: None) == 1
+    assert calls == [("2026-11-16", ["stream_clips"]), ("2026-11-23", ["stream_clips"])]   # this + next week only
+    assert runner.run_replans(log=lambda m: None) == 0 and len(calls) == 2                  # once

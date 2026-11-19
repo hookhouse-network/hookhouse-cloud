@@ -158,6 +158,36 @@ def ensure_media(store, log=_log) -> int:
     return n
 
 
+def run_replans(log=_log) -> int:
+    """config/replan.yaml requests, each run ONCE (state replans): the listed channels' slots in this and next week's
+    plans are planned again (19 Nov: Stream Clips switched from clips to GTA facts and still had clip slots)."""
+    import yaml
+    from datetime import date
+    from .. import autopilot, weekly
+    from ..config import CONFIG_DIR
+    p = CONFIG_DIR / "replan.yaml"
+    if not p.exists():
+        return 0
+    reqs = (yaml.safe_load(p.read_text(encoding="utf-8")) or {}).get("requests") or []
+    done = autopilot._load().get("replans", {})
+    today = autopilot._now().date()
+    monday = today - timedelta(days=today.weekday())
+    n = 0
+    for r in reqs:
+        rid, chans = str(r.get("id") or ""), list(r.get("channels") or [])
+        if not rid or not chans or rid in done:
+            continue
+        autopilot._update_state(lambda st, k=rid: st.setdefault("replans", {}).__setitem__(k, time.time()))  # once
+        brain, memory = autopilot.default_brain()
+        weeks = [w for w in (p2.name for p2 in weekly.WEEKS_DIR.glob("*") if (p2 / "plan.json").exists())
+                 if monday <= date.fromisoformat(w) <= monday + timedelta(days=7)] if weekly.WEEKS_DIR.exists() else []
+        for w in sorted(weeks):
+            weekly.plan_week(brain, date.fromisoformat(w), only=chans, memory=memory, log=log)
+        log(f"re-plan {rid}: {', '.join(chans)} in week(s) {', '.join(weeks) or 'none'}")
+        n += 1
+    return n
+
+
 CATCH_UP_DAYS = 7
 CATCH_UP_PLATFORMS = ("instagram", "facebook", "threads", "dailymotion")
 
@@ -410,6 +440,7 @@ def tick(log=_log, light: bool = False) -> None:
              ("thumbs", lambda: autopilot._shorts_thumbnails(log)),
              ("live_stats", lambda: _live_due() and __import__("engine.stats_fetch", fromlist=["live"]).live(log=log)),
              ("plan", lambda: autopilot._ensure_plan(autopilot.default_brain, log)),
+             ("replan", lambda: run_replans(log)),       # config/replan.yaml, each request once (19 Nov)
              # 19 Nov: book pages from leftover free picture quota at night (API calls only, a few per tick)
              ("book_pages", lambda: log("book pages: " + __import__("engine.cloud.book_farm", fromlist=["x"])
                                         .quota_pages(store, log=log))),

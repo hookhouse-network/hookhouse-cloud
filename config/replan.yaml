@@ -1,0 +1,5 @@
+# One-time re-plans the cloud runs once each (by id), e.g. after a channel changes type or niche: its slots in the
+# current and next week's plans are planned again; every other channel's slots stay as they are.
+requests:
+  - id: "2026-11-20-stream-clips-gta"          # owner 19-20 Nov: Stream Clips = GTA & gaming facts (story format)
+    channels: [stream_clips]
