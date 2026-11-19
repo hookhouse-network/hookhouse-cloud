@@ -187,6 +187,8 @@ class NoPicture(RuntimeError):
 def draw(prompt: str, seed: int, prefer_cloud: bool = True, size=(640, 832),
          allow_local: bool = True) -> tuple[Image.Image, str]:
     """A raw drawing, cached by (prompt, seed, size)."""
+    from .ip_guard import scrub                     # 20 Nov: books and brand art never show franchise characters
+    prompt, _ = scrub(prompt)
     key = hashlib.sha1(json.dumps([prompt, seed, size]).encode()).hexdigest()[:20]
     CACHE.mkdir(parents=True, exist_ok=True)
     hit = next(iter(CACHE.glob(f"{key}_*.png")), None)

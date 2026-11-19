@@ -58,6 +58,15 @@ def allowed(ch: dict, platform: str, meta: dict | None = None) -> bool:
     return True
 
 
+def campaign_allows(platform: str, meta: dict | None) -> bool:
+    """A campaign clip may only go where its brief lists (20 Nov: YouTube was exempt from this check, so a brief
+    without YouTube Shorts would still have been posted there, outside the footage licence)."""
+    if not (meta or {}).get("campaign"):
+        return True
+    names = _campaign_platforms(meta["campaign"])
+    return names is None or CAMPAIGN_NAMES.get(platform, platform) in names
+
+
 def connected(ch: dict, platform: str) -> bool:
     """An 'auto' platform that needs a one-time connection (needs: in platforms.yaml) only posts by itself once
     that connection exists for this channel; until then it stays in the evening winners pack."""

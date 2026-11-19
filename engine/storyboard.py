@@ -73,7 +73,8 @@ def enabled(channel: dict) -> bool:
 
 
 def _rules(channel: dict) -> str:
-    out = []
+    from .ip_guard import RULE                      # 20 Nov: no franchise characters / real faces, every channel
+    out = [RULE]
     if channel["id"] in ("clutch_tales", "cricket_ke_kisse"):
         out.append(RULES["no_faces"])
     if channel["id"] == "itihaas_ke_raaz":
@@ -279,6 +280,8 @@ def _hf(prompt: str, seed: int, size: tuple[int, int]) -> bytes | None:
 
 
 def draw(prompt: str, seed: int, size: tuple[int, int], variant: int = 0) -> tuple[Path, str] | None:
+    from .ip_guard import scrub                     # 20 Nov: never draw a copyrighted character (strike risk)
+    prompt, _ = scrub(prompt)
     if variant:                                    # Cloudflare takes no seed: a redraw changes the composition words
         prompt = f"{prompt}, {('different camera angle', 'closer framing', 'wider framing')[variant % 3]}"
     key = hashlib.md5(f"{prompt}|{seed}|{size}".encode()).hexdigest()

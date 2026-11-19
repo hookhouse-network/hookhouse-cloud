@@ -248,6 +248,8 @@ def gpu_jobs_from_script(script: dict, style: str = "") -> list[dict]:
 
 def ai_image(prompt: str, style: str = "") -> Visual | None:
     """AI image: first look in the weekly GPU batch folder, then Cloudflare's free FLUX."""
+    from ..ip_guard import scrub                    # 20 Nov: never draw a copyrighted character (strike risk)
+    prompt, _ = scrub(prompt)
     full, key = ai_prompt_key(prompt, style)
     batch = ROOT / "data" / "gpu_batch" / f"{key}.png"
     if batch.exists():

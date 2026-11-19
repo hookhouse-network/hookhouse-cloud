@@ -535,6 +535,8 @@ def _schedule_youtube(start: str, it: dict) -> str:
     from .publish import upload_item
     acts = upload_item(it, dry_run=False, platforms=("youtube",))
     up = next((a for a in acts if a.platform == "youtube"), None)
+    if up and up.what.startswith("SKIPPED"):                # 20 Nov: campaign brief without YouTube: not an error
+        return "not for YouTube (the campaign's brief doesn't list it); it goes to the brief's platforms at its slot"
     vid = (up.result or {}).get("video_id") if up and up.done else None
     if vid:
         update_item(start, it["id"], youtube_id=vid)

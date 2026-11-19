@@ -916,7 +916,7 @@ def upload_item(it: dict, dry_run: bool = True, session=HTTP, platforms=("youtub
         link = _hub_link(it)
         meta["description"] = (str(meta.get("description") or "").rstrip() + "\n\n▶ The full story on this channel: "
                                + str(it["hub"])[:90] + (f" {link}" if link else ""))
-    from .platforms import allowed as _allowed
+    from .platforms import allowed as _allowed, campaign_allows as _campaign_ok
     try:
         from .config import channel as _get_channel
         _ch = _get_channel(it["channel"])
@@ -927,6 +927,11 @@ def upload_item(it: dict, dry_run: bool = True, session=HTTP, platforms=("youtub
         act.details["dry_run"] = True                     # informational, not an error
         actions.append(act)
     platforms = tuple(p for p in platforms if p == "youtube" or _allowed(_ch, p, meta))
+    if "youtube" in platforms and not _campaign_ok("youtube", meta):     # the brief doesn't license YouTube
+        act = Action("youtube", it["channel"], it["id"], "SKIPPED: not for youtube (campaign brief)")
+        act.details["dry_run"] = True
+        actions.append(act)
+        platforms = tuple(p for p in platforms if p != "youtube")
     if "youtube" in platforms:
         up = _safe(lambda: youtube_upload(it["channel"], video, meta, when, session=session, dry_run=dry_run),
                    "youtube", it["channel"], it["id"], f"upload {video.name}")
