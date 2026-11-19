@@ -125,3 +125,17 @@ def test_clip_slot_only_with_this_channels_footage(tmp_path, monkeypatch):
     assert not weekly.clip_slot(dict(ch, clips_first=False), {"kind": "short"})
     weekly.remember_used_on_pc("asset:src-k.mp4")                         # the PC cut it: not again before the merge
     assert not weekly.clip_slot(ch, {"kind": "short"})
+
+
+def test_pc_picture_block_survives_the_cloud_pull(monkeypatch):
+    from engine import storyboard as sb
+    monkeypatch.delenv("HOOKHOUSE_CLOUD", raising=False)
+    monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "a")
+    monkeypatch.setenv("CLOUDFLARE_API_TOKEN", "t")
+    monkeypatch.delenv("POLLINATIONS_KEY", raising=False)
+    for src in ("cloudflare", "hf"):
+        sb._block(src)                                  # the PC hit both daily limits
+    assert sb.images_blocked()
+    sb.QUOTA.parent.mkdir(parents=True, exist_ok=True)
+    sb.QUOTA.write_text('{"cloudflare": 0}', encoding="utf-8")      # the pull replaced data/state with the cloud's copy
+    assert sb.images_blocked()                          # still remembered: no 20-minute failed videos all night

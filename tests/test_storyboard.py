@@ -57,10 +57,15 @@ def test_sports_and_myth_rules_reach_the_writer():
 
 def test_quota_block_skips_source_until_tomorrow(tmp_path, monkeypatch):
     monkeypatch.setattr(sb, "QUOTA", tmp_path / "q.json")
+    monkeypatch.setattr(sb, "QUOTA_PC", tmp_path / "q_pc.json")
+    monkeypatch.setenv("HOOKHOUSE_CLOUD", "1")
     assert sb._open("cloudflare")
     sb._block("cloudflare")
     assert not sb._open("cloudflare")
     assert json.loads((tmp_path / "q.json").read_text())["cloudflare"] > time.time()
+    monkeypatch.delenv("HOOKHOUSE_CLOUD")                # on the PC: its own file (the pull replaces data/state)
+    sb._block("hf")
+    assert json.loads((tmp_path / "q_pc.json").read_text())["hf"] > time.time() and not sb._open("hf")
 
 
 def test_scene_redraws_until_eyes_pass(tmp_path, monkeypatch):

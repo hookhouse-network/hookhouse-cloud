@@ -43,6 +43,7 @@ def _no_real_picture_quota(monkeypatch, tmp_path):
     """Tests never read or write today's real free-picture limits (a blocked day made the scheduler skip videos)."""
     import engine.storyboard as sbm
     monkeypatch.setattr(sbm, "QUOTA", tmp_path / "image_quota_test.json")
+    monkeypatch.setattr(sbm, "QUOTA_PC", tmp_path / "image_quota_pc_test.json")
     monkeypatch.setenv("HF_TOKEN", "test")
 
 

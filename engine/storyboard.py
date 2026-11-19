@@ -141,20 +141,34 @@ def prompt_for(beat: dict, bible: dict, style: dict) -> str:
 
 
 # ---------------------------------------------------------------- draw
-def _quota() -> dict:
+# 20 Nov: the PC's data/state is replaced by the cloud's copy on every pull, so a block the PC hit was forgotten within
+# minutes and every PC video ran ~20 minutes into the picture step and failed again, all night (the Cloudflare account
+# is shared with the cloud's night book pages). The PC keeps its own marks here; both files count.
+QUOTA_PC = ROOT / "data" / "pc" / "image_quota.json"
+
+
+def _read(path) -> dict:
     try:
-        return json.loads(QUOTA.read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
 
 
+def _quota() -> dict:
+    q = _read(QUOTA)
+    for k, v in _read(QUOTA_PC).items():
+        q[k] = max(float(v), float(q.get(k, 0)))
+    return q
+
+
 def _block(source: str) -> None:
     """Free daily allowance used up: skip this source until 00:00 UTC (both reset daily)."""
-    q = _quota()
+    path = QUOTA if os.environ.get("HOOKHOUSE_CLOUD") else QUOTA_PC
+    q = _read(path)
     tomorrow = dt.datetime.now(dt.timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0) + dt.timedelta(days=1)
     q[source] = tomorrow.timestamp()
-    QUOTA.parent.mkdir(parents=True, exist_ok=True)
-    QUOTA.write_text(json.dumps(q), encoding="utf-8")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(q), encoding="utf-8")
 
 
 def _open(source: str) -> bool:
