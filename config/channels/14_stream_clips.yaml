@@ -4,25 +4,43 @@ name: Stream Clips
 backup_names: [Clutch Clips Live, Stream Moments]
 market: US
 language: en
-type: clips              # gaming / streamer clips, ONLY from paid clipping campaigns (the streamer's permission)
-niche: Best moments from gaming streams and streamers (campaign sources only)
-bio: "The best moments from every stream."
-earns_from: [clipping_campaigns]
-schedule: {shorts_per_day: 3, long_per_week: 0}   # one stream gives many clips
-voice: null              # real streamers, no AI voice
+# 19 Nov 2026 (owner: "focus on GTA ... comparisons, unique moments ... must know what, where and when"): GTA & gaming
+# FACTS channel (story format) while no gaming campaign shares footage files. Switch back to type: clips (the earlier
+# version: data/tmp/14_stream_clips.clips_version.yaml / git history) as soon as a campaign gives clippable files.
+type: story
+niche: GTA and gaming facts, records, comparisons and the real world behind games (original commentary, no game footage)
+bio: "Gaming facts that hit different. GTA 6 week: every number, every comparison."
+earns_from: [youtube_ads, clipping_campaigns]
+schedule: {shorts_per_day: 3, long_per_week: 0}   # launch-week hype: 3 Shorts a day (US evening = 4:30-8:30 IST)
+voice: {engine: kokoro, id: am_michael, backup: {engine: kokoro, id: am_adam}}
 style:
+  ai_style: "neon Miami-at-night synthwave look, pink and teal light, palm trees, sports cars and city skylines, clean infographic overlays, original characters and places only, never game screenshots, never Rockstar logos or characters"
+  palette: ["#0B0B1A", "#FF2E88", "#21E6C1"]
   caption_color: "#FFFFFF"
-  highlight_color: "#9B5CFF"
-  accent_color: "#9B5CFF"
-  hook_box: {bg: "#FFFFFF", text: "#000000"}
-  split_screen_satisfying: never      # research: gameplay split-screen is a banned, dated look
-hashtags: ["#gaming", "#streamer", "#clips"]
+  highlight_color: "#FF2E88"
+  accent_color: "#21E6C1"
+  split_screen_satisfying: never
+hashtags: ["#GTA6", "#gaming", "#gamingfacts"]
 content_rules:
-  sources: campaign_allowed_list_only       # never rip streams or gameplay without a campaign / written permission
-  no_gambling_streams: true                 # Kick/Stake gambling: illegal to promote from India (2025 Act)
-  no_added_music: true
-# Channel page texts (YouTube About + keywords are written by the API after connecting; Instagram/Facebook bios
-# are shown with Copy buttons in the setup assistant). Copy sheet for people: docs/account_names_and_details.md
-about: "The best moments from every stream. Highlights from streamers and creators who work with us, always credited."
-keywords: ["stream highlights", "streamer clips", "gaming clips", "funny stream moments", "twitch clips"]
+  no_game_footage: true          # Rockstar: footage is non-commercial fan use only; no trailer clips, no screenshots
+  no_spoilers: true              # Rockstar removes story spoilers / cutscene videos
+  fact_check: true
+  no_gambling_streams: true      # Kick/Stake gambling: illegal to promote from India (2025 Act)
+look:
+  music: energetic
+spec: {short_words: "130-165 words (about 45-55 seconds)", short_wpm: 185, shot_s: 1.4, hook_shot_s: 1.0}
+caption: {font: "Bebas Neue", pop: true}
+writer_rules: "Gaming spec: beat 1 is a striking number or comparison in 8 words or fewer (e.g. 'GTA 6's map is bigger than GTA 5 and Red Dead combined' only if true); compare with earlier GTA games using exact public numbers (release year, price, sales, budget, map size); say 'reportedly' for unofficial figures and label rumours as rumours; never describe the story or ending (no spoilers); never claim to be Rockstar or official."
+topic_style: "Viral gaming Shorts: comparisons (then vs now), records and money, real places behind the game, surprising development facts, 'things you missed' about the public trailers (described in words, never shown)."
+topic_hints:
+  - "PRIORITY: GTA 6 vs GTA 5 in numbers: map size, budget, price, players on day one"
+  - "PRIORITY: every main GTA game ranked by copies sold, from GTA III to GTA 6"
+  - "PRIORITY: Vice City 2002 vs Vice City 2026: how 24 years of game tech changed the same city"
+  - "PRIORITY: the real Miami places behind GTA 6's Leonida and Vice City"
+  - "PRIORITY: how the first GTA 6 trailer broke YouTube's 24-hour view record"
+  - "PRIORITY: why GTA 6 took 12+ years: the longest gap in the series, explained"
+  - "PRIORITY: GTA 6's first-day money vs the biggest movie openings ever"
+  - "Lucia: the first female lead in a main GTA game since 1997 and why it matters (no story spoilers)"
+about: "Gaming facts that hit different. GTA 6, records, comparisons and the real world behind your favourite games, explained in under a minute. Original commentary, no game footage."
+keywords: ["GTA 6", "GTA 6 facts", "GTA 6 vs GTA 5", "gaming facts", "GTA comparison", "Vice City"]
 handles: {"youtube": "@StreamClipsDaily", "youtube_backup": "@StreamClipsHQ", "instagram": "streamclipsdaily", "instagram_backup": "stream.clips.daily"}
