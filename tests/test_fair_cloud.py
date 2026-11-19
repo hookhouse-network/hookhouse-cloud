@@ -249,3 +249,19 @@ def test_cricket_gets_news_driven_topics(monkeypatch):
                     "headline": "Bumrah 3 wickets away from a big record"}, None
     assert news_topics.refresh(Brain(), log=lambda *_: None, session=S()) == 2
     assert set(updated) == {"c1", "c2"} and updated["c1"]["news"].startswith("Bumrah")     # c3 is beyond 48 h
+
+
+def test_music_switches_to_a_stronger_track_at_the_climax():
+    import numpy as np
+    from engine import story
+    from engine.media import music_library
+    sr = 1000
+    bed = np.full(10 * sr, 0.2, np.float32)
+    second = np.sin(np.linspace(0, 400, 10 * sr)).astype(np.float32)
+    out = story.switch_bed(bed, second, 6.0, sr)
+    assert len(out) == len(bed)
+    assert np.allclose(out[:5 * sr], 0.2)                       # the first track is untouched until the fade
+    assert abs(out[int(5.99 * sr)]) < 0.02                      # faded out right before the climax
+    after = out[int(6.3 * sr):]
+    assert np.allclose(after, after) and np.sqrt(np.mean(after ** 2)) > 0.2   # the new track, a touch louder
+    assert music_library.climax_mood("mystery") == "suspense" and music_library.climax_mood("kids") is None

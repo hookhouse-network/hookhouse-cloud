@@ -68,6 +68,18 @@ CHANNEL_DEFAULT = {"unsolved_after_dark": "mystery", "creepy_case_club": "myster
                    "cosmos_unboxed": "wonder", "bloop_and_friends": "kids"}
 
 
+# The music the video switches to at its climax (owner 18 Nov: "music according to video's vibe, transition music"):
+# the story's turn gets its own, stronger track instead of one bed from start to end.
+CLIMAX = {"mystery": "suspense", "suspense": "epic", "emotional": "hopeful", "hopeful": "epic", "wonder": "epic",
+          "calm": "wonder", "nostalgic": "emotional", "lofi": "energetic", "playful": "energetic",
+          "quirky": "energetic", "epic": "energetic", "energetic": "epic"}
+
+
+def climax_mood(mood: str) -> str | None:
+    """The mood the music turns into at the climax (None: keep one track, e.g. kids videos)."""
+    return CLIMAX.get(mood)
+
+
 # ---------------- choosing the mood ----------------
 def mood_for(channel: dict, script: dict | None = None, fallback: str = "") -> str:
     script = script or {}
@@ -196,8 +208,27 @@ def track(mood: str, channel_id: str, session=None, log=print, rng=None) -> tupl
     return None
 
 
-def bed(path: Path, seconds: float, sr: int = 48000):
-    """Decode, loop with a 2 s crossfade to `seconds`, fade in/out. Mono float32."""
+def intro_end(x, sr: int, win: float = 0.5, frac: float = 0.5, max_s: float = 20.0) -> int:
+    """Sample where the music gets going: the first half-second whose level reaches half the track's typical level
+    (owner 18 Nov: the first 3 s of a Short decide the swipe; a quiet 8 s intro under the hook wastes them).
+    0 when the track starts strong (under 1 s of quiet is a pickup, kept) or never builds within `max_s`."""
+    import numpy as np
+    w = int(win * sr)
+    m = len(x) // w
+    if m < 4:
+        return 0
+    rms = np.sqrt((x[: m * w].reshape(m, w) ** 2).mean(axis=1))
+    body = float(np.median(rms))
+    if body <= 1e-6:
+        return 0
+    for k in range(min(m, int(max_s / win))):
+        if rms[k] >= frac * body:
+            return k * w if k >= 2 else 0
+    return 0
+
+
+def bed(path: Path, seconds: float, sr: int = 48000, skip_intro: bool = True):
+    """Decode, skip a quiet intro, loop with a 2 s crossfade to `seconds`, fade in/out. Mono float32."""
     import subprocess
     import numpy as np
     raw = subprocess.run(["ffmpeg", "-v", "error", "-i", str(path), "-ac", "1", "-ar", str(sr), "-f", "f32le", "-"],
@@ -205,6 +236,9 @@ def bed(path: Path, seconds: float, sr: int = 48000):
     x = np.frombuffer(raw, dtype=np.float32).copy()
     if len(x) < sr * 5:
         raise ValueError("track too short")
+    skip = intro_end(x, sr) if skip_intro else 0
+    if len(x) - skip >= sr * 5:
+        x = x[skip:]
     n, xf = int(seconds * sr), int(2 * sr)
     out = x[:n] if len(x) >= n else x.copy()
     while len(out) < n:

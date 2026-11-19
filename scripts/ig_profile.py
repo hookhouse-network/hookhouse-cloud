@@ -14,8 +14,12 @@ CDP = "http://127.0.0.1:9333"
 
 
 async def main(cid):
-    tab = next(t for t in json.loads(urllib.request.urlopen(f"{CDP}/json/list").read())
-               if t["type"] == "page" and "instagram.com" in t["url"])
+    tabs = [t for t in json.loads(urllib.request.urlopen(f"{CDP}/json/list").read()) if t["type"] == "page"]
+    tab = next((t for t in tabs if "instagram.com" in t["url"]), None)
+    if tab is None:
+        req = urllib.request.Request(f"{CDP}/json/new?https://www.instagram.com/accounts/edit/", method="PUT")
+        tab = json.loads(urllib.request.urlopen(req).read())
+        time.sleep(8)
     async with websockets.connect(tab["webSocketDebuggerUrl"], max_size=2 ** 24) as ws:
         n = 0
 
@@ -59,7 +63,7 @@ async def main(cid):
                 time.sleep(3)
         print("bio:", "set" if xy else "box not found")
         pic = brand_art.OUT / cid / "avatar.png"
-        if pic.exists():
+        if pic.exists() and (brand_art.OUT / cid / "scene.png").exists():      # only the v2 artwork goes up
             doc = await cmd("DOM.getDocument", {"depth": -1})
             q = await cmd("DOM.querySelectorAll", {"nodeId": doc["root"]["nodeId"], "selector": "input[type=file]"})
             if q.get("nodeIds"):

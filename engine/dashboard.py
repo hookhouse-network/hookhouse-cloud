@@ -680,7 +680,8 @@ def _chcard(ch: dict, ctx: dict) -> str:
     return (f"<a class=chcard href='#ch-{cid}' style='--acc:{acc}'><div class=r><img src='{ctx['avatars'].get(cid, '')}' "
             f"alt=''><div class=nm><div class=n>{_e(ch['name'])}</div><div class=muted>"
             f"{_e('Hindi' if ch.get('language') == 'hi' else 'English')} · {_e(str(ch.get('niche') or '')[:34])}</div></div>"
-            f"{status}</div><div class=cstats><div><small>Views 7 days</small><b>{_num(sum(series[-7:]))}</b></div>"
+            f"{status}</div><div class=cstats><div><small>Subscribers</small><b data-live='subs:{cid}'>{_num(subs)}</b></div>"
+            f"<div><small>Views 7 days</small><b>{_num(sum(series[-7:]))}</b></div>"
             f"<div><small>Next post</small><b>{nxt.strftime('%a %H:%M') if nxt else '-'}</b></div>"
             f"<div><small>Ready, 7 days</small><b>{ready}/{len(week)}</b></div></div>{_spark(series)}"
             f"<div class=bar style='margin:8px 0 0'><div class=barhead><span>{'Campaign money pending' if clips_ch else 'Progress to ad money'}"
@@ -891,8 +892,10 @@ def _channel_page(ch: dict, ctx: dict) -> str:
             ("Views, all time", _num(m.get("views", 0)), f"{_num(m.get('videos', 0))} videos posted", ""),
             ("Stayed to watch", f"{m['stayed']:.0f}%" if m.get("stayed") is not None else "-", "aim 70%+ (first seconds)", ""),
             ("Average % viewed", f"{m['pct']:.0f}%" if m.get("pct") is not None else "-", "aim 80%+ on Shorts", "")]
-    kpi_html = "".join(f"<div class=kpi><small>{_e(k)}</small><b>{_e(v)}</b><div class=ksub>{sub}</div>{sp}</div>"
-                       for k, v, sub, sp in kpis)
+    live_key = {"Subscribers": f"subs:{cid}", "Instagram followers": f"ig:{cid}"}
+    kpi_html = "".join(f"<div class=kpi><small>{_e(k)}</small><b"
+                       + (f" data-live='{live_key[k]}'" if k in live_key else "")
+                       + f">{_e(v)}</b><div class=ksub>{sub}</div>{sp}</div>" for k, v, sub, sp in kpis)
 
     if clips_ch:
         joined = [c for c in ctx["campaigns"] if c.get("account") == cid and c.get("status") in ("picked", "joined")]
@@ -973,12 +976,18 @@ def _channel_page(ch: dict, ctx: dict) -> str:
         win_html = "<p class=muted>Fills in every Wednesday once a YouTube API key or a connected channel exists.</p>"
     vids = "".join(_vcard(v, ctx) for v in _gallery(ctx["items"], [ch], only=cid, limit=8)) or \
         "<p class=muted>No finished videos yet.</p>"
+    try:                                       # owner 18 Nov: a YouTube-Studio-like menu per channel
+        from . import dashboard_studio as _st
+        studio = _st.content_card(ch, ctx, poster=_poster) + _st.insights_card(ch, ctx)
+    except Exception as ex:  # noqa: BLE001 - the rest of the page still shows
+        studio = f"<div class='card wide'><h2>🎬 Studio</h2><p class=muted>Couldn't build: {_e(ex)}</p></div>"
     return f"""<section id="ch-{cid}" class=page style="--acc:{acc}">
 <div class=chead><img class=bigav src="{ctx['avatars'].get(cid, '')}" alt=""><div><h1>{_e(ch['name'])}</h1>
 <div class=sub>{status} <span class=pill>{_e('Hindi' if ch.get('language') == 'hi' else 'English')} · {_e(ch.get('market'))}</span>
 <span class=muted>{_e(ch.get('niche'))}</span></div><p class=bio>“{_e(ch.get('bio'))}”</p></div></div>
 <div class=kpis6>{kpi_html}</div>
 <div class=cgrid>
+{studio}
 <div class="card wide"><h2>🎬 Videos</h2><div class=gallery>{vids}</div></div>
 <div class=card><h2>🛠 Points to improve</h2><ul class=imp>{imp}</ul></div>
 <div class=card><h2>💰 Monetization</h2>{mon}</div>
@@ -1204,7 +1213,7 @@ figcaption{padding:8px 10px 10px;font-size:13.5px}figcaption b{display:block;mar
 .chcard:hover{border-color:var(--acc)}.chcard .r{display:flex;gap:10px;align-items:center}.chcard img{width:40px;height:40px;border-radius:50%}
 .chcard .nm{min-width:0;flex:1}.chcard .n{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chcard .nm .muted{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cstats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}.cstats small{color:var(--mut);font-size:11px;display:block}
+.cstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(72px,1fr));gap:6px;margin-top:10px}.cstats small{color:var(--mut);font-size:11px;display:block}
 .cstats b{font-size:15px;font-variant-numeric:tabular-nums}
 ul.list{margin:0;padding-left:18px}ul.list li{margin:7px 0;font-size:14px}li.done{opacity:.45;text-decoration:line-through}
 ul.tdl{list-style:none;padding:0;margin:0}ul.tdl li{padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
@@ -1312,6 +1321,16 @@ def _books_card(books: dict) -> str:
     return (f"<div class='card full'><h2>📚 Amazon books ({n_live} live of {len(books)})</h2>{''.join(cards)}"
             "<p class=muted>Status refreshes from the KDP bookshelf on the PC (python -m engine.books sync). "
             "Telegram: /books</p></div>")
+
+
+def _studio_css() -> str:
+    from .dashboard_studio import CSS as c
+    return c
+
+
+def _studio_js() -> str:
+    from .dashboard_studio import JS as j
+    return j
 
 
 def build() -> Path:
@@ -1565,8 +1584,8 @@ def build() -> Path:
     pages = (overview + "".join(_channel_page(ch, ctx) for ch in chans) + money + learn_page + plat_page + prod_page
              + camp_page + plan_page + todo_page)
     page = (f"<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'>"
-            f"<title>HookHouse monitoring pad</title><style>{CSS}</style></head><body><div class=layout>{nav}<main>{pages}"
+            f"<title>HookHouse monitoring pad</title><style>{CSS}{_studio_css()}</style></head><body><div class=layout>{nav}<main>{pages}"
             f"<p class=muted style='margin-top:30px'>Rebuild: python cli.py dashboard · the Telegram bot sends a fresh copy every morning (/dashboard any time)</p>"
-            f"</main></div><script>{JS}</script></body></html>")
+            f"</main></div><script>{JS}{_studio_js()}</script></body></html>")
     OUT.write_text(page, encoding="utf-8")
     return OUT

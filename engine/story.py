@@ -1155,7 +1155,11 @@ def _process_voice(voice48: Path, reverb: bool = False, pitch: float = 0.0) -> P
     """Research (playbook §3, podcast spec): 80 Hz high-pass + light compression; mythology spec: small-hall reverb,
     8-12% wet."""
     out = voice48.with_name(voice48.stem + "_proc.wav")
-    chain = "highpass=f=80,acompressor=threshold=-20dB:ratio=2.5:attack=8:release=120:makeup=1.5"
+    # owner 18 Nov (voice = what holds the audience): de-ess BEFORE compression and the presence lift (the lift would
+    # sharpen the "s" sounds), then +2.5 dB wide at 3 kHz so the words cut through phone speakers and the music.
+    chain = ("highpass=f=80,deesser=i=0.35:m=0.5:f=0.55,"
+             "acompressor=threshold=-20dB:ratio=2.5:attack=8:release=120:makeup=1.5,"
+             "equalizer=f=3000:t=q:w=0.9:g=2.5")
     if abs(pitch) > 0.05:                               # deeper narrator (mythology/mystery specs), same timing
         r = 2 ** (pitch / 12)
         chain = f"asetrate={int(48000 * r)},aresample=48000,atempo={1 / r:.5f}," + chain
@@ -1168,10 +1172,102 @@ def _process_voice(voice48: Path, reverb: bool = False, pitch: float = 0.0) -> P
         return voice48
 
 
+def switch_bed(bed: np.ndarray, second: Path | np.ndarray, at: float, sr: int, fade_in: float = 0.15,
+               fade_out: float = 0.35) -> np.ndarray:
+    """Music change at the climax (owner 18 Nov: "transition music"): the first track fades out just before `at`, the
+    second (looped to the rest of the video, levelled to the same loudness) comes in on the hit. The silence drop
+    before the climax and the impact SFX on it stay as they were, so the turn lands hard."""
+    a = int(max(at, 0) * sr)
+    if a <= 0 or a >= len(bed):
+        return bed
+    rest = len(bed) - a
+    if isinstance(second, np.ndarray):
+        b2 = second[:rest].astype(np.float32)
+    else:
+        from .media.music_library import bed as track_bed
+        b2 = track_bed(second, rest / sr, sr=sr).astype(np.float32)
+    if len(b2) < rest:
+        b2 = np.pad(b2, (0, rest - len(b2)))
+    r1 = float(np.sqrt(np.mean(bed[:a] ** 2))) or 1e-6
+    r2 = float(np.sqrt(np.mean(b2 ** 2))) or 1e-6
+    b2 = b2 * (r1 / r2) * 1.12                                   # a touch louder: the climax lifts
+    out = bed.astype(np.float32).copy()
+    fo = min(int(fade_out * sr), a)
+    out[a - fo:a] *= np.linspace(1, 0, fo, dtype=np.float32)
+    fi = min(int(fade_in * sr), rest)
+    b2[:fi] *= np.linspace(0, 1, fi, dtype=np.float32)
+    out[a:] = b2
+    return out
+
+
+def cut_on_beats(shots, labels, bigs, stick, events, quiet, ai_spans, music_file, total: float,
+                 music_file2=None, switch_at=None, keep=None, sr: int = 22050, log=print, bed_audio=None):
+    """Owner 18 Nov ("transition music ... creates the interest"): cuts land on the music's beat. The bed is built
+    exactly as the mix builds it (same track, same loop, same climax switch), its beats are found in-house
+    (media/beats.py), and each cut between two shots moves to a beat within +-0.15 s. The words never move (captions
+    are word-timed); the climax cut stays on its line; labels, big texts, stickers and the cut sounds that sat on a
+    moved cut move with it. Returns the updated lists."""
+    import dataclasses
+    from .media import beats as bt
+    if bed_audio is None:
+        from .media.music_library import bed as track_bed
+        bed_audio = track_bed(music_file, total, sr=sr)
+        if music_file2 is not None and switch_at:
+            bed_audio = switch_bed(bed_audio, music_file2, switch_at, sr)
+    grid = bt.beat_times(bed_audio, sr)
+    cuts = [shots[k].start for k in range(1, len(shots)) if abs(shots[k - 1].end - shots[k].start) < 1e-3]
+    moved = bt.snap_cuts(cuts, grid, keep=keep or [])
+    if not moved:
+        log(f"Beat sync: {len(grid)} beats, no cut needed moving" if grid else "Beat sync: no steady beat in this track")
+        return shots, labels, bigs, stick, events, quiet, ai_spans
+    out = list(shots)
+    for k in range(1, len(out)):
+        old = out[k].start
+        if old in moved and abs(out[k - 1].end - old) < 1e-3:
+            d = moved[old] - old
+            out[k - 1] = dataclasses.replace(out[k - 1], end=moved[old])
+            off = getattr(out[k], "offset", 0.0)
+            out[k] = dataclasses.replace(out[k], start=moved[old], offset=max(0.0, off + d) if off else off)
+    rm = lambda t: bt.remap(t, moved)                                   # noqa: E731
+    labels = [dataclasses.replace(x, start=rm(x.start), end=rm(x.end)) for x in labels]
+    bigs = [dataclasses.replace(x, start=rm(x.start), end=rm(x.end)) for x in bigs]
+    stick = [dataclasses.replace(x, start=rm(x.start), end=rm(x.end)) if hasattr(x, "start") else x for x in stick]
+    events = [(max(0.0, rm(e[0])),) + tuple(e[1:]) for e in events]
+    quiet = [(rm(a), rm(b)) for a, b in quiet]
+    ai_spans = [(rm(a), rm(b)) for a, b in ai_spans]
+    log(f"Beat sync: {len(moved)}/{len(cuts)} cuts moved onto the beat ({len(grid)} beats found)")
+    return out, labels, bigs, stick, events, quiet, ai_spans
+
+
+def button_end(bed: np.ndarray, voice: np.ndarray, sr: int, decay: float = 0.45) -> np.ndarray:
+    """Editors end the music ON a beat (a "button"), not in a slow fade. The first beat after the last spoken word
+    keeps its hit, then the music rings out over `decay` seconds and stops (videos end ~0.5 s after the last word).
+    No steady beat (ambient bed) or no beat in reach: unchanged."""
+    from .media import beats as bt
+    n = len(bed)
+    if n < sr * 4:
+        return bed
+    act = np.flatnonzero(np.abs(voice[:n]) > 0.01)
+    v_end = (act[-1] / sr) if len(act) else n / sr - 1.0
+    grid = bt.beat_times(bed, sr)                        # the whole track: its tempo carries through the fade-out
+    end = n / sr
+    after = [b for b in grid if v_end - 0.05 <= b <= end - 0.12]   # never stop the music under a word
+    hit = after[0] if after else None
+    if hit is None:
+        return bed
+    out = bed.copy()
+    h = int((hit + 0.06) * sr)                           # keep the hit's attack whole
+    d = min(int(decay * sr), n - h)
+    if d > 0:
+        out[h:h + d] *= np.exp(-np.linspace(0, 6, d)).astype(out.dtype)
+    out[h + max(d, 0):] = 0.0
+    return out
+
+
 def _mix(voice48: Path, events: list[tuple[float, str, float]], music_mood: str, out: Path, seed: int = 0,
          mix: dict | None = None, swells: list[tuple[float, float]] | None = None,
          drops: list[float] | None = None, reverb: bool = False, pitch: float = 0.0,
-         music_file: Path | None = None) -> Path:
+         music_file: Path | None = None, music_file2: Path | None = None, switch_at: float | None = None) -> Path:
     """events = (time, sound, level in dB relative to the voice). mix = per-niche bed level and ducking (MIX).
     Hindi palettes (devotional / dhol / retro) get an emotional score that follows the story: it builds, falls
     silent before the climax (drops[0]) and hits on it and on each reveal (swells)."""
@@ -1203,7 +1299,8 @@ def _mix(voice48: Path, events: list[tuple[float, str, float]], music_mood: str,
             except Exception:  # noqa: BLE001 - never fail a video over music: the synthesised bed instead
                 bed = None
         if bed is not None:
-            pass
+            if music_file2 is not None and switch_at:      # the climax turns to its own, stronger track
+                bed = switch_bed(bed, music_file2, switch_at, sr)
         elif music_mood in _em().PALETTES:
             bed = _em().score(n / sr, music_mood, climax=(drops or [None])[0],
                               reveals=[a for a, _ in (swells or [])], seed=seed).astype(np.float32)
@@ -1212,6 +1309,10 @@ def _mix(voice48: Path, events: list[tuple[float, str, float]], music_mood: str,
         b_rms = float(np.sqrt(np.mean(bed ** 2))) or 1e-6
         bed = bed * (v_rms / b_rms) * 10 ** (mx["bed_db"] / 20)
         bed = sfx.duck_db(bed, voice, db=mx["duck_db"], attack=mx["attack"], release=mx["release"])
+        if mx.get("carve_db", 4.0) > 0:            # dynamic EQ: the speech band of the music steps aside for the words
+            bed = sfx.carve_mid(bed, voice, db=mx.get("carve_db", 4.0), attack=mx["attack"], release=mx["release"])
+        if music_file is not None and mx.get("button", True):   # the music's last hit lands right after the last word
+            bed = button_end(bed, v_mono, sr)
         if mx.get("swell_db") and swells:              # mystery: +4 dB on the "But" reversal and the payoff
             g = np.ones(len(bed), np.float32)
             for t0, t1 in swells:
@@ -1817,7 +1918,7 @@ def render(channel: dict, script: dict, out_dir: Path, fmt: str = "short", log=p
     events = [(e[0], e[1], e[2]) for e in events]
     mixspec = dict(MIX.get(channel["id"], {}), **(channel.get("mix") or {}))
     look_music = look_cfg.get("music", "dark")
-    music_file = None
+    music_file = music_file2 = switch_at = None
     if look_music not in _em().PALETTES:            # owner 18 Nov: music that fits THIS video, not one bed per channel
         try:
             from .media import music_library
@@ -1828,11 +1929,27 @@ def render(channel: dict, script: dict, out_dir: Path, fmt: str = "short", log=p
                 credits.append(music_library.credit(t))
                 script["music_mood"] = mood
                 log(f"Music: {mood}: {t['title'][:40]} ({t['license']})")
+                turn = music_library.climax_mood(mood)
+                switch_at = drops[0] if drops else (swells[0][0] if swells else None)   # climax, else first reveal
+                if turn and switch_at and switch_at > 4.0:   # the climax gets its own, stronger track
+                    got2 = music_library.track(turn, channel["id"], log=log)
+                    if got2 and got2[0] != music_file:
+                        music_file2, t2 = got2
+                        credits.append(music_library.credit(t2))
+                        log(f"Music at the climax ({switch_at:.1f}s): {turn}: {t2['title'][:40]}")
         except Exception as e:  # noqa: BLE001
             log(f"Music library: {e} (synthesised bed instead)")
+    if music_file is not None:
+        try:
+            shots, labels, bigs, stick, events, quiet, ai_spans = cut_on_beats(
+                shots, labels, bigs, stick, events, quiet, ai_spans, music_file, total, music_file2, switch_at,
+                keep=list(drops) + ([switch_at] if switch_at else []), log=log)
+        except Exception as e:  # noqa: BLE001
+            log(f"Beat sync skipped: {e}")
     mix = _mix(voice48, events, look_music, work / "mix.wav", seed=len(beats), mix=mixspec,
                swells=swells, drops=drops, reverb=channel["id"] == "itihaas_ke_raaz",
-               pitch=0.0 if lang == "hi" else float(voice.get("pitch", 0.0)), music_file=music_file)
+               pitch=0.0 if lang == "hi" else float(voice.get("pitch", 0.0)), music_file=music_file,
+               music_file2=music_file2, switch_at=switch_at)
 
     # 5. Text layers (.ass) + render
     log("Render: frames + text, one pass")

@@ -81,6 +81,22 @@ PLATFORM_LINKS = re.compile(r"(youtube\.com|youtu\.be|twitch\.tv|kick\.com|tikto
                             r"//(www\.)?x\.com|twitter\.com)", re.I)   # 17 Nov: bare x.com matched dropbox.com
 
 
+FOOTAGE_DIR = Path(__file__).resolve().parents[1] / "data" / "pc" / "footage"
+
+
+def local_footage(name: str) -> Path | None:
+    """'src-<campaign id[:30]>-<file>' -> the PC's own download of that file (data/pc/footage/<campaign>/<file>)."""
+    if not name.startswith("src-") or not FOOTAGE_DIR.is_dir():
+        return None
+    for f in FOOTAGE_DIR.rglob("*"):
+        if f.is_file() and name == f"src-{f.parent.name[:30]}-{f.name}":
+            return f
+    for f in FOOTAGE_DIR.rglob("*"):                     # the folder name differs (older downloads)
+        if f.is_file() and name.endswith("-" + f.name):
+            return f
+    return None
+
+
 def fetch_source(src: str, dest_dir: Path) -> Path:
     """Local file or a direct file link from the rights holder (campaign brief's Google Drive / Dropbox / file URL).
     Video-platform pages (YouTube, Twitch, Kick...) are never downloaded: their terms forbid it without permission
@@ -89,6 +105,9 @@ def fetch_source(src: str, dest_dir: Path) -> Path:
     if p.exists():
         return p
     if src.startswith("asset:"):                         # footage the PC fetched (Frame.io) and put in cloud storage
+        local = local_footage(src[6:])
+        if local:                                        # the PC still has its own copy (19 Nov: store unreachable)
+            return local
         from .cloud import media
         from .cloud.store import Store
         data = Store().get(media.TAG, src[6:])

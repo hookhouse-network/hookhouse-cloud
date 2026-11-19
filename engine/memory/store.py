@@ -81,7 +81,7 @@ class Memory:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.embedder = embedder or HashEmbedder()
-        self.conn = sqlite3.connect(self.db_path)
+        self.conn = sqlite3.connect(self.db_path, check_same_thread=False)   # PC stand-in: maker thread + loop share it
         self.conn.execute("""CREATE TABLE IF NOT EXISTS items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             kind TEXT NOT NULL, channel TEXT, text TEXT NOT NULL, meta TEXT,

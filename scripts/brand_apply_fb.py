@@ -23,7 +23,8 @@ for f in sorted((ROOT / "data" / "secrets").glob("meta_*.json")):
         print(f"{cid}: no Facebook Page connected")
         continue
     files = brand_art.OUT / cid
-    res = []
+    v2 = (files / "scene.png").exists()                  # only the v2 artwork goes up (never the old text logos)
+    res = [] if v2 else ["pictures: waiting for the new artwork"]
 
     def upload(path):
         with open(path, "rb") as fh:
@@ -31,7 +32,7 @@ for f in sorted((ROOT / "data" / "secrets").glob("meta_*.json")):
                               files={"source": (path.name, fh)}, timeout=120).json()
         return r.get("id"), r
 
-    if (files / "avatar.png").exists():
+    if v2 and (files / "avatar.png").exists():
         pid, r = upload(files / "avatar.png")
         img = requests.get(f"{GRAPH}/{pid}", params={"fields": "images", "access_token": tok}, timeout=30).json() \
             if pid else {}
@@ -39,7 +40,7 @@ for f in sorted((ROOT / "data" / "secrets").glob("meta_*.json")):
         rp = requests.post(f"{GRAPH}/{page}/picture", data={"picture": url, "access_token": tok}, timeout=60).json() \
             if url else r
         res.append("picture " + ("ok" if rp.get("success") or rp.get("id") else str(rp.get("error", rp))[:80]))
-    if (files / "facebook_cover.jpg").exists():
+    if v2 and (files / "facebook_cover.jpg").exists():
         pid, r = upload(files / "facebook_cover.jpg")
         rc = requests.post(f"{GRAPH}/{page}", data={"cover": pid, "no_feed_story": "true", "access_token": tok},
                            timeout=60).json() if pid else r

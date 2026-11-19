@@ -468,6 +468,21 @@ def cmd_bot(args):
             tb.run()
 
 
+def cmd_pc(args):
+    """PC stand-in while the cloud (GitHub Actions) is down: Telegram, dashboard buttons, posting, making."""
+    from engine import pc_fallback
+    from engine.config import load_env
+    load_env()
+    if args.action == "run":
+        raise SystemExit(pc_fallback.run(make=not args.no_make, once=args.once))
+    elif args.action == "dash":
+        print(f"dashboard published: {pc_fallback.publish_dashboard(None, live=args.live) // 1024} KB")
+    elif args.action == "link":
+        print("link ready" if pc_fallback.dash_link() else "no DASH_KEY in .env")
+    elif args.action == "open":                    # the desktop icon: start the system if needed, show the dashboard
+        print(pc_fallback.open_dashboard())
+
+
 def cmd_cloud(args):
     """Cloud mode (owner, 13 Nov 2026: run without the PC, managed from the phone)."""
     from engine.cloud import runner
@@ -642,6 +657,12 @@ def main(argv=None):
     bt.add_argument("text", nargs="?")
     bt.set_defaults(fn=cmd_bot)
 
+    pcp = sub.add_parser("pc", help="PC stand-in while GitHub Actions is down: run | dash | link | open")
+    pcp.add_argument("action", choices=["run", "dash", "link", "open"])
+    pcp.add_argument("--no-make", action="store_true", help="don't make videos on the PC")
+    pcp.add_argument("--once", action="store_true", help="one round, then stop")
+    pcp.add_argument("--live", action="store_true", help="dash: fetch fresh platform numbers first")
+    pcp.set_defaults(fn=cmd_pc)
     cl = sub.add_parser("cloud", help="Cloud mode: setup (one time) | tick | render | helper | status")
     cl.add_argument("action", choices=["setup", "tick", "render", "helper", "status", "farm", "brand"])
     cl.add_argument("--shard", type=int, default=0, help="farm: this machine's number (0..of-1)")

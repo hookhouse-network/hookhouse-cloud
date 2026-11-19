@@ -70,6 +70,20 @@ def process_inbox(kv, log=_log) -> int:
     return n
 
 
+def _dash_buttons(kv, log=_log) -> int:
+    """Taps on the live dashboard (Approve / Upload now / Change / Reject / Make now), same code as the PC stand-in;
+    the cloud then also republishes the page so the owner sees the new state."""
+    if kv is None or not kv.keys("cmd:"):
+        return 0
+    from .. import pc_fallback
+    n = pc_fallback.process_commands(kv, log)
+    try:
+        pc_fallback.publish_dashboard(kv, log)
+    except Exception as e:  # noqa: BLE001
+        log(f"dashboard: {type(e).__name__}: {e}")
+    return n
+
+
 def claims(store) -> dict[str, float]:
     """item id -> claim time, for PC claims that are still fresh."""
     out = {}
@@ -293,7 +307,9 @@ def tick(log=_log, light: bool = False) -> None:
     from .. import books
     if light:
         steps = [("merge", lambda: merge_helper(store, log)), ("media", lambda: ensure_media(store, log)),
-                 ("inbox", lambda: process_inbox(kv, log)), ("campaigns", lambda: _campaign_footage(store, log)),
+                 ("inbox", lambda: process_inbox(kv, log)),
+                 ("buttons", lambda: _dash_buttons(kv, log)),     # dashboard taps (Worker /cmd)
+                 ("campaigns", lambda: _campaign_footage(store, log)),
                  ("post", lambda: autopilot._post_due(log))]
         for name, fn in steps:
             try:
@@ -311,6 +327,7 @@ def tick(log=_log, light: bool = False) -> None:
              ("merge", lambda: merge_helper(store, log)),
              ("media", lambda: ensure_media(store, log)),
              ("inbox", lambda: process_inbox(kv, log)),
+             ("buttons", lambda: _dash_buttons(kv, log)),         # dashboard taps (Worker /cmd)
              # 18 Nov: logged-in jobs in the cloud (owner's session, encrypted): joined campaigns -> footage
              ("browser", lambda: __import__("engine.cloud.browser_session", fromlist=["x"]).cloud_jobs(store, log)),
              ("campaigns", lambda: _campaign_footage(store, log)),   # after the inbox: a fresh Confirm is "picked"

@@ -25,7 +25,28 @@ async function tg(env, method, body) {
   });
 }
 
+async function pcPrimary(env) {
+  // 18 Nov (GitHub suspended): the PC stands in (engine/pc_fallback.py). While its heartbeat is fresh, no cloud
+  // runs are started: the PC reads the inbox (upd:*) and the dashboard taps (cmd:*) itself.
+  // The flag stays until the PC hands over (it pushes its memory first), even if the PC is off for a while: the
+  // cloud must not resume from its older memory and post twice. After 24 h without a heartbeat the cloud resumes.
+  const pc = JSON.parse((await env.HH.get("meta:pc_primary")) || "null");
+  if (!pc) return false;
+  const age = Date.now() / 1000 - pc.at;
+  if (age > 900 && age < 86400) {                 // the PC is off (heartbeat every 5 min): tell the owner (at most every 3 hours)
+    const last = Number((await env.HH.get("meta:pc_off_warn")) || 0);
+    if (Date.now() - last > 3 * 3600 * 1000) {
+      await env.HH.put("meta:pc_off_warn", String(Date.now()));
+      await tg(env, "sendMessage", { chat_id: env.OWNER_CHAT, text:
+        "💻 The PC stand-in is off, so taps and posts wait. Please switch the PC on (it starts by itself) until " +
+        "GitHub restores the cloud." });
+    }
+  }
+  return age < 86400;
+}
+
 async function dispatch(env, eventType) {
+  if (await pcPrimary(env)) return false;
   const r = await fetch(`https://api.github.com/repos/${env.GH_REPO}/dispatches`, {
     method: "POST",
     headers: {
@@ -136,9 +157,133 @@ async function media(request, env, url) {
   return new Response(request.method === "HEAD" ? null : r.body, { status: r.status, headers: out });
 }
 
+// Owner's live dashboard (phone or PC): /d?k=DASH_KEY serves the page the PC/cloud built (KV dash:html);
+// /cmd stores a button tap (cmd:<id>) for the PC/cloud; /res shows its outcome (res:<id>).
+const DASH_OPS = ["approve", "upload", "change", "reject", "make", "refresh"];
+function dashOk(env, url) {
+  const k = url.searchParams.get("k") || "";
+  return Boolean(env.DASH_KEY && env.DASH_KEY.length >= 16 && k.length === env.DASH_KEY.length && k === env.DASH_KEY);
+}
+// Live numbers on every page load (owner 18 Nov: "page load gets all the live data"): YouTube public counters for
+// every channel and posted video, fetched here (no PC needed). Kept 90 s in this isolate's memory, so page views
+// cost no KV writes (free plan: 1,000 writes/day) and little YouTube quota (~3 units per refresh).
+let LIVE = { at: 0, data: null };
+let LISTS = { at: 0, data: {} };                   // cid -> latest upload ids (10 min: 1 unit per channel)
+async function yt(env, path) {
+  const r = await fetch(`https://www.googleapis.com/youtube/v3/${path}&key=${env.YT_KEY}`);
+  if (!r.ok) throw new Error(`YouTube ${path.split("?")[0]} ${r.status}`);
+  return (await r.json()).items || [];
+}
+async function liveNumbers(env) {
+  const now = Date.now() / 1000;
+  if (LIVE.data && now - LIVE.at < 90) return LIVE.data;
+  const ids = JSON.parse((await env.HH.get("dash:ids")) || "{}");
+  const data = { at: now, built: ids.built || 0, meta: ids.meta || {}, channels: {}, videos: {}, error: null };
+  try {
+    if (!env.YT_KEY) throw new Error("no YouTube key on the Worker");
+    const chans = ids.channels || {};                      // cid -> YouTube channel id
+    const byYt = Object.fromEntries(Object.entries(chans).map(([c, y]) => [y, c]));
+    const ups = {};
+    const list = Object.values(chans);
+    for (let i = 0; i < list.length; i += 50) {
+      for (const it of await yt(env, `channels?part=statistics,contentDetails&id=${list.slice(i, i + 50).join(",")}`)) {
+        const st = it.statistics || {}, cid = byYt[it.id];
+        data.channels[cid] = { subs: Number(st.subscriberCount || 0), views: Number(st.viewCount || 0),
+                               videos: Number(st.videoCount || 0), latest: [] };
+        ups[cid] = ((it.contentDetails || {}).relatedPlaylists || {}).uploads;
+      }
+    }
+    if (now - LISTS.at > 600) {
+      const fresh = {};
+      for (const [cid, pl] of Object.entries(ups)) {
+        if (!pl) continue;
+        try { fresh[cid] = (await yt(env, `playlistItems?part=contentDetails&maxResults=10&playlistId=${pl}`))
+                .map(x => x.contentDetails.videoId); } catch (e) { fresh[cid] = LISTS.data[cid] || []; }
+      }
+      LISTS = { at: now, data: fresh };
+    }
+    const want = new Set(Object.keys(ids.videos || {}));
+    for (const v of Object.values(LISTS.data).flat()) want.add(v);
+    const all = [...want];
+    for (let i = 0; i < all.length; i += 50) {
+      for (const it of await yt(env, `videos?part=statistics,snippet&id=${all.slice(i, i + 50).join(",")}`)) {
+        const st = it.statistics || {}, sn = it.snippet || {};
+        data.videos[it.id] = { views: Number(st.viewCount || 0), likes: Number(st.likeCount || 0),
+          comments: Number(st.commentCount || 0), title: sn.title || "", at: sn.publishedAt || "",
+          thumb: ((sn.thumbnails || {}).medium || (sn.thumbnails || {}).default || {}).url || "" };
+      }
+    }
+    for (const [cid, vids] of Object.entries(LISTS.data)) {
+      if (data.channels[cid]) data.channels[cid].latest = vids.filter(v => data.videos[v]);
+    }
+  } catch (e) {
+    data.error = String(e.message || e);
+  }
+  LIVE = { at: now, data };
+  return data;
+}
+
+const SEC = { "cache-control": "no-store", "x-robots-tag": "noindex", "referrer-policy": "no-referrer" };
+// Review player (owner 19 Nov: "a video player to review the videos"): the PC puts a light copy of every video waiting
+// for the owner in KV as 20 MB pieces (pv:<item>:meta, pv:<item>:<n>). Byte ranges, so phones (iPhone needs them)
+// can play and seek.
+async function preview(request, env, url) {
+  const id = (url.searchParams.get("id") || "").replace(/[^0-9A-Za-z_-]/g, "");
+  const meta = id ? JSON.parse((await env.HH.get(`pv:${id}:meta`)) || "null") : null;
+  if (!meta) return new Response("This video's preview isn't ready yet.", { status: 404, headers: SEC });
+  const size = meta.size, chunk = meta.chunk;
+  let start = 0, end = size - 1, partial = false;
+  const m = /bytes=(\d*)-(\d*)/.exec(request.headers.get("range") || "");
+  if (m) {
+    partial = true;
+    if (m[1] === "") { start = Math.max(0, size - Number(m[2] || 0)); }
+    else { start = Number(m[1]); if (m[2] !== "") end = Math.min(size - 1, Number(m[2])); }
+    if (start >= size || start > end) return new Response(null, { status: 416, headers: { "content-range": `bytes */${size}` } });
+  }
+  end = Math.min(end, start + chunk - 1, (Math.floor(start / chunk) + 1) * chunk - 1);   // one piece per answer
+  const n = Math.floor(start / chunk);
+  const h = { "content-type": "video/mp4", "accept-ranges": "bytes", "content-length": String(end - start + 1), ...SEC };
+  if (partial || end < size - 1) h["content-range"] = `bytes ${start}-${end}/${size}`;
+  if (request.method === "HEAD") return new Response(null, { status: partial ? 206 : 200, headers: h });
+  const buf = await env.HH.get(`pv:${id}:${n}`, { type: "arrayBuffer" });
+  if (!buf) return new Response("gone", { status: 404, headers: SEC });
+  const off = start - n * chunk;
+  return new Response(buf.slice(off, off + (end - start + 1)), { status: (partial || end < size - 1) ? 206 : 200, headers: h });
+}
+async function dash(request, env, url) {
+  if (!dashOk(env, url)) return new Response("no", { status: 403 });
+  if (url.pathname === "/d") {
+    const page = await env.HH.get("dash:html");
+    return new Response(page || "<p>The dashboard is being built. Try again in a few minutes.</p>",
+      { headers: { "content-type": "text/html; charset=utf-8", ...SEC } });
+  }
+  if (url.pathname === "/live") return Response.json(await liveNumbers(env), { headers: SEC });
+  if (url.pathname === "/res") {
+    const id = (url.searchParams.get("id") || "").replace(/[^0-9a-z-]/gi, "");
+    const r = id ? await env.HH.get(`res:${id}`) : null;
+    return new Response(r || JSON.stringify({ state: "queued" }), { headers: { "content-type": "application/json", ...SEC } });
+  }
+  if (url.pathname === "/pv") return preview(request, env, url);
+  if (url.pathname === "/cmd" && request.method === "POST") {
+    let b = {};
+    try { b = await request.json(); } catch (e) { b = {}; }
+    if (!DASH_OPS.includes(b.op)) return Response.json({ error: "unknown button" }, { status: 400 });
+    const cmd = { op: b.op, item: String(b.item || "").slice(0, 80), note: String(b.note || "").slice(0, 500),
+                  force: Boolean(b.force), at: Date.now() / 1000 };
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    await env.HH.put(`cmd:${id}`, JSON.stringify(cmd), { expirationTtl: 2 * 86400 });
+    await env.HH.put(`res:${id}`, JSON.stringify({ state: "queued" }), { expirationTtl: 2 * 86400 });
+    const pc = await pcPrimary(env);
+    if (!pc) await dispatch(env, "inbox");       // the cloud handles taps too (runner reads cmd:* once it is back)
+    return Response.json({ id, pc }, { headers: SEC });
+  }
+  return new Response("no", { status: 404 });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (["/d", "/cmd", "/res", "/live", "/pv"].includes(url.pathname)) return dash(request, env, url);
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/v/")) return media(request, env, url);
     if (request.method !== "POST" || url.pathname !== "/tg") return new Response("ok");
     if (request.headers.get("x-telegram-bot-api-secret-token") !== env.TG_SECRET) return new Response("no", { status: 401 });

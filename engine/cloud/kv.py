@@ -10,11 +10,23 @@ import requests
 BASE = "https://api.cloudflare.com/client/v4/accounts/{acct}/storage/kv/namespaces/{ns}"
 
 
+def _toml_ns() -> str:
+    """The PC (no CF_KV_NAMESPACE_ID in .env) reads the namespace id from the Worker's wrangler.toml."""
+    import re
+    from pathlib import Path
+    p = Path(__file__).resolve().parents[2] / "cloud" / "worker" / "wrangler.toml"
+    try:
+        m = re.search(r'\[\[kv_namespaces\]\][^\[]*?\bid\s*=\s*"([0-9a-f]+)"', p.read_text(encoding="utf-8"), re.S)
+        return m.group(1) if m else ""
+    except OSError:
+        return ""
+
+
 class KV:
     def __init__(self, session=None, account: str | None = None, namespace: str | None = None, api_token: str | None = None):
         self.s = session or requests.Session()
         acct = account or os.environ.get("CLOUDFLARE_ACCOUNT_ID", "")
-        ns = namespace or os.environ.get("CF_KV_NAMESPACE_ID", "")
+        ns = namespace or os.environ.get("CF_KV_NAMESPACE_ID", "") or _toml_ns()
         tok = api_token or os.environ.get("CLOUDFLARE_API_TOKEN", "")
         if not (acct and ns and tok):
             raise RuntimeError("Cloudflare KV not configured (CLOUDFLARE_ACCOUNT_ID, CF_KV_NAMESPACE_ID, CLOUDFLARE_API_TOKEN)")
@@ -42,9 +54,16 @@ class KV:
         r.raise_for_status()
         return r.text
 
-    def put(self, key: str, value: str | dict) -> None:
+    def put(self, key: str, value: str | dict, ttl: int | None = None) -> None:
         body = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
-        r = self.s.put(f"{self.base}/values/{key}", headers=self.h, data=body.encode("utf-8"), timeout=30)
+        r = self.s.put(f"{self.base}/values/{key}", headers=self.h, data=body.encode("utf-8"), timeout=60,
+                       params={"expiration_ttl": max(60, int(ttl))} if ttl else None)
+        r.raise_for_status()
+
+    def put_bytes(self, key: str, data: bytes, ttl: int | None = None) -> None:
+        """Binary value (video preview pieces). KV allows up to 25 MiB per value."""
+        r = self.s.put(f"{self.base}/values/{key}", headers={**self.h, "Content-Type": "application/octet-stream"},
+                       data=data, timeout=300, params={"expiration_ttl": max(60, int(ttl))} if ttl else None)
         r.raise_for_status()
 
     def delete(self, key: str) -> None:

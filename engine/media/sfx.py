@@ -218,14 +218,13 @@ def breath(seconds: float = 0.22, sr: int = SR, seed: int = 21) -> np.ndarray:
     return 0.1 * y / (np.abs(y).max() + 1e-9)
 
 
-def duck_db(music: np.ndarray, voice: np.ndarray, db: float = 6.0, attack: float = 0.05,
-            release: float = 0.3) -> np.ndarray:
-    """Sidechain ducking in dB with attack/release times (mythology spec: 8-12 dB, 150 ms attack, 400 ms release)."""
-    if db <= 0:
-        return music
+def voice_env(voice: np.ndarray, attack: float = 0.05, release: float = 0.3) -> np.ndarray:
+    """0..1 per sample: how much the voice is speaking right now (attack/release smoothed)."""
     v = np.abs(voice if voice.ndim == 1 else voice.mean(axis=1))
     hop = int(0.01 * SR)
     m = len(v) // hop
+    if m < 2:
+        return np.zeros(len(v), np.float32)
     lvl = v[: m * hop].reshape(m, hop).max(axis=1)
     thr = max(np.percentile(lvl, 60) * 0.25, 1e-4)
     target = (lvl > thr).astype(np.float32)
@@ -235,7 +234,32 @@ def duck_db(music: np.ndarray, voice: np.ndarray, db: float = 6.0, attack: float
     for i in range(1, m):
         k = a if target[i] > env[i - 1] else r
         env[i] = env[i - 1] + k * (target[i] - env[i - 1])
-    gain = 10 ** (-db * np.repeat(env, hop) / 20)
+    return np.repeat(env, hop)
+
+
+def carve_mid(music: np.ndarray, voice: np.ndarray, db: float = 4.0, lo: float = 1000.0, hi: float = 4000.0,
+              attack: float = 0.05, release: float = 0.3) -> np.ndarray:
+    """Dynamic EQ (owner 18 Nov research): while the voice speaks, only the music's 1-4 kHz band (where speech
+    intelligibility lives and masking happens) dips `db`; bass, beat and air stay, so the music still sounds full.
+    Sources: iZotope / Waves dynamic-EQ sidechain guides, ProSoundWeb (masking sits at 1-4 kHz)."""
+    if db <= 0 or len(music) < 64:
+        return music
+    from scipy.signal import butter, sosfiltfilt
+    sos = butter(2, [lo, hi], btype="bandpass", fs=SR, output="sos")
+    mid = sosfiltfilt(sos, music).astype(music.dtype)
+    env = voice_env(voice, attack, release)
+    n = min(len(music), len(env))
+    g = np.ones(len(music), np.float32)
+    g[:n] = 10 ** (-db * env[:n] / 20)
+    return (music - mid * (1 - g)).astype(music.dtype)
+
+
+def duck_db(music: np.ndarray, voice: np.ndarray, db: float = 6.0, attack: float = 0.05,
+            release: float = 0.3) -> np.ndarray:
+    """Sidechain ducking in dB with attack/release times (mythology spec: 8-12 dB, 150 ms attack, 400 ms release)."""
+    if db <= 0:
+        return music
+    gain = 10 ** (-db * voice_env(voice, attack, release) / 20)
     n = min(len(music), len(gain))
     out = music.copy()
     out[:n] = music[:n] * gain[:n]

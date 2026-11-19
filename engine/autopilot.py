@@ -762,13 +762,14 @@ def gate_held() -> dict:
     return dict(_load().get("gate_held") or {})
 
 
-def _ask_due(log) -> None:
+def _ask_due(log, allow=None) -> None:
+    """allow(item) -> bool: the PC stand-in (pc_fallback) only asks about videos whose file it has."""
     from .telegram_bot import _chat
     if not _chat():
         return                                    # phone not paired yet: nothing to ask on
     now, s = _now(), _load()
     for start, it in items(0, 3):
-        if it["status"] != "made":
+        if it["status"] != "made" or (allow and not allow(it)):
             continue
         w = _when(it)
         if w <= now:
@@ -781,12 +782,15 @@ def _ask_due(log) -> None:
             ask(start, it, reminder=True)
 
 
-def _post_due(log) -> None:
+def _post_due(log, allow=None) -> None:
+    """allow(item) -> bool: the PC stand-in (pc_fallback) skips videos the cloud may already have posted."""
     from .publish import upload_item
     from .telegram_bot import notify
     now, s = _now(), _load()
     for start, it in items(3, 1):
         if it["status"] != "approved" or it["id"] in s.get("posted", {}):
+            continue
+        if allow and not allow(it):
             continue
         if (it.get("post_retry_at") or 0) > time.time():
             continue
