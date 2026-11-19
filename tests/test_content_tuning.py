@@ -77,3 +77,31 @@ def test_refresh_topic_swaps_in_stronger_topic(monkeypatch):
     assert item["topic"] == "GTA 6 map secrets" and item["planned_topic"] == "Old topic"
     assert item["feeling"] == "awe" and item["refreshed"]
     assert any("PLANNED EARLIER" in h for h in seen["hints"]) and "Trending now: X" in seen["hints"]
+
+
+def test_hook_loop_tests_then_exploits(tmp_path, monkeypatch):
+    import random
+    monkeypatch.setattr(ct, "HOOKS_FILE", tmp_path / "hooks.json")
+    h, why = ct.next_hook("c", tmp_path / "none.db", rng=random.Random(1))
+    assert h in ct.HOOK_TYPES and "testing" in why                 # nothing measured: test a hook type
+    base = {"channel": "c", "platform": "youtube", "format": "short", "posted_at": 1.0, "hours_after": 96}
+    rows, i = [], 0
+    for hook, stayed in (("outcome_first", 80), ("contrarian", 40)):
+        for _ in range(ct.MIN_TESTS):
+            i += 1
+            ct.record_hook(f"v{i}", "c", hook)
+            rows.append({**base, "item_id": f"v{i}", "video_id": f"V{i}", "views": 100, "stayed_pct": stayed})
+    db = _db(tmp_path, rows)
+    sc = ct.hook_scores("c", db)
+    assert len(sc["outcome_first"]) == ct.MIN_TESTS and sc["outcome_first"][0] == 80
+    picks = [ct.next_hook("c", db, rng=random.Random(s))[0] for s in range(40)]
+    assert picks.count("outcome_first") > picks.count("contrarian")  # the winner is used most
+    assert any(p not in ("outcome_first", "contrarian") for p in picks)   # untested types still get tried
+    rules = ct.writer_rules("c", db, hook="outcome_first")
+    assert "HOOK TYPE for this video: outcome_first" in rules and "YOUTUBE POLICY" in rules
+
+
+def test_record_hook_ignores_unknown(tmp_path, monkeypatch):
+    monkeypatch.setattr(ct, "HOOKS_FILE", tmp_path / "hooks.json")
+    ct.record_hook("x", "c", "made_up")
+    assert not (tmp_path / "hooks.json").exists()

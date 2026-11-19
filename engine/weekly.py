@@ -625,6 +625,12 @@ def make_item(plan: dict, item: dict, brain, memory=None, log=print) -> None:
         out, _ = story.make(brain, ch, topic=topic, fmt="long" if item["kind"] == "long" else "short",
                             memory=memory, log=log)
         item["out_dir"], item["file"] = str(out), (sorted(out.glob("*.mp4")) or [Path("")])[0].name
+        try:                                           # the hook loop learns which hook type this video used
+            from .content_tuning import record_hook
+            record_hook(item["id"], ch["id"], json.loads((out / "script.json").read_text(encoding="utf-8"))
+                        .get("hook_type"))
+        except Exception:  # noqa: BLE001
+            pass
     elif ch["type"] == "brainrot":
         from .snack import maker as snack              # Brain Snack v3: five rotating game formats
         out, meta = snack.make(brain, ch, topic=topic or None, memory=memory, log=log)

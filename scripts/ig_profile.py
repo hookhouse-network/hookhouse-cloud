@@ -36,8 +36,12 @@ async def main(cid):
             r = await cmd("Runtime.evaluate", {"expression": expr, "returnByValue": True})
             return (r.get("result") or {}).get("value")
         await cmd("Page.bringToFront")
-        await js('location.href = "https://www.instagram.com/accounts/edit/"')
-        time.sleep(8)
+        if "/accounts/edit" not in (await js("location.href") or ""):
+            await js('location.href = "https://www.instagram.com/accounts/edit/"')
+        for _ in range(30):                     # 19 Nov: new accounts load the edit page slowly (8 s was too short)
+            time.sleep(1.5)
+            if await js('!!document.querySelector("textarea")'):
+                break
         user = await js('(() => { const a = document.body.innerText.split("\\n").map(s => s.trim()); '
                         'return a[a.indexOf("Edit profile") + 1] || ""; })()')
         print("logged in as:", user)

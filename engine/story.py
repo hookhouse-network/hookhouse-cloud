@@ -105,6 +105,7 @@ Return ONLY JSON:
   "beats": [{{"narration": "...", "chapter": "", "visual": "footage|photo|ai|text|chart", "query": "...", "ai_prompt": "",
              "label": "", "big_text": "", "sub": "", "chart": null, "emoji": "", "emphasis": [""], "moment": "normal"}}],
   "interest_score": 8,
+  "hook_type": "the hook type you used (outcome_first|curiosity_gap|contrarian|stakes_number|direct_question|countdown)",
   "summary": "2 lines. Line 1 = one self-contained factual sentence AI search can quote: the search phrase, the key person or place and the year (what happened, never the ending). Line 2 = the open question the video answers.",
   "search_phrase": "2-5 words people would search",
   "instagram_caption": "first line = the search phrase in a hook question, then 1-2 lines",
@@ -546,11 +547,13 @@ def script_flags(script: dict) -> list[str]:
     return topic_flags(" ".join(str(x) for x in parts), mode="topic")
 
 
-def _tuning_rules(cid: str) -> str:
-    """19 Nov: the channel's own numbers (swipe-away, watch %, likes, plateaus) -> rules for this script."""
+def _tuning_rules(cid: str, fmt: str = "short") -> str:
+    """19 Nov: the channel's own numbers (swipe-away, watch %, likes, plateaus) -> rules for this script, plus the
+    hook type this Short tests or exploits (content_tuning.next_hook: the self-improving hook loop)."""
     try:
-        from .content_tuning import writer_rules
-        return writer_rules(cid)
+        from .content_tuning import next_hook, writer_rules
+        hook = next_hook(cid)[0] if fmt == "short" else None
+        return writer_rules(cid, hook=hook)
     except Exception:  # noqa: BLE001 - the script is still written with the base rules
         return ""
 
@@ -583,7 +586,7 @@ def write_script(brain, channel: dict, topic: str, fmt: str = "short", memory=No
         long_rules=(LONG_RULES.format(catchphrase=channel.get("catchphrase") or "a calm, memorable closing line")
                     if fmt == "long" else ""),
         rules=json.dumps(channel.get("content_rules", {})) + "\n" + (channel.get("writer_rules") or "") + "\n"
-        + _tuning_rules(channel["id"]) + "\n"
+        + _tuning_rules(channel["id"], fmt) + "\n"
         + never_rules_text() + (
             "" if visuals.ai_image_available() else
             "\nAI images are switched OFF right now: never use visual \"ai\". Use photo, footage or text, and give "

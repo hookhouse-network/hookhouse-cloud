@@ -40,6 +40,70 @@ DATED = (
     "way a funny, sharp friend tells it today.")
 
 
+# Hook types (creator practice 2026: keep one hook type over 4-6 Shorts, judge it by the swipe share, keep the winner)
+HOOK_TYPES = {
+    "outcome_first": "show/say the result or the most shocking moment first, then rewind to how it happened",
+    "curiosity_gap": "state a strange fact that makes no sense yet; the explanation only comes at the end",
+    "contrarian": "say the opposite of what everyone believes about this, then prove it",
+    "stakes_number": "open on an exact number with stakes (money, time, lives, runs, distance)",
+    "direct_question": "ask the viewer one short question they can't answer yet, then answer it at the end",
+    "countdown": "promise a clear sequence (3 things / the last one is the wildest) and deliver it fast",
+}
+HOOKS_FILE = ROOT / "data" / "state" / "hook_types.json"   # item id -> {channel, hook} (in the cloud memory bundle)
+MIN_TESTS = 4               # videos per hook type before it is judged
+EXPLORE = 0.3               # share of videos that keep testing other hook types once a winner exists
+
+
+def record_hook(item_id: str, cid: str, hook: str | None) -> None:
+    import json
+    if hook not in HOOK_TYPES:
+        return
+    try:
+        d = json.loads(HOOKS_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        d = {}
+    d[item_id] = {"channel": cid, "hook": hook}
+    HOOKS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    HOOKS_FILE.write_text(json.dumps(d, indent=0), encoding="utf-8")
+
+
+def hook_scores(cid: str, db: Path | None = None) -> dict[str, list[float]]:
+    """hook type -> scores of this channel's videos (stayed % when measured, else views relative to the median)."""
+    import json
+    try:
+        hooks = {k: v["hook"] for k, v in json.loads(HOOKS_FILE.read_text(encoding="utf-8")).items()
+                 if v.get("channel") == cid}
+    except (OSError, ValueError):
+        hooks = {}
+    latest: dict[str, dict] = {}
+    for r in _rows(cid, db):
+        if r["item_id"] in hooks and r["platform"] == "youtube":
+            latest[r["item_id"]] = r
+    if not latest:
+        return {}
+    views = sorted(float(r["views"] or 0) for r in latest.values())
+    med = views[len(views) // 2] or 1.0
+    out: dict[str, list[float]] = {}
+    for iid, r in latest.items():
+        score = float(r["stayed_pct"]) if r.get("stayed_pct") is not None else 50.0 * float(r["views"] or 0) / med
+        out.setdefault(hooks[iid], []).append(score)
+    return out
+
+
+def next_hook(cid: str, db: Path | None = None, rng=None) -> tuple[str, str]:
+    """(hook type, why) for this channel's next script: untested types first, then mostly the measured winner."""
+    import random
+    rng = rng or random.Random()
+    scores = hook_scores(cid, db)
+    untested = [h for h in HOOK_TYPES if len(scores.get(h, [])) < MIN_TESTS]
+    tested = {h: statistics.median(v) for h, v in scores.items() if len(v) >= MIN_TESTS}
+    if tested and (not untested or rng.random() > EXPLORE):
+        best = max(tested, key=tested.get)
+        return best, f"best so far on this channel (score {tested[best]:.0f} over {len(scores[best])} videos)"
+    pick = min(untested, key=lambda h: (len(scores.get(h, [])), rng.random()))
+    return pick, f"testing this hook type ({len(scores.get(pick, []))}/{MIN_TESTS} videos so far)"
+
+
 def _rows(cid: str, db: Path | None = None) -> list[dict]:
     db = db or DB
     if not db.exists():
@@ -109,10 +173,20 @@ def _findings(s: dict) -> list[tuple[str, str]]:
     return out
 
 
-def writer_rules(cid: str, db: Path | None = None) -> str:
-    """Extra rules for this channel's next script: always the feeling + not-dated rules, plus what its numbers say."""
+POLICY = (
+    "YOUTUBE POLICY (inauthentic content, July 2026): no generic or template-like video, nothing unsatisfying, and the "
+    "narrator never acts as an expert giving advice (health, money, legal, politics): tell the true story and its "
+    "facts, let the viewer decide.")
+
+
+def writer_rules(cid: str, db: Path | None = None, hook: str | None = None) -> str:
+    """Extra rules for this channel's next script: feeling, not-dated, policy, the hook type to use, and what its
+    numbers say."""
     s = signals(cid, db)
-    lines = [FEELING, DATED] + [f"OUR NUMBERS: {said}. SO: {do}" for said, do in _findings(s)]
+    lines = [FEELING, DATED, POLICY]
+    if hook in HOOK_TYPES:
+        lines.append(f"HOOK TYPE for this video: {hook} = {HOOK_TYPES[hook]}. Set \"hook_type\": \"{hook}\".")
+    lines += [f"OUR NUMBERS: {said}. SO: {do}" for said, do in _findings(s)]
     return "\n".join(lines)
 
 
@@ -129,6 +203,11 @@ def channel_notes(cid: str, db: Path | None = None) -> list[str]:
     """For the dashboard: what the numbers said and what was changed in the next videos."""
     s = signals(cid, db)
     notes = [f"{said[0].upper()}{said[1:]} → {do.split(':', 1)[-1].strip()[:220]}" for said, do in _findings(s)]
+    sc = {h: statistics.median(v) for h, v in hook_scores(cid, db).items() if v}
+    if sc:
+        best = max(sc, key=sc.get)
+        notes.append(f"Hook types tested: {', '.join(f'{h} {len(hook_scores(cid, db)[h])}x' for h in sc)}; "
+                     f"strongest so far: {best}.")
     notes.append("Every topic now has to be current (trends of the day, YouTube's trending chart) and deliver one "
                  "feeling: funny, emotional, nostalgic, shocking, satisfying, relatable or awe.")
     return notes

@@ -45,8 +45,8 @@ ART = {
                          "floodlights, a ball flying over the boundary", "emerald green and bright yellow"),
     "picture_abhi_baaki_hai": ("a vintage film camera under a golden spotlight with stars", "a glamorous old Bollywood "
                                "film set with spotlights, a red carpet and film reels", "magenta, gold and deep purple"),
-    "brain_snack": ("a cute cartoon brain mascot holding a cookie, big happy eyes", "a playful colourful arcade of "
-                    "bouncing balls, mazes and glowing puzzle pieces", "cyan, magenta and violet"),
+    "brain_snack": ("a cute cartoon brain mascot holding a cookie, big happy eyes", "a dreamy abstract space of "
+                    "floating glossy bouncing balls, glowing maze lines and puzzle pieces, no machines, no signs", "cyan, magenta and violet"),
     "cosmos_unboxed": ("an open cardboard box releasing a glowing ringed planet and stars", "a vast nebula with "
                        "glowing planets, a spaceship and a spiral galaxy", "violet and cyan on deep navy"),
     "deep_blue_files": ("a deep sea diving helmet surrounded by glowing jellyfish", "the deep ocean with a sunken "
