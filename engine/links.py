@@ -45,8 +45,15 @@ def set_link(channel_id: str, **fields) -> bool:
 
 
 def _ig_connected(channel_id: str) -> bool:
+    """The Instagram account really exists and is ours: connected to Meta, or marked instagram_live in links.yaml
+    (created, not connected yet). A planned handle alone may belong to a stranger."""
     from .publish import SECRETS
-    return (SECRETS / f"meta_{channel_id}.json").exists()
+    if (SECRETS / f"meta_{channel_id}.json").exists():
+        return True
+    try:
+        return bool((data().get(channel_id) or {}).get("instagram_live"))
+    except Exception:  # noqa: BLE001
+        return False
 
 
 def footer(channel_id: str, language: str = "en", kids: bool = False) -> str:

@@ -24,9 +24,36 @@ BRAND = ROOT / "output" / "brand"
 BANNER_MAX = 6 * 1024 * 1024            # channelBanners.insert limit
 
 
+def social_lines(cid: str) -> list[str]:
+    """The channel's own accounts on other platforms (config/links.yaml + its connected Facebook Page), one line each."""
+    import yaml
+    try:
+        links = (yaml.safe_load((ROOT / "config" / "links.yaml").read_text(encoding="utf-8")) or {}).get(cid) or {}
+    except (OSError, yaml.YAMLError):
+        links = {}
+    out = []
+    from .links import _ig_connected
+    ig = str(links.get("instagram") or "").lstrip("@") if _ig_connected(cid) else ""
+    if ig:
+        out.append(f"📸 Instagram: https://www.instagram.com/{ig}")
+    fb = str(links.get("facebook") or "")
+    if not fb:
+        try:
+            page = json.loads((SECRETS / f"meta_{cid}.json").read_text(encoding="utf-8")).get("page_id")
+            fb = f"https://www.facebook.com/{page}" if page else ""
+        except (OSError, ValueError):
+            fb = ""
+    if fb:
+        out.append(f"📘 Facebook: {fb}")
+    return out
+
+
 def about_text(ch: dict) -> str:
     """YouTube About (max 1,000 characters): the channel's About text, then the contact page (never an email)."""
     text = str(ch.get("about") or ch.get("bio") or "").strip()
+    social = social_lines(ch["id"]) if ch.get("id") else []
+    if social:                         # owner 19 Nov: link the same brand across platforms (Meta <-> YouTube)
+        text += "\n\nFollow us:\n" + "\n".join(social)
     url = os.environ.get("CONTACT_URL", "").strip()
     if url and "@" not in url.split("//")[-1].split("/")[0]:
         text += f"\n\nBusiness enquiries: {url}"

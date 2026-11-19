@@ -1,5 +1,6 @@
 # HookHouse cross-links (owner, 12 Nov 2026: "make all the things inter-connect to support each other").
-# Planned handles from docs/account_names_and_details.md. Set live: true for a channel once its accounts really exist
+# Planned handles from docs/account_names_and_details.md. instagram_live: true = that Instagram account exists
+# (created; Meta-connected ones count anyway). Set live: true for a channel once its accounts really exist
 # (and correct any handle you had to change). Only live channels are linked in descriptions, so we never point
 # viewers to an account that doesn't exist. Made-for-Kids videos never get cross-links.
 # telegram: "@channelname" = that channel's Telegram channel (add the HookHouse bot as an admin); videos are then
@@ -7,16 +8,16 @@
 hot_take_hq:            {youtube: "@hottakehqofficial", instagram: "hottakehqofficial", live: true}
 unsolved_after_dark:    {youtube: "@creepycaseclub", instagram: "creepycaseclubhq", live: true}
 clutch_tales:           {youtube: "@clutchtaleshq", instagram: "clutchtaleshq", live: true}
-ending_decoded:         {youtube: "@endingdecodedhq", instagram: "endingdecodedhq", live: true}
+ending_decoded:         {youtube: "@endingdecodedhq", instagram: "endingdecodedhq", instagram_live: true, live: true}
 money_cheat_codes:      {youtube: "@moneycheatcodeshq", instagram: "moneycheatcodes", live: true}
 itihaas_ke_raaz:        {youtube: "@itihaaskeraazhq", instagram: "itihaaskeraaz", live: true}
 cricket_ke_kisse:       {youtube: "@cricketkekissehindi", instagram: "cricketkekisse", live: true}
 picture_abhi_baaki_hai: {youtube: "@pictureabhibaakihaihq", instagram: "pictureabhibaakihai", live: true}
 brain_snack:            {youtube: "@brainsnackdose", instagram: "brainsnackdose", live: true}
 bloop_and_friends:      {youtube: "@bloopandfriendshq", live: true}
-cosmos_unboxed:         {youtube: "@cosmosunboxedhq", instagram: "cosmosunboxedhq", live: true}
-deep_blue_files:        {youtube: "@deepbluefileshq", instagram: "deepbluefiles", live: true}
-wild_instinct:          {youtube: "@thewildinstincthq", instagram: "wildinstinctstories", live: true}
+cosmos_unboxed:         {youtube: "@cosmosunboxedhq", instagram: "cosmosunboxedhq", instagram_live: true, live: true}
+deep_blue_files:        {youtube: "@deepbluefileshq", instagram: "deepbluefiles", instagram_live: true, live: true}
+wild_instinct:          {youtube: "@thewildinstincthq", instagram: "wildinstinctstories", instagram_live: true, live: true}
 stream_clips:           {youtube: "@StreamClipsDaily", instagram: "streamclipsdaily", live: false}
 
 # Which channels recommend each other (same language and a related audience; never more than two).
