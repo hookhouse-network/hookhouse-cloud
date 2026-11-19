@@ -42,6 +42,8 @@ def posted_videos() -> list[dict]:
         if not vid or a.get("platform") not in ("youtube", "instagram") or not str(a.get("what", "")).startswith(
                 ("upload", "publish")):
             continue
+        if "story" in str(a.get("what", "")).lower():    # 19 Nov: Story teasers vanish after 24 h (insights then say
+            continue                                   # "object does not exist") and doubled every video in reviews
         posted = a.get("at") or time.time()
         if a.get("when"):
             try:
@@ -125,6 +127,11 @@ def _instagram(v: dict, session) -> dict | None:
         except Exception:  # noqa: BLE001
             pass
         raise RuntimeError(err)
+    try:                                               # 19 Nov: insights answer again -> the old errors close
+        from . import heal
+        heal.resolve("stats:instagram: ")
+    except Exception:  # noqa: BLE001
+        pass
     vals = {d["name"]: (d.get("values") or [{}])[0].get("value") for d in r.json().get("data", [])}
     avg_ms = vals.get("ig_reels_avg_watch_time")
     return {"views": vals.get("views"), "likes": vals.get("likes"), "comments": vals.get("comments"),

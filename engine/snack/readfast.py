@@ -69,6 +69,10 @@ def render(spec: dict, fact: dict, writer, fps: int, log=print) -> dict:
     cv2.circle(mask, (CX, CY), R - 2, 255, -1)
     intro = text_sprite("READ IT IF\nYOU CAN", "Poppins Black", 120, fill="#FFE600", stroke=10)
     end1 = text_sprite("What word did you\nlose it at?", "Poppins Black", 74, stroke=8)
+    # 19 Nov review: facts got views but no shares. A friendly challenge (not "share with 10 friends" bait, which
+    # Meta demotes) gives a reason to send it on; sends drive reach to non-followers on Instagram.
+    end2 = text_sprite("Send it to a friend:\nwho reads further?", "Poppins ExtraBold", 54, fill="#FFE600",
+                       stroke=6)
     events = []
     prev = None
     hue0 = rng.random()
@@ -106,6 +110,8 @@ def render(spec: dict, fact: dict, writer, fps: int, log=print) -> dict:
             blit(frame, text_sprite(word, "Poppins Black", size, stroke=10), CX, CY)
         else:
             blit(frame, end1, W / 2, CY, scale=min(1.0, 0.7 + (t - times[-1] - end_hold) * 3))
+            if t >= times[-1] + end_hold + 0.4:
+                blit(frame, end2, W / 2, CY + R + 150, scale=1.0)
         writer.write(frame)
     for i, tt in enumerate(times[:-1]):
         events.append((tt, i))

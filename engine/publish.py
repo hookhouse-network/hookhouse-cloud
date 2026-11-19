@@ -551,6 +551,13 @@ SHARE_TAG = "share"                                    # temporary public-link c
 WORKER_URL = os.environ.get("WORKER_URL", "https://hookhouse-bot.clipping-system.workers.dev")
 
 
+def _live(session) -> bool:
+    """True for the real network (plain `requests` or the shared retrying HTTP); False for a test's fake session.
+    19 Nov: the old `session is requests` check went False once HTTP became the default, so Threads never got our
+    signed link and failed on Instagram's CDN link ("could not process the video: UNKNOWN")."""
+    return session is requests or session is HTTP
+
+
 def share_link(video: Path, hours: float = 2.0):
     """A signed, short-lived public link to one video (owner, 17 Nov: Instagram stopped posting). Instagram API with
     Instagram/unified login takes only a public video_url; direct upload (rupload) answers ProcessingFailedError.
@@ -582,7 +589,7 @@ def share_link(video: Path, hours: float = 2.0):
 def _ig_container(host: str, ig: str, tok: str, video: Path, params: dict, session=HTTP):
     """Create the media container: public link first (works for every login type), direct upload as the fallback.
     Returns (container id or None, error text, cleanup)."""
-    link = share_link(video) if session is requests else None
+    link = share_link(video) if _live(session) else None
     if link:
         url, cleanup = link
         c = session.post(f"{host}/{ig}/media", data=dict(params, video_url=url), timeout=60).json()
@@ -1004,7 +1011,7 @@ def upload_item(it: dict, dry_run: bool = True, session=HTTP, platforms=("youtub
                     # Our own signed link (the one that fixed Instagram) first; the CDN link only as the fallback.
                     from .threads import ig_video_url, post_video, text_for
                     text = text_for(meta, yt_id)
-                    link = share_link(reel_file) if session is requests else None
+                    link = share_link(reel_file) if _live(session) else None
                     if link:
                         url, cleanup = link
                         try:

@@ -221,6 +221,24 @@ def titles_for(spec: dict) -> list[str]:
     return TITLES.get(fmt, {}).get(spec.get("rule"), ["Satisfying physics 🧠"])
 
 
+# 19 Nov review (Brain Snack Instagram: 1.6% likes, 0 shares; every caption asked "Which rule next?", even on facts).
+# Per format: a real question viewers can answer + a friendly send challenge. Mosseri (Jan 2025): watch time, likes
+# per reach and sends per reach weigh most; sends most for reaching non-followers. Meta demotes chain-letter bait
+# ("share with 10 friends", "comment YES"), so these stay questions/challenges tied to the video.
+CTA = {
+    "readfast": ("What word did you lose it at? 👇", "Send it to a friend and see who reads further 👀"),
+    "ladder": ("What did you score? Be honest 👇", "Send it to the friend who thinks they know everything 🧠"),
+    "versus": ("Who were you rooting for, and why? 👇", "Send it to the friend who'd pick the other side 🔴🔵"),
+    "spiral": ("Which try did you think would make it? 👇", "Send it to someone who needs 30 calm seconds 😌"),
+    "multiply": ("Did you guess when it would fill up? 👇", "Send it to someone who needs 30 calm seconds 😌"),
+}
+CTA_DEFAULT = ("Which rule should we try next? 👇", "Send it to someone who'd love this 🧠")
+
+
+def cta_for(fmt: str) -> tuple[str, str]:
+    return CTA.get(fmt, CTA_DEFAULT)
+
+
 def write_meta(channel: dict, spec: dict, info: dict, out_dir: Path) -> dict:
     fmt = spec["format"]
     from .. import uniq
@@ -229,12 +247,13 @@ def write_meta(channel: dict, spec: dict, info: dict, out_dir: Path) -> dict:
     desc = (f"{titles[0]}\n"                     # searchable first line (title words), then how it was made
             "Simulated and rendered from scratch with our own physics engine. "
             "Every note is played by a collision" + (f" (melody: {melody}, public domain)." if melody else ".")
-            + "\n\nWhich rule should we try next? 👇"
+            + "\n\n" + "\n".join(cta_for(fmt))
             + (f"\n\n{channel['catchphrase']}" if channel.get("catchphrase") else "")
             + "\n\n" + " ".join(channel.get("hashtags", [])))
     meta = {"channel": channel["id"], "format": "short", "snack_format": fmt, "title": titles[0],
             "title_options": titles, "hook_text": titles[0], "description": desc,
-            "instagram_caption": f"{titles[0]}\n\nWhich rule next? 👇\n\n" + " ".join(channel.get("hashtags", [])),
+            "instagram_caption": f"{titles[0]}\n\n" + "\n".join(cta_for(fmt)) + "\n\n"
+                                 + " ".join(channel.get("hashtags", [])),
             "duration_s": round(ffmpeg.duration(out_dir / "video.mp4"), 2), "made_for_kids": False,
             "ai_label": bool(info.get("ai_voice")), "yt_synthetic": False, "spec": spec,
             "fact_check": (spec.get("fact") or {}).get("_fact_check")}

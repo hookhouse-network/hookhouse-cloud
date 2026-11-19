@@ -200,16 +200,24 @@ def from_publish_log(since: float, log_path: Path | None = None) -> int:
     p = log_path or LOG
     if not p.exists():
         return 0
-    n = 0
+    n, failed, worked = 0, {}, {}
     for line in p.read_text(encoding="utf-8").splitlines():
         try:
             a = json.loads(line)
         except ValueError:
             continue
-        if float(a.get("at") or 0) < since or a.get("done") or (a.get("details") or {}).get("dry_run"):
+        at, plat = float(a.get("at") or 0), a.get("platform")
+        if at < since or (a.get("details") or {}).get("dry_run"):
+            continue
+        if a.get("done"):
+            worked[plat] = max(worked.get(plat, 0.0), at)
             continue
         err = (a.get("result") or {}).get("error")
         if err:
-            report(f"upload:{a.get('platform')}", err, channel=a.get("channel", ""), platform=a.get("platform", ""))
+            report(f"upload:{plat}", err, channel=a.get("channel", ""), platform=plat or "")
+            failed[plat] = max(failed.get(plat, 0.0), at)
             n += 1
+    for plat, at in worked.items():                     # 19 Nov: a later real post on that platform = the path works
+        if at > failed.get(plat, 0.0):
+            resolve(f"upload:{plat}: ")
     return n
