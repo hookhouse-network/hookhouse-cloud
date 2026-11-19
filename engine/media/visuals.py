@@ -199,6 +199,37 @@ def pexels(query: str, limit: int = 5, download: bool = True) -> list[Visual]:
     return out
 
 
+def pixabay(query: str, limit: int = 8, download: bool = True, orientation: str = "vertical") -> list[Visual]:
+    """Pixabay photos (Pixabay Content License: free for commercial use, no credit required; we credit anyway).
+    19 Nov: the photo fallback only had Wikimedia (no Pexels key), so storyboard videos whose free AI pictures ran out
+    found nothing and failed ("15/15 scenes had no picture"). Results are cached; files are downloaded, never hotlinked
+    (Pixabay API rule)."""
+    key = os.environ.get("PIXABAY_API_KEY")
+    if not key or not query.strip():
+        return []
+    try:
+        data = session().get("https://pixabay.com/api/", params={
+            "key": key, "q": query[:100], "image_type": "photo", "orientation": orientation, "per_page": max(3, limit),
+            "safesearch": "true", "min_width": 900}, timeout=30).json()
+    except (requests.RequestException, ValueError):
+        return []
+    out = []
+    for h in (data.get("hits") or [])[:limit]:
+        url = h.get("largeImageURL") or h.get("webformatURL")
+        tags = str(h.get("tags") or "").lower()
+        if not url or re.search(r"\bai\b|ai[- ]generated|ai art|midjourney|stable diffusion|wombo", tags):
+            continue                                   # real photos only (Pixabay also hosts AI art: slop look)
+        dest = CACHE / f"pb_{h['id']}.jpg"
+        if download:
+            try:
+                _download(url, dest)
+            except requests.RequestException:
+                continue
+        out.append(Visual(dest, "pixabay", f"Image by {h.get('user', 'Unknown')} on Pixabay", "Pixabay Content License",
+                          {"text": h.get("tags") or query, "url": url}))
+    return out
+
+
 def ai_prompt_key(prompt: str, style: str = "") -> tuple[str, str]:
     """The full prompt sent to FLUX and its file key (shared with the GPU batch worker)."""
     full = f"{prompt}, {style}, cinematic lighting, highly detailed, vertical composition".strip(", ")

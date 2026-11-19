@@ -795,10 +795,11 @@ GENERIC_SEARCH = re.compile(r"\b(portrait|poster|still|photo|photograph|picture|
 
 
 def _photo_candidates(query: str) -> list:
-    """Wikimedia + Pexels. Empty? Retry without generic words ("portrait", "poster"...: every word must match on
-    Wikimedia), then accept smaller historical pictures (most pre-1950 photos are under 900 px wide)."""
+    """Wikimedia + Pexels + Pixabay. Empty? Retry without generic words ("portrait", "poster"...: every word must match
+    on Wikimedia), then accept smaller historical pictures (most pre-1950 photos are under 900 px wide)."""
     def search():
-        got = visuals.wikimedia(query, download=False) + visuals.pexels(query, download=False)
+        got = (visuals.wikimedia(query, download=False) + visuals.pexels(query, download=False)
+               + visuals.pixabay(query, download=False))     # 19 Nov: everyday scenes when AI pictures run out
         short = re.sub(r"\s+", " ", GENERIC_SEARCH.sub(" ", query)).strip()
         if not got and short and short != query:
             got = visuals.wikimedia(short, download=False)
@@ -999,6 +1000,18 @@ def _chart_visual(beat: dict, seconds: float, work: Path, i: int, used: set, siz
             "match": 1.0}
 
 
+_SEE_STOP = {"a", "an", "the", "of", "in", "on", "at", "with", "and", "or", "to", "from", "by", "for", "is", "are", "his",
+             "her", "their", "its", "close", "up", "close-up", "shot", "wide", "view", "scene", "showing", "shows", "while",
+             "as", "into", "over", "under", "behind", "front", "background", "foreground", "dramatic", "cinematic"}
+
+
+def _see_query(see: str, words: int = 4) -> str:
+    """A storyboard scene description ("A diver's torch lights a huge octopus in the dark") -> stock-library keywords
+    ("diver torch lights huge"), used when the beat has no search query (19 Nov: AI pictures ran out, library empty)."""
+    toks = [w for w in re.findall(r"[A-Za-z][A-Za-z'-]+", see or "") if w.lower() not in _SEE_STOP and len(w) > 2]
+    return " ".join(re.sub(r"'s$", "", w).lower() for w in toks[:words])   # only a possessive 's goes
+
+
 def find_beat_visual(beat: dict, seconds: float, palette: list[str], work: Path, i: int, language: str,
                      mood: str, used: set, size: tuple[int, int], log=print, pool: list | None = None,
                      paintings: str = "", painting_context: str = "", era: str = "", channel: dict | None = None,
@@ -1018,7 +1031,7 @@ def find_beat_visual(beat: dict, seconds: float, palette: list[str], work: Path,
         if got:
             return got
         kind = "photo"                             # checks failed: the backup photo query
-    query = beat.get("query") or beat.get("narration", "")[:60]
+    query = beat.get("query") or _see_query(beat.get("see", "")) or beat.get("narration", "")[:60]
     scene_text = f"{query}. {beat.get('narration', '')}"
     if era == "space":                             # space channel: space pictures always fit
         scene_text = f"space. {scene_text}"
@@ -1057,7 +1070,7 @@ def find_beat_visual(beat: dict, seconds: float, palette: list[str], work: Path,
             cands = [c for c in cands if not MODERN.search((c.meta or {}).get("text") or c.credit or "")]
             # mythology spec (anachronism QA): no modern stock photos, and the picture must be Indian (a European
             # suit of armour once stood in for Karna's kavach)
-            cands = [c for c in cands if getattr(c, "source", "") != "pexels"
+            cands = [c for c in cands if getattr(c, "source", "") not in ("pexels", "pixabay")
                      and (INDIA.search((c.meta or {}).get("text") or c.credit or "")
                           or (painting_context and re.search(painting_context, (c.meta or {}).get("text") or "", re.I)))]
         return _pick_photo(cands, scene_text, used, 0.78, must=query)
