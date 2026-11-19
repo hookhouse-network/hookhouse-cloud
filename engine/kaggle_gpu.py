@@ -50,7 +50,7 @@ def start() -> str:
             "kernel_type": "script", "is_private": True, "enable_gpu": True, "enable_internet": True,
             "dataset_sources": [DATASET], "competition_sources": [], "kernel_sources": [], "model_sources": []}
     (KERNEL_DIR / "kernel-metadata.json").write_text(json.dumps(meta, indent=1), encoding="utf-8")
-    return _kaggle("kernels", "push", "-p", str(KERNEL_DIR))[1]
+    return _kaggle("kernels", "push", "-p", str(KERNEL_DIR), "--accelerator", "NvidiaTeslaT4")[1]   # name the T4
 
 
 def status() -> str:

@@ -19,6 +19,13 @@ from diffusers import FluxPipeline, FluxTransformer2DModel  # noqa: E402
 from transformers import BitsAndBytesConfig as TransformersBnb  # noqa: E402
 from transformers import T5EncoderModel  # noqa: E402
 
+try:                                   # FLUX.1-schnell is gated on Hugging Face: the owner's key, kept as a Kaggle
+    from kaggle_secrets import UserSecretsClient          # notebook secret (Add-ons > Secrets > HF_TOKEN), never in code
+    import os
+    os.environ["HF_TOKEN"] = UserSecretsClient().get_secret("HF_TOKEN")
+except Exception as e:  # noqa: BLE001
+    print("no HF_TOKEN secret attached:", type(e).__name__, flush=True)
+
 JOBS = next(iter(sorted(Path("/kaggle/input").rglob("gpu_jobs.json"))), None)
 OUT = Path("/kaggle/working/out")
 OUT.mkdir(parents=True, exist_ok=True)
