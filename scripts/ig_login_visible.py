@@ -33,13 +33,17 @@ async def main(user: str):
             time.sleep(1.5)
             if await js('!!document.querySelector("input[name=pass], input[type=password]")'):
                 break
+        time.sleep(2)                                    # 19 Nov: typing before the layout settled left the username empty
         for sel, text in (('input[name="email"], input[name="username"]', user),
                           ('input[name="pass"], input[type="password"]', pw)):
-            xy = await js('(() => { const r = document.querySelector(%s).getBoundingClientRect(); return [r.x + 12, r.y + r.height / 2]; })()'
-                          % json.dumps(sel))
-            await click(xy)
-            await b.cmd("Input.insertText", {"text": text}, s)
-            time.sleep(0.4)
+            for _ in range(3):
+                xy = await js('(() => { const e = document.querySelector(%s); e.scrollIntoView({block: "center"}); const r = '
+                              'e.getBoundingClientRect(); return [r.x + 12, r.y + r.height / 2]; })()' % json.dumps(sel))
+                await click(xy)
+                await b.cmd("Input.insertText", {"text": text}, s)
+                time.sleep(0.6)
+                if (await js('document.querySelector(%s).value.length' % json.dumps(sel))) == len(text):
+                    break
         xy = await js('(() => { const b = [...document.querySelectorAll("button,input[type=submit],div[role=button]")].find(e => '
                       '/^log in$/i.test((e.innerText || e.value || "").trim())); if (!b) return null; const r = b.getBoundingClientRect();'
                       ' return [r.x + r.width / 2, r.y + r.height / 2]; })()')
