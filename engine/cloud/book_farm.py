@@ -130,3 +130,34 @@ def work(store, shard: int = 0, shards: int = 1, minutes: float = 330, log=print
     finally:
         bookart.SKIP_CLOUD = False
         push(store, pid, known)
+
+
+QUOTA_PAGES_PER_RUN = 5
+
+
+def quota_pages(store, per_run: int = QUOTA_PAGES_PER_RUN, log=print, now_mins: int | None = None) -> str:
+    """19 Nov: the book redesign stalled (Christmas book 8 of 50 pages) once the PC's night worker was switched off.
+    This is NOT the old farm: no model runs on the runner. A few pages per tick, drawn only by API calls to the free
+    cloud picture services (Cloudflare FLUX, then the Hugging Face Space), and only in the books' night window
+    (20:45-05:15 IST: leftover quota after the evening video render, before the 05:30 reset). Local drawing is off
+    (allow_local=False), so an empty quota simply stops here until the next night."""
+    from .. import bookart, books_v2
+    if now_mins is None:
+        from .. import autopilot
+        n = autopilot._now()
+        now_mins = n.hour * 60 + n.minute
+    if books_v2._book_time(now_mins) != "cloud":
+        return "not book time"
+    todo = unfinished(store)
+    if not todo:
+        return "all queued books built"
+    pid = todo[0]
+    pull(store, pid)
+    known = set(_local_files(pid))
+    bookart.SKIP_CLOUD = False
+    res = maker_for(pid)(pid, log=log, allow_local=False, max_new=per_run)
+    added = push(store, pid, known)
+    if res is None:
+        return f"{pid}: {added} new file(s), pages still missing"
+    books_v2._send_book(pid, res, log)               # the owner checks it on Telegram; nothing is listed without OK
+    return f"{pid}: built ({added} file(s) stored)"

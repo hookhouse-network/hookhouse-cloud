@@ -8,6 +8,8 @@ def test_cloudflare_models_are_in_every_route():
     cfg = load_settings()["brain"]
     for task, route in cfg["routes"].items():
         assert "cf_oss" in route and "cf_llama" in route, task
+        last = [n for n in route if n != "claude_cli"][-2:]   # pictures share these neurons: writers use them last
+        assert last == ["cf_oss", "cf_llama"], (task, last)
     for name in ("cf_oss", "cf_llama"):
         assert "${CLOUDFLARE_ACCOUNT_ID}" in cfg["providers"][name]["base_url"]
 

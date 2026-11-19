@@ -410,6 +410,9 @@ def tick(log=_log, light: bool = False) -> None:
              ("thumbs", lambda: autopilot._shorts_thumbnails(log)),
              ("live_stats", lambda: _live_due() and __import__("engine.stats_fetch", fromlist=["live"]).live(log=log)),
              ("plan", lambda: autopilot._ensure_plan(autopilot.default_brain, log)),
+             # 19 Nov: book pages from leftover free picture quota at night (API calls only, a few per tick)
+             ("book_pages", lambda: log("book pages: " + __import__("engine.cloud.book_farm", fromlist=["x"])
+                                        .quota_pages(store, log=log))),
              # 19 Nov: the live dashboard (page + review-player previews) is the cloud's job again after the outage
              ("dashboard", lambda: __import__("engine.pc_fallback", fromlist=["x"]).publish_dashboard(kv, log))]
     errors: dict[str, str] = {}

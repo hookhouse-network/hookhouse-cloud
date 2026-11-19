@@ -20,11 +20,11 @@ brain:
   routes:
     # owner 15 Nov: tonight's render failed when Gemini's daily limit ran out and Groq refused one big request.
     # Each model below has its OWN free limit, so the chain is long: Gemini 3 models, Groq 2 models, then backups.
-    writer:   [gemini, gemini35, groq, gemini_lite, groq20, cf_oss, gemini3, gemini36, gemini37, gemini31_lite, gemini35_lite, gemma31, gemma26, groq_qwen, cf_llama, cerebras, github, nvidia, openrouter, claude_cli]   # scripts, hooks, titles
-    editor:   [gemini, gemini35, groq, gemini_lite, groq20, cf_oss, gemini3, gemini36, gemini37, gemini31_lite, gemini35_lite, gemma31, gemma26, groq_qwen, cf_llama, cerebras, github, nvidia, openrouter, claude_cli]   # picks clip moments
-    checker:  [groq, gemini_lite, gemini35, groq20, gemini, cf_oss, gemini3, gemini36, gemini37, gemini31_lite, gemini35_lite, gemma31, gemma26, groq_qwen, cf_llama, cerebras, github, nvidia, openrouter, claude_cli]   # rules / fact checks
-    manager:  [gemini, gemini35, groq, gemini_lite, groq20, cf_oss, gemini3, gemini36, gemini37, gemini31_lite, gemini35_lite, gemma31, gemma26, groq_qwen, cf_llama, cerebras, github, nvidia, openrouter, claude_cli]   # daily review
-    reader:   [groq, gemini_lite, gemini35, groq20, gemini, cf_oss, gemini3, gemini36, gemini37, gemini31_lite, gemini35_lite, gemma31, gemma26, groq_qwen, cf_llama, cerebras, github, nvidia, openrouter, claude_cli]   # campaign pages
+    writer:   [gemini, gemini35, groq, gemini_lite, groq20, gemini3, gemini36, gemini37, gemini31_lite, gemini35_lite, gemma31, gemma26, groq_qwen, cerebras, github, nvidia, openrouter, cf_oss, cf_llama, claude_cli]   # scripts, hooks, titles
+    editor:   [gemini, gemini35, groq, gemini_lite, groq20, gemini3, gemini36, gemini37, gemini31_lite, gemini35_lite, gemma31, gemma26, groq_qwen, cerebras, github, nvidia, openrouter, cf_oss, cf_llama, claude_cli]   # picks clip moments
+    checker:  [groq, gemini_lite, gemini35, groq20, gemini, gemini3, gemini36, gemini37, gemini31_lite, gemini35_lite, gemma31, gemma26, groq_qwen, cerebras, github, nvidia, openrouter, cf_oss, cf_llama, claude_cli]   # rules / fact checks
+    manager:  [gemini, gemini35, groq, gemini_lite, groq20, gemini3, gemini36, gemini37, gemini31_lite, gemini35_lite, gemma31, gemma26, groq_qwen, cerebras, github, nvidia, openrouter, cf_oss, cf_llama, claude_cli]   # daily review
+    reader:   [groq, gemini_lite, gemini35, groq20, gemini, gemini3, gemini36, gemini37, gemini31_lite, gemini35_lite, gemma31, gemma26, groq_qwen, cerebras, github, nvidia, openrouter, cf_oss, cf_llama, claude_cli]   # campaign pages
   providers:
     gemini:
       kind: gemini
@@ -95,6 +95,8 @@ brain:
       key_env: GROQ_API_KEY
     # 19 Nov: Cloudflare Workers AI (our existing Cloudflare account; free 10,000 neurons/day, no card, commercial
     # use allowed; gpt-oss Apache-2.0, Llama 3.3 community licence). Plans stalled on "every model resting".
+    # LAST in every route: the same 10,000 daily neurons draw the storyboard pictures (~10 Shorts a day), and
+    # pictures are the scarcer resource. These only stop a video failing when every other model rests.
     cf_oss:
       kind: openai_compatible
       base_url: https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/v1
