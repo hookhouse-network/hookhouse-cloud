@@ -23,7 +23,8 @@ from ..config import ROOT
 from engine.core.http import HTTP
 
 REPO_NAME = "hookhouse"
-LOCAL_ONLY = {"HOOKHOUSE_CLOUD", "HOOKHOUSE_REPO", "CODE_REPO", "GH_TOKEN", "USE_CLAUDE_CLI"}     # PC settings, not sent to the cloud
+LOCAL_ONLY = {"HOOKHOUSE_CLOUD", "HOOKHOUSE_REPO", "CODE_REPO", "GH_TOKEN", "USE_CLAUDE_CLI",
+              "IG_SIGNUP_PASSWORD", "IG_SIGNUP_BIRTHDATE"}   # PC settings + account sign-up data, never sent to the cloud
 CF = "https://api.cloudflare.com/client/v4"
 
 
