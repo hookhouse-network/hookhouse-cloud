@@ -67,7 +67,8 @@ async def fix(tab):
         if xy:
             await click_xy(xy)
             time.sleep(0.4)
-            await cmd("Input.dispatchKeyEvent", {"type": "keyDown", "key": "a", "code": "KeyA", "modifiers": 2})
+            await cmd("Input.dispatchKeyEvent", {"type": "keyDown", "key": "a", "code": "KeyA", "modifiers": 2,
+                                                 "commands": ["selectAll"]})
             await cmd("Input.dispatchKeyEvent", {"type": "keyUp", "key": "a", "code": "KeyA", "modifiers": 2})
             await key("Backspace", "Backspace", 8)
             for ch in "Digital creat":
@@ -84,12 +85,13 @@ async def fix(tab):
                 await key("ArrowDown", "ArrowDown", 40)
                 await key("Enter", "Enter", 13)
             time.sleep(1.5)
-        xy = await js(field("Bio"))
-        if xy:
-            await click_xy(xy)
-            await cmd("Input.dispatchKeyEvent", {"type": "keyDown", "key": "a", "code": "KeyA", "modifiers": 2})
-            await cmd("Input.dispatchKeyEvent", {"type": "keyUp", "key": "a", "code": "KeyA", "modifiers": 2})
-            await cmd("Input.insertText", {"text": bio_for(name)})
+        # 19 Nov: a simulated Ctrl+A selects nothing in Chrome, so insertText pasted the bio a SECOND time into the box
+        # (owner saw it doubled on every Page form). Now the box is REPLACED through the native value setter, only when
+        # it isn't already exactly right, and read back.
+        from scripts.fb_page_bio_fix import GET, SET
+        want = bio_for(name)
+        if want and await js(GET % json.dumps("Bio")) != want:
+            await js(SET % (json.dumps("Bio"), json.dumps(want)))
         time.sleep(1)
         enabled = await js('(() => { const b = [...document.querySelectorAll("div[role=button],button")].find(e => '
                            '(e.innerText || "").trim() === "Create Page"); return b ? b.getAttribute("aria-disabled") '

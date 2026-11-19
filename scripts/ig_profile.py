@@ -52,7 +52,8 @@ async def main(cid):
             for t in ("mouseMoved", "mousePressed", "mouseReleased"):
                 await cmd("Input.dispatchMouseEvent", {"type": t, "x": xy[0], "y": xy[1], "button": "left",
                                                        "clickCount": 1})
-            await cmd("Input.dispatchKeyEvent", {"type": "keyDown", "key": "a", "code": "KeyA", "modifiers": 2})
+            await cmd("Input.dispatchKeyEvent", {"type": "keyDown", "key": "a", "code": "KeyA", "modifiers": 2,
+                                                 "commands": ["selectAll"]})
             await cmd("Input.dispatchKeyEvent", {"type": "keyUp", "key": "a", "code": "KeyA", "modifiers": 2})
             await cmd("Input.insertText", {"text": bio})
             time.sleep(1)
