@@ -1136,7 +1136,7 @@ def _platform_page(chans: list[dict], ctx: dict) -> str:
             for p in PLAT_ICON) + "</tr>" for ch in chans)
     return (f"<section id=platforms class=page><div class=top><h1>🌐 Platforms</h1><div class=muted>Numbers per platform, "
             "what each one rewards, and what to improve. They fill in as accounts get connected and videos go live."
-            f"</div></div><div class=cgrid>{''.join(cards)}<div class='card full'><h2>Posts per channel and platform</h2>"
+            f"</div></div><div class=cgrid>{_accounts_card()}{''.join(cards)}<div class='card full'><h2>Posts per channel and platform</h2>"
             f"<div class=tw><table><tr><th>Channel</th>{heads}</tr>{rows}</table></div></div></div></section>")
 
 
@@ -1324,8 +1324,18 @@ def _books_card(books: dict) -> str:
 
 
 def _studio_css() -> str:
+    from .dashboard_accounts import CSS as acc
     from .dashboard_studio import CSS as c
-    return c
+    return c + acc
+
+
+def _accounts_card() -> str:
+    """19 Nov: every channel's accounts on every platform, linked (owner: "all the things should be inter-linked")."""
+    try:
+        from .dashboard_accounts import card
+        return card()
+    except Exception as ex:  # noqa: BLE001 - the rest of the page still shows
+        return f"<div class='card wide'><h2>🔗 Accounts &amp; links</h2><p class=muted>Couldn't build: {_e(ex)}</p></div>"
 
 
 def _studio_js() -> str:
