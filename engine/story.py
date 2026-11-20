@@ -420,7 +420,7 @@ def fit_length(brain, channel: dict, script: dict, log=print) -> dict:
     nums = [int(x) for x in re.findall(r"\d+", rng)[:2]]
     beats = script.get("beats") or []
     n = sum(len(b.get("narration", "").split()) for b in beats)
-    script = _short_title(script)
+    script = shorten_title(brain, script, log)
     if len(nums) == 2 and n < nums[0]:          # too short for the niche's researched length (movie: 55-75 s)
         out = expand_long(brain, copy.deepcopy(script), target=(nums[0] + nums[1]) // 2, log=log, minimum=nums[0],
                           rounds=2)
@@ -505,6 +505,72 @@ def _short_title(script: dict) -> dict:
     if opts:
         best = max(opts, key=lambda t: (phrase.split()[0] in t.lower() if phrase else False, -abs(len(t) - 34)))
         script = dict(script, title=best, title_options=list(dict.fromkeys([best, title] + list(script.get("title_options") or []))))
+    return script
+
+
+SHORTEN_TITLE_PROMPT = """This YouTube Shorts title is {n} characters long: "{title}"
+Research: Shorts titles work best at 20-40 characters. Write 4 alternatives, each 24-38 characters (count spaces),
+same language and script, same promise and the same key name/number, no clickbait, no emoji, no hashtags.
+Return JSON only: {{"titles": ["...", "...", "...", "..."]}}"""
+
+
+def shorten_title(brain, script: dict, log=print) -> dict:
+    """_short_title, plus one short writer call when none of the writer's own options fits 20-40 characters.
+    20 Nov gate report: a 53-character title cost a Picture Abhi Baaki Hai Short its 100/100 score."""
+    script = _short_title(script)
+    title = str(script.get("title") or "").strip()
+    if not title or 20 <= len(title) <= 40 or brain is None:
+        return script
+    try:
+        data, _ = brain.ask_json("writer", SHORTEN_TITLE_PROMPT.format(n=len(title), title=title), temperature=0.5)
+    except Exception as e:  # noqa: BLE001 - the quality gate still reports the long title
+        log(f"Title: could not shorten ({type(e).__name__}: {e})")
+        return script
+    data = data if isinstance(data, dict) else {}
+    fits = [t.strip() for t in data.get("titles") or [] if isinstance(t, str) and 20 <= len(t.strip()) <= 40]
+    if not fits:
+        log(f"Title: no 20-40 character version came back; kept '{title}'")
+        return script
+    log(f"Title: '{fits[0]}' (was {len(title)} characters)")
+    return dict(script, title=fits[0], title_options=list(dict.fromkeys(fits + [title] + list(script.get("title_options") or []))))
+
+
+PHRASE_EARLY_PROMPT = """Rewrite the FIRST narration line of a short video so it naturally says these search words: {words}
+(viewers type them to find this story; YouTube and Instagram match the spoken words of the opening).
+Current first line: "{line}"
+Second line (keep it as it is): "{line2}"
+Rules: same language and script as the current line, same meaning and hook, about the same length (at most 6 more
+words), no new facts, sounds spoken, not like a keyword list.
+Return JSON only: {{"line": "..."}}"""
+
+
+def phrase_early(brain, script: dict, log=print) -> dict:
+    """The quality scorecard wants the search phrase spoken in the first two lines (seo_issues). 20 Nov gate report:
+    Shorts were held at 71-85/100 for it. One targeted rewrite of line 1; kept only if the check then passes."""
+    from .quality import said
+    phrase = str(script.get("search_phrase") or "").lower()
+    key = [w for w in re.findall(r"\w+", phrase) if len(w) > 3][:3]
+    beats = script.get("beats") or []
+    if not key or not beats or brain is None:
+        return script
+    line2 = str(beats[1].get("narration", "")) if len(beats) > 1 else ""
+    if said(key, f"{beats[0].get('narration', '')} {line2}"):
+        return script
+    try:
+        data, _ = brain.ask_json("writer", PHRASE_EARLY_PROMPT.format(
+            words=", ".join(key), line=beats[0].get("narration", ""), line2=line2), temperature=0.4)
+    except Exception as e:  # noqa: BLE001 - the quality gate still reports it
+        log(f"Search phrase: opening not rewritten ({type(e).__name__}: {e})")
+        return script
+    new = str((data if isinstance(data, dict) else {}).get("line") or "").strip()
+    old_n = len(str(beats[0].get("narration", "")).split())
+    if not new or not said(key, f"{new} {line2}") or len(new.split()) > old_n + 6:
+        log("Search phrase: the rewrite did not fit; opening kept")
+        return script
+    script = copy.deepcopy(script)
+    script["beats"][0]["narration"] = new
+    script["_fact_check"] = {}                          # wording changed: check again
+    log(f"Search phrase: opening now says '{', '.join(key)}'")
     return script
 
 
@@ -2173,6 +2239,7 @@ def make(brain, channel: dict, topic: str | None = None, fmt: str = "short", scr
         script["_policy_flags"] = flags
         if fmt == "short":
             script = fit_length(brain, channel, script, log)
+        script = phrase_early(brain, script, log)      # before the fact-check, so the new wording is checked too
         if channel.get("content_rules", {}).get("fact_check"):
             script = check_and_fix(brain, channel, script, topic, fmt, memory, log)
     else:

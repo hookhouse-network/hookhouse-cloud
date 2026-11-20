@@ -296,6 +296,14 @@ def _weak(t: dict, floor: int = 7) -> bool:
         return False
 
 
+def franchise_names(t: dict) -> list[str]:
+    """Protected film/game/comic names in a topic (engine/ip_guard.py, the same list the content gate uses). 20 Nov
+    gate report: Ending Decoded (Avengers, Doctor Doom, MCU) and Money Cheat Codes (GTA 6) videos were made, then held
+    by the content gate. Shift-left: such topics are never picked."""
+    from .ip_guard import hits
+    return hits(f"{t.get('topic', '')} {t.get('angle', '')}")
+
+
 def pick_topics(brain, ch: dict, n: int, memory=None, hints: list[str] | None = None,
                 taken: list[str] | None = None, log=print, cluster_out: dict | None = None) -> list[dict]:
     """cluster_out (a dict) asks for a hub topic (index, for the long video) and 2 spoke Shorts, filled in place."""
@@ -338,7 +346,8 @@ def pick_topics(brain, ch: dict, n: int, memory=None, hints: list[str] | None = 
         if cluster_out is not None and isinstance(data, dict) and not cluster_out:
             cluster_out["hub"] = data.get("hub")
             cluster_out["spokes"] = [x for x in (data.get("spokes") or []) if isinstance(x, dict) and x.get("topic")
-                                     and not topic_flags(f"{x.get('topic', '')} {x.get('angle', '')}", mode="topic")][:2]
+                                     and not topic_flags(f"{x.get('topic', '')} {x.get('angle', '')}", mode="topic")
+                                     and not franchise_names(x)][:2]
         for t in (data.get("topics") or []):
             if not (isinstance(t, dict) and t.get("topic")) or len(topics) >= n:
                 continue
@@ -350,6 +359,11 @@ def pick_topics(brain, ch: dict, n: int, memory=None, hints: list[str] | None = 
             if flags:                                   # owner's rule: never-topics are dropped, not just warned
                 log(f"Topic dropped ({', '.join(flags)}): {t.get('topic')}")
                 dropped.append(t["topic"])
+                continue
+            names = franchise_names(t)
+            if names:                                   # 20 Nov: the content gate holds these; never make them
+                log(f"Topic dropped (protected franchise: {', '.join(names)}): {t.get('topic')}")
+                dropped.append(f"{t['topic']} (names a protected franchise: {', '.join(names)})")
                 continue
             if ch.get("type") == "story":               # 20 Nov: proof of demand now (engine/topic_proof.py)
                 try:
@@ -740,7 +754,9 @@ def _refresh_topic(plan: dict, item: dict, ch: dict, brain, memory=None, log=pri
     except Exception:  # noqa: BLE001
         fresh = []
     planned = f"{item['topic']}" + (f" (angle: {item['angle']})" if item.get("angle") else "")
-    hints = fresh + [f"PLANNED EARLIER (keep it only if nothing above beats it on scroll-stop): {planned}"]
+    blocked = franchise_names(item)                     # planned before the shift-left filter: replace it
+    hints = fresh + ([] if blocked else
+                     [f"PLANNED EARLIER (keep it only if nothing above beats it on scroll-stop): {planned}"])
     taken = [it.get("topic") for it in plan.get("items", []) if it.get("topic") and it is not item]
     try:
         got = pick_topics(brain, ch, 1, memory=memory, hints=hints, taken=taken, log=log)
@@ -785,7 +801,14 @@ def make_item(plan: dict, item: dict, brain, memory=None, log=print) -> None:
         got = pick_topics(brain, ch, 1, memory=memory, taken=taken, log=log)
         if got:
             item["topic"], item["angle"], item["why"] = got[0]["topic"], got[0].get("angle"), got[0].get("why")
-    if ch["type"] == "story" and item.get("kind") != "long" and item.get("topic") and brain is not None \
+    if ch["type"] == "story" and item.get("topic") and brain is not None and franchise_names(item):
+        item["refreshed"] = False                      # a topic the content gate would hold: always replaced
+        _refresh_topic(plan, item, ch, brain, memory, log)
+        if franchise_names(item):
+            raise RuntimeError("The planned topic names a protected franchise "
+                               f"({', '.join(franchise_names(item))}) and no replacement topic came; retried later")
+        item.pop("gate_note", None)                    # the old video's findings belong to the old topic
+    elif ch["type"] == "story" and item.get("kind") != "long" and item.get("topic") and brain is not None \
             and item.get("status") != "redo" and not item.get("refreshed") and item.get("role") not in ("hub", "spoke"):
         _refresh_topic(plan, item, ch, brain, memory, log)
     topic = item.get("topic") or ""
