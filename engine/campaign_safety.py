@@ -242,6 +242,25 @@ def video_hash(path: Path, samples: int = 8) -> str:
     return hex(int("".join("1" if b else "0" for b in bits) or "0", 2))[2:]
 
 
+SAME_EDIT_MAX_BITS = 24       # of 512
+
+
+def hash_distance(a: str, b: str) -> int:
+    """Bits that differ between two video_hash values (different lengths count as fully different)."""
+    try:
+        x, y = int(a, 16), int(b, 16)
+    except (TypeError, ValueError):
+        return 10 ** 6
+    return bin(x ^ y).count("1")
+
+
+def same_edit(a: str, b: str, max_bits: int = SAME_EDIT_MAX_BITS) -> bool:
+    """A perceptual hash is compared by distance, never by equality. 20 Nov: a clip made on the Windows PC was held
+    in the Linux cloud as 'hash mismatch': decoders differ by a grey level or two, which flips 1-5 of 512 dHash bits
+    (measured), while genuinely different clips differ by 85-195 bits (measured on 6 clips)."""
+    return bool(a) and bool(b) and (a == b or hash_distance(a, b) <= max_bits)
+
+
 def disclosure_needed_s(video_s: float) -> float:
     """ASCI: for videos up to 2 minutes the ad label must stay on screen for a third of the video (min 3 s)."""
     return max(3.0, video_s / 3) if video_s <= 120 else 3.0

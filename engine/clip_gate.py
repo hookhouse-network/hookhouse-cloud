@@ -84,8 +84,11 @@ def file_problems(video: Path, expect_s: float | None = None, length: tuple[floa
         try:
             if hasher is None:
                 from .campaign_safety import video_hash as hasher
-            if hasher(video) != expect_hash:
-                p.append("the file differs from the edit that was checked (hash mismatch)")
+            from .campaign_safety import hash_distance, same_edit
+            got = hasher(video)
+            if not same_edit(got, expect_hash):
+                p.append(f"the file differs from the edit that was checked (hash mismatch, "
+                         f"{min(hash_distance(got, expect_hash), 512)} bits)")
         except Exception as e:  # noqa: BLE001
             p.append(f"edit hash could not be checked ({type(e).__name__})")
     return p

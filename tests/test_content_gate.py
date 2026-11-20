@@ -162,6 +162,24 @@ def test_each_clip_problem_blocks(clip, patch, expect):
     assert any(expect in p for p in clip_gate.verify(clip["it"], ch=clip["ch"]))
 
 
+def test_edit_hash_is_compared_by_distance_not_equality():
+    """20 Nov: a PC-made clip was held in the Linux cloud for a 'hash mismatch' caused by decoder noise."""
+    from engine import campaign_safety as cs
+    base = int("932b33a4c060a0a8" * 8, 16)
+    near = hex(base ^ 0b10110)[2:]                       # 3 bits flipped (decoder noise: measured 1-5)
+    far = hex(base ^ int("f0" * 12, 16))[2:]             # 48 bits flipped (different clips: measured 85+)
+    assert cs.same_edit(hex(base)[2:], near) and not cs.same_edit(hex(base)[2:], far)
+    assert not cs.same_edit("", near) and not cs.same_edit("OTHER", near)
+
+
+def test_campaign_clip_in_a_story_slot_follows_the_clips_rules():
+    from engine import content_gate
+    story = {"id": "stream_clips", "type": "story"}
+    assert content_gate.rules_for(story).get("fact_check") == "required"
+    clip_rules = content_gate.rules_for(story, {"made_as": "clip"})
+    assert clip_rules.get("fact_check") in ("off", False) and clip_rules.get("clip_gate") == "required"  # YAML: off=False
+
+
 def test_unknown_brief_platforms_block_everywhere(clip, monkeypatch):
     monkeypatch.setattr("engine.db.get_campaign", lambda conn, cid: dict(clip["camp"], platforms=[]))
     assert any("lists no platforms" in p for p in clip_gate.verify(clip["it"], "youtube", ch=clip["ch"]))
