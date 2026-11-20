@@ -111,16 +111,36 @@ def respread_long(start: str, log=print) -> int:
     return moved
 
 
+def spread_times(times: list[tuple[int, int]], n: int, gap_min: int = 60) -> list[tuple[int, int]]:
+    """The peak times first, then extra half-hour times as far as possible from every chosen one (at least gap_min
+    apart, so one account never posts in bursts), until there are n (20 Nov: volume follows the upload limits)."""
+    out = list(times)
+    mins = lambda t: t[0] * 60 + t[1]
+    cands = [(h, m) for h in range(24) for m in (0, 30)]
+    while len(out) < n:
+        def dist(c):
+            return min((min(abs(mins(c) - mins(t)), 1440 - abs(mins(c) - mins(t))) for t in out), default=1440)
+        best = max((c for c in cands if c not in out), key=dist, default=None)
+        if best is None or dist(best) < gap_min:
+            break
+        out.append(best)
+    return out
+
+
 def slots_for(ch: dict, start: date, days: int = 7) -> list[tuple[datetime, str]]:
     """Posting slots for one channel in the week starting `start` (India time)."""
     zone, sched, times = _zone(), ch.get("schedule", {}), _times(ch)
+    from .allocator import shorts_per_day              # 20 Nov: analytics-driven volume (engine/allocator.py)
+    spd = shorts_per_day(ch)
+    if spd > len(times) - (1 if int(sched.get("long_per_week", 0)) else 0):
+        times = spread_times(times, spd + 1)          # more Shorts than peak times: extra slots spread over the day
     short_kind = "clip" if ch.get("type") == "clips" else "short"
     out = []
     explore = _explore_time(ch)
     from .timing import EXPLORE_DAYS
     for d in range(days):
         day = start + timedelta(days=d)
-        todays = list(times[: int(sched.get("shorts_per_day", 0))])
+        todays = list(times[:spd])
         if explore and todays and day.weekday() in EXPLORE_DAYS and explore not in times:
             todays[-1] = explore                          # a measured experiment, twice a week (engine/timing.py)
         for h, m in todays:
@@ -137,7 +157,7 @@ def slots_for(ch: dict, start: date, days: int = 7) -> list[tuple[datetime, str]
     if ch.get("long_slot"):
         lh, lm = tuple(int(x) for x in ch["long_slot"].split(":"))
     else:   # never the same minute as the channel's Short: the first daily slot its Shorts don't use
-        free = times[max(1, int(sched.get("shorts_per_day", 0))):]
+        free = times[max(1, spd):]
         lh, lm = free[0] if free else times[-1]
     for d in long_days:
         day = start + timedelta(days=min(int(d), days - 1))

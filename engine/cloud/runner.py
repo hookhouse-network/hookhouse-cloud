@@ -260,7 +260,15 @@ def snapshot(kv, log=_log) -> None:
     # 18 Nov (owner: "telegram is not working"): every button except Today waited minutes for a cloud run. Now the
     # texts of all info buttons are kept here and the Worker answers them at once.
     texts: dict[str, str] = {}
-    makers = {"tasks": telegram_bot.tasks_text, "health": telegram_bot.health_text,
+    def _health():                                          # 20 Nov: + the posting queue and the volume plan
+        parts = [telegram_bot.health_text()]
+        for mod in ("publish_queue", "allocator"):
+            try:
+                parts.append(__import__(f"engine.{mod}", fromlist=["text"]).text())
+            except Exception as e:  # noqa: BLE001 - health still answers without this part
+                log(f"snapshot {mod}: {type(e).__name__}: {e}")
+        return "\n\n".join(parts)
+    makers = {"tasks": telegram_bot.tasks_text, "health": _health,
               "channels": telegram_bot.channels_text,
               "heal": lambda: __import__("engine.heal", fromlist=["brief"]).brief(),
               "review": lambda: __import__("engine.daily_review", fromlist=["x"]).telegram_text(None),

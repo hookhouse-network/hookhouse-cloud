@@ -350,5 +350,8 @@ def test_threads_follows_the_instagram_reel_in_the_same_post(tmp_path, monkeypat
     assert th and th[0].done and seen["url"] == "https://cdn.example/ig1.mp4" and seen["dry"] is False
     assert "https://youtu.be/yt9" in seen["text"] and "#mystery" in seen["text"]
     monkeypatch.setattr(pub, "instagram_reel", lambda *a, **k: pub.Action("instagram", "x", "i1", "publish Reel"))
-    acts = pub.upload_item(it, dry_run=False, platforms=("instagram", "threads"))       # no Reel -> no Threads post
-    assert [a for a in acts if a.platform == "threads"][0].details.get("dry_run")
+    acts = pub.upload_item(it, dry_run=False, platforms=("instagram", "threads"))
+    # 20 Nov: Threads is its own queue job: with no Reel id and no link it reports an error (the queue retries it,
+    # and a later run uses the Reel id from the publish log) instead of silently skipping Threads for good
+    th = [a for a in acts if a.platform == "threads"][0]
+    assert not th.done and not th.details.get("dry_run") and th.result.get("error")

@@ -335,6 +335,24 @@ def already_posted(it: dict, ignore_youtube_id: str | None = None) -> list[str]:
     return hits
 
 
+def logged_result(it: dict, platform: str, field: str):
+    """A field of this item version's successful post on a platform (e.g. the Instagram media id that Threads can
+    fall back to when Threads is posted in a later queue run)."""
+    if not LOG.exists():
+        return None
+    since, found = float(it.get("made_at") or 0), None
+    for ln in LOG.read_text(encoding="utf-8").splitlines():
+        try:
+            a = json.loads(ln)
+        except json.JSONDecodeError:
+            continue
+        if (a.get("item_id") == it.get("id") and a.get("platform") == platform and a.get("done")
+                and not (a.get("details") or {}).get("dry_run") and (a.get("at") or 0) >= since
+                and "Story" not in str(a.get("what") or "")):
+            found = (a.get("result") or {}).get(field) or found
+    return found
+
+
 CAPTION_UNITS = 400
 
 
@@ -1001,8 +1019,8 @@ def upload_item(it: dict, dry_run: bool = True, session=HTTP, platforms=("youtub
                     actions.append(_safe(_story, "instagram", it["channel"], it["id"], "publish Story teaser"))
         if "threads" in platforms:                       # Threads takes the Reel's own Instagram video link
             ig = next((a for a in actions if a.platform == "instagram" and a.done), None)
-            media_id = (ig.result or {}).get("media_id") if ig else None
-            if dry_run or not media_id:
+            media_id = (ig.result or {}).get("media_id") if ig else logged_result(it, "instagram", "media_id")
+            if dry_run:     # 20 Nov: Threads is its own queue job; our signed link needs no Instagram post
                 act = Action("threads", it["channel"], it["id"], "Threads follows the Instagram Reel (not posted there)")
                 act.details["dry_run"] = True
                 actions.append(act)
@@ -1025,7 +1043,7 @@ def upload_item(it: dict, dry_run: bool = True, session=HTTP, platforms=("youtub
                             cleanup()
                         if a.done:
                             return a
-                    url = ig_video_url(it["channel"], media_id, session=session)
+                    url = ig_video_url(it["channel"], media_id, session=session) if media_id else None
                     if not url:
                         a = Action("threads", it["channel"], it["id"], "publish Threads video")
                         a.result = {"error": "Instagram gave no video link to pass on to Threads"}

@@ -631,6 +631,11 @@ def _ensure_plan(brain_fn, log) -> None:
     _update_state(lambda s: s.__setitem__("plan_tried", {"week": str(nm), "at": time.time(), "n": n}))
     log(f"Planning the week of {nm}")
     brain, memory = brain_fn()
+    try:                                     # 20 Nov: volume per channel follows its views + proven capacity
+        from . import allocator
+        allocator.build(log=log)
+    except Exception as e:  # noqa: BLE001 - the plan uses the configured numbers instead
+        log(f"allocation failed, using the configured numbers: {type(e).__name__}: {e}")
     try:
         weekly.plan_week(brain, nm, memory=memory, log=log)
     except Exception as e:
@@ -793,14 +798,18 @@ def _ask_due(log, allow=None) -> None:
 
 
 def _post_due(log, allow=None) -> None:
-    """allow(item) -> bool: the PC stand-in (pc_fallback) skips videos the cloud may already have posted."""
-    from .publish import upload_item
+    """At its slot an approved video is queued for every platform (engine/publish_queue.py: one job per platform,
+    its own retries, the governor's budgets), then the queue posts what is due. allow(item) -> bool limits both
+    steps to some videos (the Studio's "Upload now" on the PC)."""
+    from . import publish_queue
     from .telegram_bot import notify
     now, s = _now(), _load()
     for start, it in items(3, 1):
         if it["status"] != "approved" or it["id"] in s.get("posted", {}):
             continue
         if allow and not allow(it):
+            continue
+        if publish_queue.queued(it["id"]):                 # the queue owns it now (retries, waits)
             continue
         if (it.get("post_retry_at") or 0) > time.time():
             continue
@@ -818,44 +827,8 @@ def _post_due(log, allow=None) -> None:
             notify(f"🛑 Not posted {it['channel_name']}: {'; '.join(probs)}. Fix with Change, then approve again.")
             continue
         plats = ["instagram", "threads", "facebook", "dailymotion", "telegram"] + ([] if it.get("youtube_id") else ["youtube"])
-        acts = upload_item(it, dry_run=False, platforms=tuple(plats), publish_at=None)
-        real = [a for a in acts if a.done]
-        lines = []
-        if it.get("youtube_id"):
-            lines.append(f"YouTube: https://youtu.be/{it['youtube_id']}")
-        for a in acts:
-            r = a.result or {}
-            if a.what.startswith("SKIPPED: not for") or not a.item_id:   # rule skips and extras (captions,
-                continue                                                  # thumbnail, playlist) aren't listed
-            if a.done:
-                lines.append(f"{a.platform.title()}: posted" + (f" (https://youtu.be/{r['video_id']})"
-                                                                  if a.platform == "youtube" and r.get("video_id") else ""))
-            elif (a.details or {}).get("dry_run"):
-                continue                     # owner 17 Nov: not-set-up platforms read like errors; the dashboard
-            elif r.get("error"):
-                lines.append(f"{a.platform.title()}: {r['error']}")
-        posted = bool(real) or bool(it.get("youtube_id"))
-        errors = [a for a in acts if not a.done and (a.result or {}).get("error") and not a.what.startswith("SKIPPED")]
-        tries = (it.get("post_attempts") or 0) + 1
-        if not posted and errors and tries < 3:                 # network or platform blip: try again in 10 minutes
-            update_item(start, it["id"], post_attempts=tries, post_retry_at=time.time() + 600)
-            log(f"Post {it['id']} failed (try {tries}), retrying: {lines}")
-            continue
-        _update_state(lambda st: st.setdefault("posted", {}).__setitem__(it["id"], time.time()))
-        if posted:
-            update_item(start, it["id"], status="posted", posted_at=time.time())
-        from .publish import item_meta
-        camp = item_meta(it).get("campaign") if posted else None
-        if camp:
-            lines.append(f"💰 Campaign clip: submit these links on the campaign page within 30 minutes: {camp}")
-            try:                                     # platforms we post by hand (X, Snapchat) if the campaign pays there
-                from . import share_packs
-                share_packs.send_now(it, log)
-            except Exception as e:  # noqa: BLE001
-                log(f"share now: {e}")
-        notify(("📤 Posted " if posted else "ℹ️ Nothing posted for ") + f"{it['channel_name']}: "
-               f"{it.get('topic') or ''}\n" + "\n".join(lines))   # API uploads go public by themselves (2 Nov 2026)
-        log(f"Posted {it['id']}: {lines}")
+        publish_queue.enqueue(start, it, plats)
+    publish_queue.drain(log, allow=allow)
 
 
 def _missed(log) -> None:

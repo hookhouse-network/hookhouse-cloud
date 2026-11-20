@@ -98,3 +98,5 @@ def _no_real_ledger(monkeypatch, tmp_path):
     monkeypatch.setenv("LEDGER_DB", str(tmp_path / "ledger_test.db"))
     monkeypatch.setattr(led, "_DEFAULT", None)
     monkeypatch.setattr(heal, "QUEUE", tmp_path / "heal_queue_test.json")
+    import engine.allocator as alloc                       # 20 Nov: no test plans with the real volume allocation
+    monkeypatch.setattr(alloc, "FILE", tmp_path / "allocation_test.json")
