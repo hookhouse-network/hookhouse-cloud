@@ -473,20 +473,50 @@ Transcript (may be empty or partial):
 {transcript}"""
 
 
-KICK_OUTRO_S = 3.05             # free Kick downloads end with a 3 s card (white flash, then "Clipped by <user>")
+KICK_OUTRO_S = 3.0              # free Kick downloads end with a 3 s card (one flash frame, then "Clipped by <user>")
+
+
+def _card_start(cap, dur: float) -> float | None:
+    """Time of the card's first frame (the flash): the first frame after which every frame stays dark. Measured 20 Nov
+    on four downloads: the flash frame sits at exactly dur-3.000 s (30 fps), so a "30 s" Kick clip has 30.000 s of
+    stream picture. The old fixed 3.05 s cut threw 0.05 s of picture away and every 30 s highlight fell under a
+    campaign's 30 s minimum."""
+    import cv2
+    fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+    first = max(0, int(round((dur - KICK_OUTRO_S - 0.6) * fps)))
+    cap.set(cv2.CAP_PROP_POS_FRAMES, first)
+    rows = []                                       # (frame index, mean brightness, mostly dark?)
+    i = first
+    while True:
+        ok, f = cap.read()
+        if not ok:
+            break
+        g = cv2.cvtColor(f, cv2.COLOR_BGR2GRAY)
+        rows.append((i, float(g.mean()), (g < 25).mean() >= 0.85))
+        i += 1
+    win = max(6, int(round(0.4 * fps)))             # measured: ~5 bright fade frames, then the dark card
+    flashes = [j for j in range(1, len(rows) - win)
+               if rows[j][1] >= 140 and rows[j][1] >= 1.3 * max(rows[j - 1][1], 1.0)
+               and sum(r[2] for r in rows[j + 1:j + 1 + win]) >= win // 2]
+    if not flashes:
+        return None
+    t = rows[flashes[-1]][0] / fps                  # the flash is the card's first frame
+    return t if abs((dur - t) - KICK_OUTRO_S) <= 0.35 else None
 
 
 def content_end(video: Path, dur: float) -> float:
-    """Where the stream picture ends: a Kick download's last 3 s are Kick's own outro card (measured 20 Nov on five
-    downloads: flash at dur-3.0, then 97% black). Detected from the picture, so other sources keep their full length."""
+    """Where the stream picture ends: a Kick download's last 3 s are Kick's own outro card (flash, then 97% black).
+    Detected from the picture, so other sources keep their full length."""
     try:
         import cv2
         cap = cv2.VideoCapture(str(video))
         cap.set(cv2.CAP_PROP_POS_MSEC, max(0.0, dur - 1.5) * 1000)
         ok, f = cap.read()
-        cap.release()
         if ok and (cv2.cvtColor(f, cv2.COLOR_BGR2GRAY) < 25).mean() >= 0.95:
-            return round(max(0.0, dur - KICK_OUTRO_S), 2)
+            start = _card_start(cap, dur)
+            cap.release()
+            return round(start if start is not None else max(0.0, dur - KICK_OUTRO_S), 2)
+        cap.release()
     except Exception as e:  # noqa: BLE001 - a failed check keeps the whole clip
         print(f"outro check: {type(e).__name__}: {e}")
     return dur

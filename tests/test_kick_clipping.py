@@ -216,6 +216,13 @@ def test_kick_outro_card_is_cut(tmp_path):
         vw.write(np.full((64, 64, 3), 140 if i < 70 else 0, np.uint8))
     vw.release()
     assert clips.content_end(p, 10.0) == round(10.0 - clips.KICK_OUTRO_S, 2)
+    f = tmp_path / "flash.mp4"                             # real Kick layout: picture, ONE flash frame, dark card
+    vw = cv2.VideoWriter(str(f), cv2.VideoWriter_fourcc(*"mp4v"), 30, (64, 64))
+    for i in range(990):                                   # 33.0 s: 30.000 s picture, flash at 30.000, card
+        vw.write(np.full((64, 64, 3), 100 if i < 900 else (162 if i == 900 else 4), np.uint8))
+    vw.release()
+    end = clips.content_end(f, 33.0)
+    assert end == 30.0 and not end < 30                    # 20 Nov: 3.05 s cut gave 29.95 s < the 30 s minimum
     q = tmp_path / "plain.mp4"
     vw = cv2.VideoWriter(str(q), cv2.VideoWriter_fourcc(*"mp4v"), 10, (64, 64))
     for i in range(100):
