@@ -1,6 +1,6 @@
 id: stream_clips
 number: 14
-name: Stream Clips
+name: Stream Clips GTA
 backup_names: [Clutch Clips Live, Stream Moments]
 market: US
 language: en
@@ -45,6 +45,6 @@ topic_hints:
   - "PRIORITY: GTA 6 vs GTA 5 battle in 5 rounds (map, price, budget, sales, wait time): who wins each round?"
   - "PRIORITY: 2002 Vice City vs 2026 Vice City: nostalgia in numbers (what a 2002 kid got vs what you get now)"
   - "PRIORITY: GTA 6 took longer than some whole console generations: the release-date saga in 50 seconds"
-about: "Gaming facts that hit different. GTA 6, records, comparisons and the real world behind your favourite games, explained in under a minute. Original commentary, no game footage."
+about: "GTA 6 clips and facts that hit different. The best GTA 6 stream moments (always credited to the streamer, posted with their campaign permission) plus records, comparisons and the real world behind the game, explained in under a minute. No spoilers."
 keywords: ["GTA 6", "GTA 6 facts", "GTA 6 vs GTA 5", "gaming facts", "GTA comparison", "Vice City"]
-handles: {"youtube": "@StreamClipsDaily", "youtube_backup": "@StreamClipsHQ", "instagram": "streamclipsdaily", "instagram_backup": "stream.clips.daily"}
+handles: {"youtube": "@streamclipsgta-u4m", "youtube_backup": "@StreamClipsHQ", "instagram": "streamclipsdaily", "instagram_backup": "stream.clips.daily"}

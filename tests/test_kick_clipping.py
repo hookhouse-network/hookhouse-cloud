@@ -148,3 +148,16 @@ def test_pc_with_cloud_mode_is_not_the_runner(monkeypatch):
     assert not in_runner()                                # ... but it is not the GitHub runner
     monkeypatch.setenv("GITHUB_ACTIONS", "true")
     assert in_runner()
+
+
+def test_tab_opens_blank_then_navigates_full_url(monkeypatch):
+    """20 Nov: /json/new?<url> cut an OAuth link at '&'; encoding it made Windows 'Pick an app' pop-ups."""
+    asked = []
+
+    class R:
+        def read(self):
+            return b'{"id": "t1", "webSocketDebuggerUrl": "ws://x"}'
+    monkeypatch.setattr(kick.urllib.request, "urlopen", lambda req, timeout=0: asked.append(req.full_url) or R())
+    t = kick._Tab("https://accounts.google.com/o/oauth2/auth?client_id=a&response_type=code")
+    assert asked == [f"{kick.CDP}/json/new?about:blank"]
+    assert t.url.endswith("client_id=a&response_type=code")

@@ -16,6 +16,7 @@ import asyncio
 import json
 import re
 import time
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -82,13 +83,18 @@ def parse_cards(cards: list[list[str]], game: str = "", max_age_s: float = 3 * 8
 # ---------------- browser (headless HookHouse Chrome) ----------------
 class _Tab:
     def __init__(self, url: str):
-        req = urllib.request.Request(f"{CDP}/json/new?{url}", method="PUT")
+        # /json/new?<url> cuts a URL at '&' and an encoded one becomes an unknown scheme (Windows "Pick an app"
+        # pop-ups, 20 Nov): open a blank tab, then navigate to the full URL over the protocol
+        self.url = url
+        req = urllib.request.Request(f"{CDP}/json/new?about:blank", method="PUT")
         self.t = json.loads(urllib.request.urlopen(req, timeout=15).read())
         self.n = 0
 
     async def __aenter__(self):
         import websockets
         self.ws = await websockets.connect(self.t["webSocketDebuggerUrl"], max_size=2 ** 24)
+        if self.url and self.url != "about:blank":
+            await self.cmd("Page.navigate", {"url": self.url})
         return self
 
     async def __aexit__(self, *a):

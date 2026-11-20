@@ -18,7 +18,7 @@ bloop_and_friends:      {youtube: "@bloopandfriendshq", live: true}
 cosmos_unboxed:         {youtube: "@cosmosunboxedhq", instagram: "cosmosunboxedhq", instagram_live: true, threads_live: true, pinterest: "cosmosunboxedhq", live: true}
 deep_blue_files:        {youtube: "@deepbluefileshq", instagram: "deepbluefiles", instagram_live: true, threads_live: true, pinterest: "deepbluefileshq", live: true}
 wild_instinct:          {youtube: "@thewildinstincthq", instagram: "wildinstinctstories", instagram_live: true, threads_live: true, pinterest: "thewildinstincthq", live: true}
-stream_clips:           {youtube: "@StreamClipsDaily", instagram: "streamclipsdaily", live: false}
+stream_clips:           {youtube: "@streamclipsgta-u4m", live: true}
 
 # Which channels recommend each other (same language and a related audience; never more than two).
 siblings:
