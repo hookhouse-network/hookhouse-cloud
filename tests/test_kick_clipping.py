@@ -411,6 +411,42 @@ def test_campaign_judge_is_told_starred_words_are_muted():
     assert "MUTED" not in Judge.prompt                     # no stars, no note
 
 
+def test_muted_words_are_filled_with_room_tone_not_dead_silence():
+    """20 Nov: digital silence where swear words were muted scored 'dead silence: sounds broken' (86/100)."""
+    from engine import profanity
+    af = profanity.mute_filter([(1.0, 1.8), (3.0, 3.4)], offset=0.0)
+    assert af.count("volume=0") == 2 and "aeval=" in af and "random(0)" in af
+    assert "between(t,1.000,1.800)+between(t,3.000,3.400)" in af
+    assert profanity.mute_filter([], 0.0) == "anull"
+
+
+def test_reel_variant_never_goes_under_the_campaign_minimum(tmp_path, monkeypatch):
+    """20 Nov: the Reel of a 30.0 s clip was trimmed to 29.7 s and held ('outside the campaign's 30-60s')."""
+    from engine import reels
+    cuts = []
+    monkeypatch.setattr(reels, "trimmed_variant", lambda src, out, trim: cuts.append(round(trim, 3)) or out)
+    meta = {"file": "clip_01.mp4", "duration_s": 30.0, "caption": "x #ad", "hook_options": []}
+    reels.clip_reel(tmp_path, meta, {}, min_s=30)
+    reels.clip_reel(tmp_path, dict(meta, duration_s=45.0), {}, min_s=30)
+    reels.clip_reel(tmp_path, meta, {})
+    assert cuts == [0.0, 0.3, 0.3]
+
+
+def test_each_clip_writes_its_own_captions_file(tmp_path):
+    from engine import clips
+    from engine.media.captions import Word
+    ws = [Word("Dom", 10.0, 10.4), Word("robs", 10.4, 10.8), Word("the", 10.8, 11.0), Word("f***", 11.0, 11.3),
+          Word("store", 11.3, 11.8), Word("now", 11.8, 12.0), Word("later", 40.0, 40.5)]
+    out = clips.write_clip_srt(ws, 10.0, 30.0, tmp_path / "clip_01.srt", per_line=3)
+    text = out.read_text(encoding="utf-8")
+    assert text.startswith("1\n00:00:00,000 --> ") and "Dom robs the" in text and "f*** store now" in text
+    assert "later" not in text                                      # outside the clip
+    from engine.potential_gate import srt_text
+    (tmp_path / "clip_00.srt").write_text("1\n00:00:05,000 --> 00:00:06,000\nother clip\n", encoding="utf-8")
+    said, first = srt_text(tmp_path, "clip_01")
+    assert said.startswith("Dom robs") and first == 0.0             # its own file, not the first in the folder
+
+
 def test_swear_words_and_slurs_are_muted_and_starred():
     """20 Nov: every Dom clip was held for profanity/slurs; the brief allows muting ("cut, mute or blur")."""
     from engine import profanity

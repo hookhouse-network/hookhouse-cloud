@@ -75,9 +75,11 @@ def _ctype(ch: dict, meta: dict, it: dict) -> str:
     return ch.get("type") if ch.get("type") in DEFAULT_RUBRICS else "story"
 
 
-def srt_text(folder: Path) -> tuple[str, float | None]:
-    """(what is said, first caption start in seconds) from the video's .srt, if any."""
-    files = sorted(folder.glob("*.srt"))
+def srt_text(folder: Path, stem: str | None = None) -> tuple[str, float | None]:
+    """(what is said, first caption start in seconds) from the video's .srt, if any. A clip folder holds one .srt per
+    clip (clip_01.srt, clip_02.srt): `stem` picks the one that belongs to the video."""
+    own = folder / f"{stem}.srt" if stem else None
+    files = [own] if own is not None and own.exists() else sorted(folder.glob("*.srt"))
     if not files:
         return "", None
     raw = files[0].read_text(encoding="utf-8", errors="ignore")
@@ -89,7 +91,7 @@ def srt_text(folder: Path) -> tuple[str, float | None]:
 
 def script_text(it: dict, meta: dict) -> str:
     folder = Path(it.get("out_dir") or "")
-    said, _ = srt_text(folder)
+    said, _ = srt_text(folder, Path(str(it.get("file") or "")).stem or None)
     if said:
         return said[:4000]
     sj = folder / "script.json"
@@ -127,7 +129,7 @@ def deterministic(it: dict, ch: dict, meta: dict, past_titles: list[str] | None 
     cfg, p = _cfg(), []
     folder = Path(it.get("out_dir") or "")
     ctype = _ctype(ch, meta, it)
-    said, first = srt_text(folder)
+    said, first = srt_text(folder, Path(str(it.get("file") or "")).stem or None)
     limit = cfg["clip_hook_start_max_s"] if ctype == "clips" else cfg["hook_start_max_s"]
     if first is not None and first > float(limit):
         p.append(f"{PREFIX}: speech starts at {first:.1f}s (the hook must land within {limit}s)")

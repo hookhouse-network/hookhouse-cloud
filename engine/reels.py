@@ -49,12 +49,16 @@ def snack_reel(out_dir: Path, meta: dict, channel: dict) -> dict:
     return info
 
 
-def clip_reel(out_dir: Path, clip_meta: dict, channel: dict) -> dict:
-    """Podcast clip: new hook wording drawn over the old box, shorter ending, caption with campaign tags kept."""
+def clip_reel(out_dir: Path, clip_meta: dict, channel: dict, min_s: float = 0.0) -> dict:
+    """Podcast clip: new hook wording drawn over the old box, shorter ending, caption with campaign tags kept.
+    min_s: the campaign's minimum length. 20 Nov: a 30.0 s clip's Reel was trimmed to 29.7 s and the clip gate held
+    it ("outside the campaign's 30-60s"); the trim never takes the Reel under the minimum (0 = same length)."""
     src = out_dir / clip_meta["file"]
     reel = out_dir / clip_meta["file"].replace(".mp4", "_reel.mp4")
     hooks = [h for h in (clip_meta.get("hook_options") or []) if h]
-    trimmed_variant(src, reel, 0.3)          # hooks are boxless and brief now: a trimmed cut + its own caption
+    dur = float(clip_meta.get("duration_s") or ffmpeg.duration(src))
+    trim = min(0.3, max(0.0, dur - float(min_s or 0) - 0.05)) if min_s else 0.3
+    trimmed_variant(src, reel, trim)         # hooks are boxless and brief now: a trimmed cut + its own caption
     base = re.sub(r"\s+#\S+", "", clip_meta.get("caption", "")).strip()
     tags = re.findall(r"#\S+", clip_meta.get("caption", ""))
     cap, tags = _caption(base, tags)

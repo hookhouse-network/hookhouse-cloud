@@ -740,6 +740,26 @@ def render_clip(video: Path, moment: dict, words: list[Word], out_path: Path, st
     return out_path
 
 
+def write_clip_srt(words: list[Word], start: float, end: float, dest: Path, per_line: int = 6) -> Path | None:
+    """The clip's own captions file (the cleaned words: swear words starred), times relative to the clip. 20 Nov: the
+    quality scorecard held a Stream Clips clip for "no captions file"; search and sound-off viewers need it, and
+    the upload can send it to YouTube as captions."""
+    ws = [w for w in words if start <= w.start < end and str(w.text).strip()]
+    if not ws:
+        return None
+
+    def ts(s: float) -> str:
+        ms = int(round(max(0.0, s) * 1000))
+        return f"{ms // 3600000:02d}:{ms // 60000 % 60:02d}:{ms // 1000 % 60:02d},{ms % 1000:03d}"
+    rows = []
+    for k in range(0, len(ws), per_line):
+        part = ws[k:k + per_line]
+        a, b = part[0].start - start, min(part[-1].end, end) - start
+        rows.append(f"{len(rows) + 1}\n{ts(a)} --> {ts(max(b, a + 0.5))}\n{' '.join(w.text.strip() for w in part)}\n")
+    dest.write_text("\n".join(rows), encoding="utf-8")
+    return dest
+
+
 def make_clips(brain, source: str, channel: dict, campaign: dict | None = None, memory=None, keep: int = 4,
                words: list[Word] | None = None, moments: list[dict] | None = None, log=print) -> tuple[Path, list[dict]]:
     if campaign:                                   # safety gate before any work for a campaign
@@ -810,6 +830,7 @@ def make_clips(brain, source: str, channel: dict, campaign: dict | None = None, 
         else:                                     # v3: speaker cuts, split for exchanges, clean captions
             from .clipv3 import render_clip_v3
             render_clip_v3(video, m, words, path, channel.get("style", {}), hook, campaign=campaign, log=log)
+        write_clip_srt(words, m["start"], m["end"], path.with_suffix(".srt"))
         credit = permission.get("credit") or ""
         if campaign:                                # only the brief's real tags (never its sentences), #ad first
             caption = campaign_gate.fix_caption(f"{m.get('caption', '')}\n\n{credit}".strip(), campaign)
@@ -837,7 +858,7 @@ def make_clips(brain, source: str, channel: dict, campaign: dict | None = None, 
             log("  gate: " + campaign_gate.summary(meta["gate"]["problems"]))
         try:
             from .reels import clip_reel
-            meta["reel"] = clip_reel(out_dir, meta, channel)["file"]
+            meta["reel"] = clip_reel(out_dir, meta, channel, min_s=ls.get("min") or 0)["file"]
         except Exception as e:  # noqa: BLE001
             log(f"Reel variant failed: {e}")
         results.append(meta)

@@ -46,8 +46,14 @@ def clean(words: list[Word]) -> tuple[list[Word], list[tuple[float, float]]]:
     return out, spans
 
 
+ROOM_TONE = 0.006        # amplitude of the noise that fills a muted word (no word left, no "broken" silence)
+
+
 def mute_filter(spans: list[tuple[float, float]], offset: float = 0.0) -> str:
     """ffmpeg audio filter silencing the spans (times relative to a file that starts at `offset` source seconds)."""
-    parts = [f"volume=enable='between(t,{max(0.0, a - offset):.3f},{max(0.0, b - offset):.3f})':volume=0"
-             for a, b in spans if b > offset]
+    live = [(max(0.0, a - offset), max(0.0, b - offset)) for a, b in spans if b > offset]
+    parts = [f"volume=enable='between(t,{a:.3f},{b:.3f})':volume=0" for a, b in live]
+    if live:                                    # 20 Nov: digital silence scored "dead silence: sounds broken" (quality
+        inside = "+".join(f"between(t,{a:.3f},{b:.3f})" for a, b in live)    # scorecard); fill with room tone
+        parts.append(f"aeval=exprs='val(ch)+if({inside},{ROOM_TONE}*(random(0)*2-1),0)':c=same")   # (~-49 dBFS)
     return ",".join(parts) or "anull"
