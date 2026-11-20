@@ -324,6 +324,7 @@ KICK_STATE = ROOT / "data" / "pc" / "kick_fetched.json"
 KICK_ACCOUNT = ROOT / "data" / "secrets" / "kick_account.json"
 KICK_EVERY_S = 60 * 60                    # new stream clips appear all day during a marathon
 KICK_PER_RUN = 3                          # per campaign per hour: enough clips, light on the PC
+KICK_MIN_S = 30                           # owner 20 Nov: clips were too short; brief: setup + reaction + payoff
 ADULT = re.compile(r"(strip\s?club|stripper|nsfw|naked|nude|nudity|sex|boob|titt|porn|onlyfans|twerk|lap\s?dance|hooker|"
                    r"prostitut|18\+|thirst)", re.I)                     # brief: no explicit material; YouTube policy
 GAMBLING = re.compile(r"\b(stake|casino|slots?|gambl\w*|roulette|blackjack|bet(ting)?|crash game|plinko)\b", re.I)
@@ -400,7 +401,7 @@ def pick_kick_clips(clips: list[dict], fetched: set, since_s: float, limit: int)
     for c in clips:
         if c["id"] in fetched or c["age_s"] > since_s or GAMBLING.search(c.get("title") or "")                 or ADULT.search(c.get("title") or ""):
             continue
-        if c.get("seconds") and not 12 <= c["seconds"] <= 180:
+        if c.get("seconds") and not KICK_MIN_S <= c["seconds"] <= 180:
             continue
         out.append(c)
         if len(out) >= limit:

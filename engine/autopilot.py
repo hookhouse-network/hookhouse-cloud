@@ -790,7 +790,10 @@ def _ask_due(log, allow=None) -> None:
         if w <= now:
             continue
         hours = (w - now).total_seconds() / 3600
-        if not asked_current(s, it) and hours <= ASK_AHEAD_H:
+        clip = it.get("made_as") == "clip" or it.get("kind") == "clip" or str(it.get("out_dir") or "").endswith("_clips")
+        # 20 Nov (owner: "send it to me for approval when done"): campaign clips are asked as soon as they are made;
+        # campaigns pay only while they run and the footage goes stale in days
+        if not asked_current(s, it) and (hours <= ASK_AHEAD_H or clip):
             log(f"Asking approval: {it['channel_name']} {it['publish_at']}")
             ask(start, it)
         elif asked_current(s, it) and it["id"] not in s.get("reminded", {}) and hours <= REMIND_H:

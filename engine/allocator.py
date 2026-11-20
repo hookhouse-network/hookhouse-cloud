@@ -35,6 +35,9 @@ SHRINK_K = 5            # a channel's own median counts like K videos of evidenc
 MAX_TOTAL = 120
 MAX_PER_CHANNEL = 8     # Instagram spacing (40 min) and quality: 8 a day per account at most
 FRESH_DAYS = 10
+RAMP_FAST, RAMP_SLOW = 1.5, 1.25      # weekly growth of the total (making keeps up / is behind)
+RAMP_PER_CHANNEL = 2                  # at most +2 Shorts a day per channel per week (no sudden mass production)
+STEP_BACK = 0.30                      # median views fell > 30 % after a rise -> one less
 FIXED_TYPES = {"clips", "kids"}
 
 
@@ -150,18 +153,46 @@ def build(log=print, conn=None, now: datetime | None = None, plan_items: list[di
     made, planned = made_ratio([i for i in plan_items if i.get("channel") in ids], now)
     # owner 20 Nov: "there will be no limitations for generating the content, it just limits the upload amount":
     # the daily total is what the platforms let us upload, not what was made last week
-    budget = upload_budget(channels(), chans)
-    total, reason = max(base_total, min(MAX_TOTAL, budget)), f"upload budget {budget}/day"
+    budget = min(MAX_TOTAL, upload_budget(channels(), chans))
+    # Risk controls (docs/GROWTH_PLAN_2026-11-20.md, A1): a jump from 1 to 8 Shorts a day looks like mass production
+    # to YouTube/Meta and floods the owner with unmade slots. The total ramps towards the budget, faster when the
+    # system made >= 70 % of last week's plan; each channel rises at most RAMP_PER_CHANNEL a day per week; a channel
+    # whose median views fell > STEP_BACK after a rise goes down by one.
+    prev = load(any_age=True)
+    prev_ch = prev.get("channels") or {}
+    prev_total = int(prev.get("total") or base_total)
+    keeping_up = bool(planned) and made >= 0.7 * planned
+    factor = RAMP_FAST if keeping_up else RAMP_SLOW
+    target = max(base_total, min(budget, max(prev_total + 1, int(prev_total * factor + 0.5))))
+    reason = (f"ramping x{factor} towards the upload budget {budget}/day "
+              f"({'making keeps up' if keeping_up else 'making is behind'})" if target < budget
+              else f"at the upload budget {budget}/day")
     if conn is None:
         from . import analytics
         conn = analytics.connect()
     views = channel_views(conn)
     scores = shrunk_scores(views, [c["id"] for c in chans])
-    caps = {c["id"]: MAX_PER_CHANNEL for c in chans}     # weekly.spread_times adds slots past the peak times
-    alloc = allocate(chans, scores, total, caps)
-    out = {"at": time.time(), "day": now.date().isoformat(), "total": total, "reason": reason,
+    caps, notes = {}, {}
+    for c in chans:
+        cid = c["id"]
+        was = int((prev_ch.get(cid) or {}).get("shorts_per_day") or c["schedule"]["shorts_per_day"])
+        cap = min(MAX_PER_CHANNEL, was + RAMP_PER_CHANNEL)
+        p = prev_ch.get(cid) or {}
+        if (p.get("rose") and p.get("n", 0) >= 5 and scores[cid]["n"] >= 5 and p.get("median")
+                and scores[cid]["median"] < (1 - STEP_BACK) * float(p["median"])):
+            cap = max(1, was - 1)
+            notes[cid] = f"views fell {p['median']:.0f} -> {scores[cid]['median']:.0f} after a rise: one less"
+        caps[cid] = cap
+    alloc = allocate(chans, scores, target, caps)
+    total = sum(alloc.values())
+    for cid, why in notes.items():
+        log(f"allocation: {cid}: {why}")
+    out = {"at": time.time(), "day": now.date().isoformat(), "total": total, "budget": budget, "reason": reason,
            "made_last_7d": made, "planned_last_7d": planned,
-           "channels": {c: {"shorts_per_day": alloc[c], **scores[c]} for c in alloc}}
+           "channels": {c: {"shorts_per_day": alloc[c], **scores[c],
+                            "rose": alloc[c] > int((prev_ch.get(c) or {}).get("shorts_per_day") or 0)
+                            and bool(prev_ch.get(c)),
+                            **({"note": notes[c]} if c in notes else {})} for c in alloc}}
     from .core.atomic import write_json
     write_json(FILE, out)
     from .core import ledger

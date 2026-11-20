@@ -118,7 +118,8 @@ def merge_helper(store, log=_log) -> int:
                                       cloud_asset=media.asset_name(info["id"]), topic=info.get("topic"),
                                       angle=info.get("angle"), error=None, attempts=0, retry_at=None, made_by="pc",
                                       feeling=info.get("feeling"), now_hook=info.get("now_hook"),
-                                      planned_topic=info.get("planned_topic"))
+                                      planned_topic=info.get("planned_topic"), made_as=info.get("made_as"),
+                                      clip_source=info.get("clip_source"))
                 n += 1
                 if info.get("clip_source"):                # 20 Nov: footage the PC cut is never cut again
                     from .. import weekly

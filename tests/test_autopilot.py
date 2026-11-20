@@ -86,3 +86,17 @@ def test_cleanup_keeps_waiting_videos(env, monkeypatch):
     assert env["out"] / "work" in paths                     # temporary files of a finished video go
     assert env["out"] not in paths and env["out"] / "video.mp4" not in paths   # the waiting video stays
     assert old in paths
+
+
+def test_campaign_clip_is_asked_as_soon_as_made(env, monkeypatch):
+    """20 Nov (owner: "send it to me for approval when done"): clips don't wait for the 20 h window."""
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "42")
+    plan = weekly.load_plan("2099-01-05")
+    far = (env["now"] + timedelta(hours=30)).isoformat()
+    plan["items"] = [dict(plan["items"][0], id="story", publish_at=far),
+                     dict(plan["items"][0], id="clip", publish_at=far, made_as="clip")]
+    (weekly.WEEKS_DIR / "2099-01-05" / "plan.json").write_text(json.dumps(plan))
+    asked = []
+    monkeypatch.setattr(autopilot, "ask", lambda start, it, reminder=False: asked.append(it["id"]))
+    autopilot._ask_due(print)
+    assert asked == ["clip"]

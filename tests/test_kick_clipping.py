@@ -173,7 +173,7 @@ def test_short_kick_highlight_is_kept_whole():
             return ({"title": "He Found The Gas Price In GTA 6", "hook_options": ["Wait for the price"],
                      "caption": "c", "scores": {"hook": 8, "brand_safe": 10}}, type("R", (), {"provider": "x"})())
     (m,) = clips.whole_clip_moment(B(), [], 74.0, max_len=58)
-    assert (m["start"], m["end"]) == (0.0, 58) and m["whole_clip"] and m["hook_options"] == ["Wait for the price"]
+    assert (m["start"], m["end"]) == (16.0, 74.0) and m["whole_clip"] and m["hook_options"] == ["Wait for the price"]
     assert m["title"]
 
 
@@ -187,3 +187,17 @@ def test_config_campaign_speaks_the_gates_language(tmp_path, monkeypatch):
     assert c["platforms"] == ["youtube_shorts"] and "joined" not in c
     assert time.strftime("%Y-%m-%d", time.gmtime(c["joined_at"] + 5.5 * 3600)) == "2026-11-19"
     assert cr_footage.ensure_config_campaigns(conn, log=lambda m: None) == 0          # stable: no rewrite each run
+
+
+def test_campaign_clip_is_long_enough_and_credited():
+    """20 Nov (owner: "clips are not as per the campaign design, too short"): brief = 20-60 s with setup, reaction and
+    payoff, credit on screen, end on kick.com/dasgasd3m. Our first clip was a 26 s source tightened to 20.8 s."""
+    assert cr_footage.pick_kick_clips([{"id": "s", "title": "x", "age_s": 1, "seconds": 26},
+                                       {"id": "ok", "title": "y", "age_s": 1, "seconds": 45}], set(), 99, 5)[0]["id"] == "ok"
+    c = next(x for x in cr_footage.config_campaigns() if x["id"].startswith("dasgasd3m"))
+    assert c["length_seconds"]["min"] >= 30 and c["length_seconds"]["max"] == 60
+    assert "dasgasd3m" in c["onscreen_tag"] and "kick.com/dasgasd3m" in c["end_text"]
+    import inspect
+    from engine import clipv3
+    src = inspect.getsource(clipv3.render_clip_v3)
+    assert 'moment.get("whole_clip")' in src and "end_img" in src                  # never tightened; end line drawn

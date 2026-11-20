@@ -80,6 +80,48 @@ def test_more_shorts_than_peak_times_get_spread_slots(tmp_path, monkeypatch):
     assert weekly.spread_times([(9, 0)], 3)[0] == (9, 0)      # the peak times stay first
 
 
+def _two_channels(tmp_path, monkeypatch, quota="100000"):
+    monkeypatch.setattr(al, "FILE", tmp_path / "allocation.json")
+    monkeypatch.setenv("YOUTUBE_UPLOAD_QUOTA", quota)                    # a big budget: the ramp is what limits
+    chans = [{"id": c, "type": "story", "schedule": {"shorts_per_day": 1, "long_per_week": 0}} for c in ("a", "b")]
+    monkeypatch.setattr("engine.config.channels", lambda: chans)
+    return chans
+
+
+def test_volume_ramps_week_by_week_instead_of_jumping_to_the_budget(tmp_path, monkeypatch):
+    _two_channels(tmp_path, monkeypatch)
+    now = datetime.now(weekly._zone())
+    c = _conn([("a", f"i{i}", "youtube", 900) for i in range(9)] + [("b", f"j{i}", "youtube", 100) for i in range(9)])
+    made = [{"channel": "a", "kind": "short", "publish_at": (now - timedelta(days=d)).isoformat(), "made_at": 1.0}
+            for d in range(1, 7)]
+    totals = []
+    for _ in range(4):
+        d = al.build(log=lambda m: None, conn=c, now=now, plan_items=made)
+        totals.append(d["total"])
+        assert all(v["shorts_per_day"] <= 8 for v in d["channels"].values())
+    assert totals == [3, 5, 8, 12]                     # 2 -> x1.5 a week (making keeps up), not straight to 16
+    assert "ramping" in d["reason"]
+
+
+def test_one_channel_rises_at_most_two_a_day_per_week(tmp_path, monkeypatch):
+    _two_channels(tmp_path, monkeypatch)
+    (tmp_path / "allocation.json").write_text(json.dumps({"at": time.time(), "total": 10, "channels": {
+        "a": {"shorts_per_day": 1}, "b": {"shorts_per_day": 1}}}))
+    c = _conn([("a", f"i{i}", "youtube", 5000) for i in range(9)] + [("b", f"j{i}", "youtube", 10) for i in range(9)])
+    d = al.build(log=lambda m: None, conn=c, now=datetime.now(weekly._zone()), plan_items=[])
+    assert d["channels"]["a"]["shorts_per_day"] == 3 and d["channels"]["b"]["shorts_per_day"] == 3
+
+
+def test_a_channel_whose_views_fell_after_a_rise_steps_back(tmp_path, monkeypatch):
+    _two_channels(tmp_path, monkeypatch)
+    (tmp_path / "allocation.json").write_text(json.dumps({"at": time.time(), "total": 6, "channels": {
+        "a": {"shorts_per_day": 4, "rose": True, "n": 9, "median": 1000},
+        "b": {"shorts_per_day": 2, "rose": False, "n": 9, "median": 100}}}))
+    c = _conn([("a", f"i{i}", "youtube", 500) for i in range(9)] + [("b", f"j{i}", "youtube", 100) for i in range(9)])
+    d = al.build(log=lambda m: None, conn=c, now=datetime.now(weekly._zone()), plan_items=[])
+    assert d["channels"]["a"]["shorts_per_day"] == 3 and "views fell" in d["channels"]["a"]["note"]
+
+
 def test_stale_allocation_is_ignored(tmp_path, monkeypatch):
     monkeypatch.setattr(al, "FILE", tmp_path / "allocation.json")
     (tmp_path / "allocation.json").write_text(json.dumps({"at": time.time() - 30 * 86400,

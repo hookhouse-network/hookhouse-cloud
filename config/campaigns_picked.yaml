@@ -16,6 +16,9 @@ campaigns:
     game: "Grand Theft Auto VI"
     footage_since: "2026-11-18"      # brief: his 18 Nov GTA 6 stream or later; older clips are style references only
     deadline: "2026-12-19"
+    length_seconds: {min: 30, max: 60}   # brief: 20-60 s, keep setup + reaction + payoff; owner 20 Nov: 20 s is too short
+    onscreen_tag: "dasgasd3m on Kick"    # brief: credit on screen, readable on a phone (whole clip)
+    end_text: "Watch live: kick.com/dasgasd3m"   # brief: "End: send viewers to his stream"
     required_tags: ["#dasgasdom3"]
     required_text: ["Credit: dasgasd3m on Kick. Watch live: kick.com/dasgasd3m"]   # caption gate adds it
     submit_within_min: 30            # brief: submit the public post link while it is under 30 minutes old

@@ -488,6 +488,7 @@ def hook_box(text: str, max_w: int = 860, min_w: int = 0, min_h: int = 0) -> np.
 
 
 HOOK_SECONDS = 2.6
+END_SECONDS = 3.0      # campaign end line ("Watch live: kick.com/...") shows this long at the end
 
 
 def _splits(n: int, k: int) -> list[list[tuple[int, int]]]:
@@ -693,7 +694,9 @@ def render_clip_v3(video: Path, moment: dict, words: list, out_path: Path, style
         cam_box, game_box = stream_crops(rect, webcam["face"], (w, h))
         stream = {"rect": rect, "border_found": found, "cam": cam_box, "game": game_box}
         log(f"  v3: stream webcam at {rect} ({'border found' if found else 'estimated'}): webcam on top, game below")
-    moving = bool(webcam) or moving_picture(scene.thumbs)
+    # a streamer's own highlight is never tightened: the brief wants the reaction to breathe (20 Nov: a 26 s Kick clip
+    # became 20.8 s, too short for the campaign)
+    moving = bool(webcam) or bool(moment.get("whole_clip")) or moving_picture(scene.thumbs)
     segs = [(start, end)] if moving else build_segments(clip_words, start, end)
     tm = TimeMap(segs)
     total = tm.duration
@@ -720,6 +723,11 @@ def render_clip_v3(video: Path, moment: dict, words: list, out_path: Path, style
     if handle:
         from .snack.canvas import text_sprite
         handle_img = text_sprite(handle, CAPTION_FONT, 40, stroke=2, shadow=0)
+    end_line = (campaign or {}).get("end_text") or ""      # brief: "End: send viewers to his stream" (last seconds)
+    end_img = None
+    if end_line:
+        from .snack.canvas import text_sprite
+        end_img = text_sprite(end_line, CAPTION_FONT, 52, stroke=3, shadow=0)
     hook_y = 290        # research (podcast spec): hook top edge y >= 290, below Meta's 14% top UI line; eyes sit lower
     if stream and hook_img is not None:          # streams: the hook sits on the seam, clear of the streamer's face
         hook_y = max(290, CAM_PANE_H - hook_img.shape[0] // 2)
@@ -822,6 +830,8 @@ def render_clip_v3(video: Path, moment: dict, words: list, out_path: Path, style
         if handle_img is not None:                           # campaign tag: small, top, whole clip (under the hook)
             hy = hook_y + hook_img.shape[0] + 6 if showing_hook else hook_y
             _blit(out, handle_img, (OUT_W - handle_img.shape[1]) // 2, hy)
+        if end_img is not None and t_out >= total - END_SECONDS and not showing_hook:
+            _blit(out, end_img, max(0, (OUT_W - end_img.shape[1]) // 2), hook_y + 60)
         proc.stdin.write(out.tobytes())
     proc.stdin.close()
     err = proc.stderr.read().decode("utf-8", "replace")
