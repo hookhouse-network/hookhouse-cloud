@@ -182,9 +182,19 @@ def run_replans(log=_log) -> int:
     n = 0
     for r in reqs:
         rid, chans = str(r.get("id") or ""), list(r.get("channels") or [])
-        if not rid or not chans or rid in done:
+        redo = [str(x) for x in r.get("redo") or []]
+        if not rid or not (chans or redo) or rid in done:
             continue
         autopilot._update_state(lambda st, k=rid: st.setdefault("replans", {}).__setitem__(k, time.time()))  # once
+        if redo:          # 20 Nov: made videos that no longer meet the brief are made again (never posted ones only)
+            for s, it in autopilot.items(7, 14):
+                if it["id"] in redo and it["status"] in ("made", "missed", "failed") and not it.get("youtube_id"):
+                    autopilot.update_item(s, it["id"], status="redo", note=str(r.get("note") or "remake"),
+                                          attempts=0, retry_at=None)
+                    log(f"re-make {rid}: {it['id']}")
+            n += 1
+        if not chans:
+            continue
         brain, memory = autopilot.default_brain()
         weeks = [w for w in (p2.name for p2 in weekly.WEEKS_DIR.glob("*") if (p2 / "plan.json").exists())
                  if monday <= date.fromisoformat(w) <= monday + timedelta(days=7)] if weekly.WEEKS_DIR.exists() else []

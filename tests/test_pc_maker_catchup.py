@@ -85,3 +85,23 @@ def test_replan_request_runs_once(tmp_path, monkeypatch):
     assert runner.run_replans(log=lambda m: None) == 1
     assert calls == [("2026-11-16", ["stream_clips"]), ("2026-11-23", ["stream_clips"])]   # this + next week only
     assert runner.run_replans(log=lambda m: None) == 0 and len(calls) == 2                  # once
+
+
+def test_redo_request_remakes_listed_unposted_videos_once(tmp_path, monkeypatch):
+    """20 Nov (owner: clips not per the campaign design): listed made videos are made again, posted ones never."""
+    from engine import autopilot
+    cfg = tmp_path / "config"
+    cfg.mkdir()
+    (cfg / "replan.yaml").write_text("requests:\n  - {id: r2, redo: [a, b, c], note: remake}\n", encoding="utf-8")
+    monkeypatch.setattr("engine.config.CONFIG_DIR", cfg)
+    state = {}
+    monkeypatch.setattr(autopilot, "_load", lambda: state)
+    monkeypatch.setattr(autopilot, "_update_state", lambda fn: fn(state) or state)
+    its = [("w", {"id": "a", "status": "made"}), ("w", {"id": "b", "status": "posted", "youtube_id": "y"}),
+           ("w", {"id": "c", "status": "made", "youtube_id": "sched"}), ("w", {"id": "d", "status": "made"})]
+    monkeypatch.setattr(autopilot, "items", lambda *a: its)
+    changed = []
+    monkeypatch.setattr(autopilot, "update_item", lambda s, i, **f: changed.append((i, f["status"])))
+    assert runner.run_replans(log=lambda m: None) == 1
+    assert changed == [("a", "redo")]                       # posted / already scheduled on YouTube / unlisted: untouched
+    assert runner.run_replans(log=lambda m: None) == 0 and len(changed) == 1
