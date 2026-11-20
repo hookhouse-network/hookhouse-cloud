@@ -577,6 +577,13 @@ def tick(log=_log, light: bool = False) -> None:
     except Exception as e:  # noqa: BLE001
         log(f"heal: {type(e).__name__}: {e}")
     guard.cancel()
+    try:                                                   # Phase 1 dual-write: the tick's last rows go out now
+        from ..core.ledger import default as _ledger
+        n = _ledger().flush_shadow(log)
+        if n:
+            log(f"shared truth: {n} ledger rows mirrored")
+    except Exception as e:  # noqa: BLE001 - shadow copy only; rows stay queued in ledger.db
+        log(f"shared truth: {type(e).__name__}: {e}")
     with _SAVE_LOCK:
         snapshot(kv, log)
         log(f"state saved ({state.push(store) // 1024} KB)")

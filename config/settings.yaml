@@ -5,7 +5,7 @@ timezone: Asia/Kolkata
 
 # Phase 1 shared truth (engine/core/d1.py): sqlite = local ledger only; dual = the cloud also mirrors every ledger
 # row to the Worker's LedgerDO (SQLite stays authoritative). Cloud runner only. Set back to sqlite to switch it off.
-ledger_backend: sqlite
+ledger_backend: dual
 
 # Best posting times per audience (IST). US slots = US daytime/evening.
 posting_slots:
