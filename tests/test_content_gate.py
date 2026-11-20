@@ -162,6 +162,26 @@ def test_each_clip_problem_blocks(clip, patch, expect):
     assert any(expect in p for p in clip_gate.verify(clip["it"], ch=clip["ch"]))
 
 
+def test_short_reel_of_an_old_clip_is_remade_at_full_length(tmp_path):
+    """21 Nov: an approved Stream Clips clip (made before the Reel fix) was blocked: its Reel was 29.7 s < 30 s."""
+    (tmp_path / "clip_01.mp4").write_bytes(b"x")
+    (tmp_path / "clip_01_reel.mp4").write_bytes(b"x")
+    rec = {"file": "clip_01.mp4", "reel": "clip_01_reel.mp4"}
+    lens = {"clip_01.mp4": 30.0, "clip_01_reel.mp4": 29.7}
+    made = []
+
+    def remake(src, reel, trim):
+        made.append((src.name, reel.name, trim))
+        lens[reel.name] = 30.0
+    dur = lambda p: lens[p.name]                                      # noqa: E731
+    assert clip_gate.repair_reel(tmp_path, rec, (30, 60), duration=dur, remake=remake)
+    assert made == [("clip_01.mp4", "clip_01_reel.mp4", 0.0)]
+    assert not clip_gate.repair_reel(tmp_path, rec, (30, 60), duration=dur, remake=remake)   # fine now: no-op
+    lens["clip_01.mp4"] = 29.0                                        # the clip itself too short: never "repaired"
+    lens["clip_01_reel.mp4"] = 28.7
+    assert not clip_gate.repair_reel(tmp_path, rec, (30, 60), duration=dur, remake=remake)
+
+
 def test_edit_hash_is_compared_by_distance_not_equality():
     """20 Nov: a PC-made clip was held in the Linux cloud for a 'hash mismatch' caused by decoder noise."""
     from engine import campaign_safety as cs

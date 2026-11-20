@@ -157,8 +157,33 @@ def verify(it: dict, platform: str | None = None, brain_fn=None, ch: dict | None
         p += file_problems(video, expect_s=rec.get("duration_s"), length=length, expect_hash=rec.get("edit_hash"))
         reel = rec.get("reel")                       # Instagram/Facebook/Threads post the Reel variant: check it too
         if reel and platform in (None, "instagram", "facebook", "threads"):
+            repair_reel(out, rec, length)
             p += [f"Reel variant: {x}" for x in file_problems(out / str(reel), length=length)]
     return list(dict.fromkeys(p))
+
+
+def repair_reel(out: Path, rec: dict, length, duration=None, remake=None) -> bool:
+    """Clips made before 20 Nov 23:40 have a Reel trimmed 0.3 s under the brief's minimum (a 30.0 s clip -> 29.7 s
+    Reel), so Instagram/Facebook/Threads were blocked although the clip itself passed. If the clip meets the minimum
+    and only its Reel misses it, the Reel is re-encoded from the clip at full length. Returns True if repaired."""
+    if not length:
+        return False
+    reel, src = out / str(rec.get("reel") or ""), out / str(rec.get("file") or "")
+    if not (rec.get("reel") and reel.is_file() and src.is_file()):
+        return False
+    try:
+        if duration is None:
+            from .media.ffmpeg import duration
+        if duration(reel) >= float(length[0]) or duration(src) < float(length[0]):
+            return False
+        if remake is None:
+            from .reels import trimmed_variant as remake
+        remake(src, reel, 0.0)
+        print(f"clip gate: Reel of {src.name} re-made at full length (it was under the brief's {length[0]:.0f} s)")
+        return True
+    except Exception as e:  # noqa: BLE001 - the check below still blocks a short Reel
+        print(f"clip gate: Reel repair failed ({type(e).__name__}: {e})")
+        return False
 
 
 def summary(problems: list[str]) -> str:
