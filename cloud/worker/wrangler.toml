@@ -12,6 +12,15 @@ GH_REPO = "hookhouse-network/hookhouse-cloud"         # 18 Nov: the public code 
 STORE_REPO = "hookhouse-network/hookhouse"            # private: memory, videos, footage (release files)
 # (17 Nov: repo names are kept here, not only passed by the setup command: an auto-deploy once dropped them)
 
+# Phase 1 (20 Nov): shared truth = one Durable Object with SQLite storage (free plan; cloud/worker/ledger_do.js)
+[[durable_objects.bindings]]
+name = "LEDGER"
+class_name = "LedgerDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["LedgerDO"]
+
 # KV namespace id is filled in by `python cli.py cloud setup`
 [[kv_namespaces]]
 binding = "HH"

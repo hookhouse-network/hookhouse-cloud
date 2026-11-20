@@ -6,6 +6,9 @@
 // - A cron every 15 minutes starts the scheduled runs at Indian times (GitHub's own timer can be late).
 // Secrets (wrangler secret put): TG_TOKEN, TG_SECRET, OWNER_CHAT, GH_TOKEN. Vars: GH_REPO, TICK_SLOTS, RENDER_SLOT.
 
+import { LedgerDO, api } from "./ledger_do.js";   // Phase 1 (20 Nov): shared truth, /api/* signed with HH_API_KEY
+export { LedgerDO };
+
 const IST_OFFSET_MIN = 330;
 const DEBOUNCE_MS = 2 * 60 * 1000;     // 18 Nov: 10 min made the bot look dead ("telegram is not working")
 
@@ -285,6 +288,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (["/d", "/cmd", "/res", "/live", "/pv"].includes(url.pathname)) return dash(request, env, url);
+    if (url.pathname.startsWith("/api/")) return env.LEDGER ? api(request, env, url, hmacHex) : new Response("no", { status: 404 });
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/v/")) return media(request, env, url);
     if (request.method !== "POST" || url.pathname !== "/tg") return new Response("ok");
     if (request.headers.get("x-telegram-bot-api-secret-token") !== env.TG_SECRET) return new Response("no", { status: 401 });

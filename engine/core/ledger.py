@@ -62,6 +62,8 @@ def _connect(path: Path | None = None) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=DELETE")   # not WAL: the memory bundle packs ledger.db alone (no -wal file)
     conn.execute("PRAGMA busy_timeout=30000")
     conn.executescript(SCHEMA)
+    from . import d1                             # Phase 1: dual mode notes changed rows for the shared truth
+    d1.install(conn)
     return conn
 
 
@@ -77,10 +79,30 @@ class Ledger:
                 conn.execute("BEGIN IMMEDIATE")
                 out = fn(conn)
                 conn.execute("COMMIT")
-                return out
             except BaseException:
-                conn.execute("ROLLBACK")
+                if conn.in_transaction:              # BEGIN itself can fail (locked): keep that error, not ROLLBACK's
+                    conn.execute("ROLLBACK")
+                conn.close()
                 raise
+            try:
+                from . import d1
+                d1.maybe_flush(conn)                 # dual mode only; never raises (SQLite already committed)
+            finally:
+                conn.close()
+            return out
+
+    def flush_shadow(self, log=print) -> int:
+        """Send every queued row to the shared truth now (end of a cloud tick). Failures are logged, rows stay."""
+        from . import d1
+        if d1.backend() != "dual":
+            return 0
+        with _LOCK:
+            conn = _connect(self.path)
+            try:
+                return d1.flush(conn, log=log)
+            except Exception as e:  # noqa: BLE001 - shadow copy only
+                log(f"ledger shadow: flush failed ({type(e).__name__}: {str(e)[:160]}); {d1.pending(conn)} queued")
+                return 0
             finally:
                 conn.close()
 
