@@ -12,6 +12,32 @@ KIND = {"money_budget_planner": "sheet", "bloop_colouring_book": "print", "brain
         "christmas_colouring_book": "print"}
 
 COPY = {
+    "habit_tracker_2027": dict(
+        hook="Turn your 2027 resolutions into habits you actually keep, one tick a day.",
+        inside=["A goals page for six areas of life: health, money, career, relationships, learning and fun",
+                "12 monthly habit trackers (14 habits x 31 days) with the month already printed",
+                "12 monthly review pages with four questions that keep you honest",
+                "Notes pages for plans, ideas and wins"],
+        who="Anyone starting fresh in 2027: students, parents, professionals, self-improvement fans.",
+        how="Print a month, write your habits once, tick a box every day you do them, review at month end.",
+        note="US Letter, prints on A4 with 'fit to page'. Print any page as often as you like.",
+        kdp="Turn your 2027 resolutions into habits you actually keep. A goals page for six areas of life, a habit "
+            "tracker for every month with the month already printed (14 habits x 31 days), a monthly review page with "
+            "four honest questions, and notes pages. Simple, clean and made to be used every day.",
+        social="2027 habit tracker: 12 monthly trackers + goals + reviews"),
+    "senior_sudoku": dict(
+        hook="Big, clear sudoku puzzles that are easy on the eyes and good for the mind.",
+        inside=["60 sudoku puzzles from easy to medium, one big grid per page",
+                "Extra-large numbers that are easy to read and write in",
+                "Every puzzle has exactly one answer (checked by computer)",
+                "All answers at the back, four to a page"],
+        who="Seniors, grandparents and anyone who prefers large print. A thoughtful gift.",
+        how="Fill every row, column and 3x3 box with the numbers 1 to 9. Check the answers at the back.",
+        note="Print at home on US Letter or A4, and print your favourites again any time.",
+        kdp="60 large-print sudoku puzzles, one big grid per page with extra-large numbers that are easy to read and "
+            "write in. They start easy and build up to medium, every puzzle has exactly one answer, and all answers "
+            "are at the back. A thoughtful gift for parents and grandparents who love a daily brain workout.",
+        social="Large print sudoku: 60 puzzles, one per page, answers included"),
     "activity_book": dict(
         hook="Hours of screen-free fun that sneak in learning: mazes, dot to dot, spot the difference and more.",
         inside=["12 mazes that grow from easy to tricky", "12 dot-to-dot pictures and 12 coloring pages",

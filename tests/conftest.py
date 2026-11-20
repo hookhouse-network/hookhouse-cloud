@@ -100,6 +100,11 @@ def _no_real_ledger(monkeypatch, tmp_path):
     monkeypatch.setattr(heal, "QUEUE", tmp_path / "heal_queue_test.json")
     import engine.allocator as alloc                       # 20 Nov: no test plans with the real volume allocation
     monkeypatch.setattr(alloc, "FILE", tmp_path / "allocation_test.json")
+    import engine.cloud.kv_budget as kvb                   # 20 Nov: no test reads Cloudflare analytics or real counts
+    monkeypatch.setattr(kvb, "FILE", tmp_path / "kv_usage_test.json")
+    monkeypatch.setattr(kvb, "fetch_real", lambda *a, **k: None)
+    import engine.cloud.kv as kvmod
+    monkeypatch.setattr(kvmod, "_hashes_file", lambda: tmp_path / "kv_hashes_test.json")
 
 
 def pytest_configure(config):

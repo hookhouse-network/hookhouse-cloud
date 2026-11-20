@@ -223,8 +223,11 @@ def test_money_milestones_are_announced_once(tmp_path, monkeypatch):
 
 def test_cricket_gets_news_driven_topics(monkeypatch):
     from engine import autopilot, news_topics, weekly
-    rss = ("<rss><channel><item><title>Bumrah 3 wickets away from a big record</title>"
-           "<pubDate>Wed, 18 Nov 2026 06:00:00 GMT</pubDate><source url='x'>India TV</source></item>"
+    from datetime import datetime, timedelta, timezone
+    from email.utils import format_datetime
+    fresh = format_datetime(datetime.now(timezone.utc) - timedelta(hours=6), usegmt=True)   # 20 Nov: was a fixed
+    rss = ("<rss><channel><item><title>Bumrah 3 wickets away from a big record</title>"      # date that aged out
+           f"<pubDate>{fresh}</pubDate><source url='x'>India TV</source></item>"
            "<item><title>Old news</title><pubDate>Mon, 01 Jan 2024 06:00:00 GMT</pubDate></item></channel></rss>")
 
     class R:

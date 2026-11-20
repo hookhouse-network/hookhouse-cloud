@@ -287,6 +287,11 @@ def snapshot(kv, log=_log) -> None:
                 parts.append(__import__(f"engine.{mod}", fromlist=["text"]).text())
             except Exception as e:  # noqa: BLE001 - health still answers without this part
                 log(f"snapshot {mod}: {type(e).__name__}: {e}")
+        try:                                                # 20 Nov: Cloudflare KV daily budget
+            from .kv_budget import status as kv_status
+            parts.append(kv_status())
+        except Exception as e:  # noqa: BLE001
+            log(f"snapshot kv budget: {type(e).__name__}: {e}")
         return "\n\n".join(parts)
     makers = {"tasks": telegram_bot.tasks_text, "health": _health,
               "channels": telegram_bot.channels_text,
@@ -309,8 +314,12 @@ def snapshot(kv, log=_log) -> None:
         log(f"snapshot queue: {type(e).__name__}: {e}")
         queue = None
     try:
-        kv.put("snapshot", {"status": telegram_bot.status_text(), "texts": texts, "waiting": waiting,
-                            "queue": queue, "at": time.time()})
+        snap = {"status": telegram_bot.status_text(), "texts": texts, "waiting": waiting, "queue": queue,
+                "at": time.time()}
+        if hasattr(kv, "put_if_changed"):                  # 20 Nov: KV budget (1,000 writes/day on the free plan)
+            kv.put_if_changed("snapshot", snap, refresh_s=3600, normalize=lambda t: re.sub(r'"at": [0-9.]+', "", t))
+        else:
+            kv.put("snapshot", snap)
     except Exception as e:  # noqa: BLE001
         log(f"snapshot: {e}")
 

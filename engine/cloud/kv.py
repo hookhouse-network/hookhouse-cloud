@@ -33,7 +33,22 @@ class KV:
         self.base = BASE.format(acct=acct, ns=ns)
         self.h = {"Authorization": f"Bearer {tok}"}
 
+    budget = True                 # 20 Nov: every write/delete/list goes through engine/cloud/kv_budget.py
+
+    def _ok(self, op: str, key: str) -> bool:
+        if not self.budget:
+            return True
+        try:
+            from .kv_budget import allow
+            return allow(op, key)
+        except Exception as e:  # noqa: BLE001 - a broken budget check must not block the owner's buttons
+            print(f"kv budget check failed ({type(e).__name__}: {e}); writing anyway")
+            return True
+
     def keys(self, prefix: str = "") -> list[str]:
+        if not self._ok("list", prefix or "list"):
+            print(f"kv: list {prefix!r} paused (daily budget)")
+            return []
         out, cursor = [], None
         while True:
             params = {"prefix": prefix, "limit": 1000}
@@ -54,19 +69,66 @@ class KV:
         r.raise_for_status()
         return r.text
 
-    def put(self, key: str, value: str | dict, ttl: int | None = None) -> None:
+    def put(self, key: str, value: str | dict, ttl: int | None = None) -> bool:
+        """False = paused by the daily budget (nothing written)."""
+        if not self._ok("write", key):
+            return False
         body = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
         r = self.s.put(f"{self.base}/values/{key}", headers=self.h, data=body.encode("utf-8"), timeout=60,
                        params={"expiration_ttl": max(60, int(ttl))} if ttl else None)
         r.raise_for_status()
+        return True
 
-    def put_bytes(self, key: str, data: bytes, ttl: int | None = None) -> None:
-        """Binary value (video preview pieces). KV allows up to 25 MiB per value."""
+    def put_if_changed(self, key: str, value: str | dict, ttl: int | None = None, refresh_s: float = 3600,
+                       normalize=None) -> bool:
+        """Write only when the content changed (or the stored copy is older than refresh_s): the snapshot and the
+        Studio page were rewritten every run even when nothing changed. normalize(text) drops volatile parts
+        (timestamps) before comparing. Returns True when written."""
+        import hashlib
+        import time
+        text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False, sort_keys=True)
+        h = hashlib.sha1((normalize(text) if normalize else text).encode("utf-8")).hexdigest()
+        seen = _hashes()
+        old = seen.get(key) or {}
+        if old.get("h") == h and time.time() - float(old.get("at") or 0) < refresh_s:
+            return False
+        if not self.put(key, value, ttl):
+            return False
+        seen[key] = {"h": h, "at": time.time()}
+        _save_hashes(seen)
+        return True
+
+    def put_bytes(self, key: str, data: bytes, ttl: int | None = None) -> bool:
+        """Binary value (video preview pieces). KV allows up to 25 MiB per value. False = paused by the budget."""
+        if not self._ok("write", key):
+            return False
         r = self.s.put(f"{self.base}/values/{key}", headers={**self.h, "Content-Type": "application/octet-stream"},
                        data=data, timeout=300, params={"expiration_ttl": max(60, int(ttl))} if ttl else None)
         r.raise_for_status()
+        return True
 
-    def delete(self, key: str) -> None:
+    def delete(self, key: str) -> bool:
+        """False = paused by the daily budget (keys with a TTL expire by themselves)."""
+        if not self._ok("delete", key):
+            return False
         r = self.s.delete(f"{self.base}/values/{key}", headers=self.h, timeout=30)
         if r.status_code not in (200, 404):
             r.raise_for_status()
+        return True
+
+
+def _hashes_file():
+    from pathlib import Path
+    return Path(__file__).resolve().parents[2] / "data" / "state" / "kv_hashes.json"
+
+
+def _hashes() -> dict:
+    try:
+        return json.loads(_hashes_file().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def _save_hashes(d: dict) -> None:
+    from ..core.atomic import write_json
+    write_json(_hashes_file(), d)

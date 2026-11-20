@@ -173,8 +173,9 @@ def daily() -> Image.Image:
     return img
 
 
-def habits() -> Image.Image:
-    img, d = _page("HABIT TRACKER", "Month: ______________   Tick a box every day you do it")
+def habits(month_name: str = "") -> Image.Image:
+    sub = (f"{month_name} {YEAR}" if month_name else "Month: ______________") + "   Tick a box every day you do it"
+    img, d = _page("HABIT TRACKER", sub)
     x0, y0 = M, M + 330
     namew, days, rows = 520, 31, 14
     cw = (PW - 2 * M - namew) / days
@@ -257,6 +258,56 @@ def make(log=print) -> Path:
     (OUT / "product.json").write_text(json.dumps(info, indent=1, ensure_ascii=False), encoding="utf-8")
     log(f"  {YEAR} planner ({len(pages)} pages) -> {OUT}")
     return OUT
+
+
+HABIT_OUT = ROOT / "data" / "products" / "habit_tracker_2027"
+
+
+def reflection(month_name: str) -> Image.Image:
+    img, d = _page(f"{month_name.upper()} REVIEW", "What worked, what did not, what next")
+    prompts = ["Habits I kept most days", "What got in the way", "One small win to celebrate",
+               "What I will change next month"]
+    bh = (PH - M - 560) / len(prompts)
+    for k, q in enumerate(prompts):
+        y = M + 330 + k * bh
+        d.text((M + 30, y), q, font=_f(56), fill=ACC)
+        _lines(d, M + 30, y + 110, PW - M, y + bh - 40, 80, dotted=True)
+    return img
+
+
+def habit_tracker(log=print) -> Path:
+    """2027 Habit Tracker & Resolution Planner (research 17 Nov: habit trackers peak Dec-Feb with New Year
+    resolutions; built from the planner's own page designs, no AI art)."""
+    HABIT_OUT.mkdir(parents=True, exist_ok=True)
+    months = list(calendar.month_name)[1:]
+    title, d = _page(f"{YEAR} HABIT TRACKER", "& New Year resolution planner")
+    for txt, sz, y in (("Small steps. Every day.", 110, 0.40), ("12 monthly habit trackers", 70, 0.52),
+                       ("Goals, monthly reviews, notes", 70, 0.58)):
+        tw = d.textlength(txt, font=_f(sz))
+        d.text(((PW - tw) / 2, PH * y), txt, font=_f(sz), fill=INK)
+    pages = [title, goals()]
+    for m in months:
+        pages += [habits(m), reflection(m)]
+    pages += [notes(), notes()]
+    pdf = HABIT_OUT / f"{YEAR}_Habit_Tracker_Printable.pdf"
+    pages[0].save(pdf, save_all=True, append_images=pages[1:], resolution=300)
+    pages[0].save(HABIT_OUT / "cover.jpg", quality=92)
+    info = {"title": f"{YEAR} Habit Tracker & New Year Resolution Planner (Printable PDF)", "files": [pdf.name],
+            "pages": len(pages),
+            "description": (f"Turn your {YEAR} resolutions into daily habits. {len(pages)} printable pages: a goals page "
+                            "for six areas of life, a habit tracker for every month (14 habits x 31 days, month "
+                            "already printed), a monthly review page with four questions that keep you honest, and "
+                            "notes. US Letter, prints on A4 with 'fit to page'. Print any page as often as you like."),
+            "price_usd": "$4", "price_inr": "\u20b999", "stores": ["Payhip", "Gumroad"], "channel": "money_cheat_codes",
+            "tags": [f"{YEAR} habit tracker", "habit tracker printable", "new year resolution planner",
+                     "goal planner", "monthly habit tracker", "self improvement planner", "printable planner"],
+            # value-first promo Shorts (engine/product_promo.py): help first, the link sits in the description
+            "promo_angles": ["Why so many New Year resolutions fade by February, and the tiny-habit fix",
+                             "The 2-minute rule: start a habit so small you can't say no",
+                             "Never miss twice: the one rule that rescues a broken habit streak"]}
+    (HABIT_OUT / "product.json").write_text(json.dumps(info, indent=1, ensure_ascii=False), encoding="utf-8")
+    log(f"  {YEAR} habit tracker ({len(pages)} pages) -> {HABIT_OUT}")
+    return HABIT_OUT
 
 
 if __name__ == "__main__":

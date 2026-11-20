@@ -21,7 +21,9 @@ FONTS = ROOT / "assets" / "fonts"
 S = 2000
 
 # Store titles: what it is | who/what for | the words buyers search (under 100 characters)
-TITLES = {
+TITLES = {   # 20 Nov: the first 40 characters must match the live listing (record_public matches on them)
+    "habit_tracker_2027": "2027 Habit Tracker & New Year Resolution Planner | 12 Monthly Trackers, Goals & Reviews",
+    "senior_sudoku": "Large Print Sudoku for Seniors: 60 Easy to Medium Puzzles | One Big Puzzle per Page",
     "activity_book": "Big Fun Activity Book for Kids Ages 4-8 | Mazes, Dot to Dot, Spot the Difference, Word Search",
     "seniors_word_search": "Large Print Word Search for Seniors | Nostalgia Edition | 50 Easy Puzzles from the Good Old Days",
     "tracing_workbook": "Preschool Tracing Workbook Ages 3-5 | Letters, Numbers, Shapes & Pen Control | 90 Pages",
@@ -41,6 +43,14 @@ TITLES = {
 
 MUSIC_FEATURES = ["Content ID-free: no claims", "Commercial use OK", "5 tracks x 90 seconds", "No credit needed"]
 SPECS = {
+    "habit_tracker_2027": dict(top="PRINTABLE PDF", head=["2027", "HABIT TRACKER"], sub="Turn resolutions into daily habits",
+                               bg=("#2B1B5E", "#6C4AB6"), accent="#FFD23F", pdf="2027_Habit_Tracker_Printable.pdf",
+                               pages=[1, 2, 3], feats=["12 monthly habit trackers", "Goals for 6 areas of life",
+                                                       "Monthly review questions", "Print again any time"]),
+    "senior_sudoku": dict(top="LARGE PRINT", head=["SUDOKU", "FOR SENIORS"], sub="60 puzzles, easy to medium",
+                          bg=("#123C6B", "#2E7BC4"), accent="#FFD9A0", pdf="Large_Print_Sudoku_Seniors.pdf",
+                          pages=[1, 21, 61], feats=["One big puzzle per page", "Extra-large numbers",
+                                                    "Every puzzle has one answer", "Answers at the back"]),
     "activity_book": dict(top="PRINTABLE PDF", head=["BIG FUN", "ACTIVITY BOOK"], sub="Ages 4-8 · 88 pages of play",
                           bg=("#1B7F4B", "#5CC98B"), accent="#FFD23F", pdf="Activity_Book_Ages_4-8.pdf", pages=[3, 16, 36],
                           feats=["12 mazes, easy to hard", "Dot to dot & spot the difference", "Word search & coloring",

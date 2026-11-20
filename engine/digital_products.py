@@ -43,9 +43,14 @@ def _new(title: str = "", size: tuple[int, int] = (PW, PH)) -> tuple[Image.Image
     return img, d
 
 
-def _save_pdf(pages: list[Image.Image], path: Path) -> Path:
+def _save_pdf(pages: list[Image.Image], path: Path, gray: bool = False) -> Path:
+    """gray=True for black-and-white line art (puzzles): same print quality at 300 dpi, a fraction of the size (20 Nov:
+    the 76-page sudoku book was 26 MB in RGB and the store upload timed out)."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    pages = [p.convert("RGB") for p in pages]
+    if gray:                                   # crisp 1-bit pages (fax-compressed in the PDF), threshold not dither
+        pages = [p.convert("L").point(lambda v: 255 if v > 170 else 0, mode="1") for p in pages]
+    else:
+        pages = [p.convert("RGB") for p in pages]
     pages[0].save(path, save_all=True, append_images=pages[1:], resolution=300)
     return path
 
@@ -608,6 +613,59 @@ def _sudoku_draw(d, puz, x0, y0, side, sol=None):
                 tw = d.textlength(str(v), font=f)
                 d.text((x0 + c * cell + (cell - tw) / 2, y0 + r * cell + cell * 0.15), str(v), font=f,
                        fill=INK if puz[r][c] else (60, 110, 200))
+
+
+def senior_sudoku(seed: int = 71, log=print) -> Path:
+    """Large Print Sudoku for Seniors (research 17 Nov: seniors' puzzles sell Nov-Jan as gifts). 60 puzzles, one
+    big grid per page, easy -> medium, every puzzle with exactly one answer (checked by the solver), answers at the
+    back four to a page."""
+    folder = _kit("senior_sudoku")
+    pages, sols = [], []
+    for k in range(60):
+        clues = 44 if k < 20 else (38 if k < 40 else 34)
+        puz, sol = sudoku(clues, seed + k)
+        sols.append((puz, sol))
+        level = ["Easy", "Easy-Medium", "Medium"][k // 20]
+        img, d = _new(f"Puzzle {k + 1}  ({level})")
+        _sudoku_draw(d, puz, M + 25, M + 420, PW - 2 * M - 50)
+        pages.append(img)
+    half = (PW - 2 * M - 100) / 2
+    sol_pages = []
+    for chunk in range(0, len(sols), 4):
+        img, d = _new("Answers")
+        for j, (puz, sol) in enumerate(sols[chunk:chunk + 4]):
+            x, y = M + (j % 2) * (half + 100), M + 300 + (j // 2) * (half + 250)
+            d.text((x, y - 90), f"Puzzle {chunk + j + 1}", font=_font(54), fill=INK)
+            _sudoku_draw(d, puz, x, y, half, sol)
+        sol_pages.append(img)
+    title, d0 = _new()
+    for txt, sz, y in (("LARGE PRINT", 170, 0.25), ("SUDOKU", 230, 0.34), ("60 puzzles, easy to medium", 80, 0.47),
+                       ("One big puzzle per page, answers included", 64, 0.55)):
+        tw = d0.textlength(txt, font=_font(sz))
+        d0.text(((PW - tw) / 2, PH * y), txt, font=_font(sz), fill=INK)
+    allp = [title] + pages + sol_pages
+    if len(allp) % 2:
+        allp.append(_new("Notes")[0])
+    _save_pdf(allp, folder / "Large_Print_Sudoku_Seniors.pdf", gray=True)
+    cover = _cover("Large Print Sudoku", "60 puzzles, big numbers, answers included", (24, 76, 140))
+    _thumb(cover, folder)
+    _listing(folder, {
+        "title": "Large Print Sudoku for Seniors: 60 Easy to Medium Puzzles, One per Page (Printable PDF)",
+        "subtitle": "60 big-number sudoku puzzles with answers",
+        "description": ("60 sudoku puzzles in extra-large print, one big grid per page so the numbers are easy to "
+                        "read and write in. They start easy and build up to medium, and every puzzle has exactly one "
+                        "answer (checked by computer). All answers are at the back. Print at home on US Letter or A4 "
+                        "and print your favourites again any time. A thoughtful gift for grandparents."),
+        "files": ["Large_Print_Sudoku_Seniors.pdf"], "pages": len(allp),
+        "price_usd": "$4 (printable PDF)", "price_inr": "\u20b999", "kdp_price": "$6.99 paperback",
+        "tags": ["large print sudoku", "sudoku for seniors", "easy sudoku", "puzzle book for adults",
+                 "brain games for seniors", "gift for grandparents", "printable sudoku"],
+        "kdp_categories": "Humor & Entertainment > Puzzles & Games > Sudoku",
+        "stores": ["Payhip", "Gumroad", "Amazon KDP"], "channel": "brain_snack",
+        "promo_angles": ["A sudoku trick most people never learn: look for the hidden single",
+                         "Can you solve this sudoku row in 10 seconds?"]})
+    log(f"  large print sudoku ({len(allp)} pages) -> {folder}")
+    return folder
 
 
 def puzzle_book(seed: int = 11, log=print) -> Path:

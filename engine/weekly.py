@@ -457,6 +457,15 @@ def plan_week(brain, start: date | None = None, only: list[str] | None = None, m
                 taken.extend(t["topic"] for t in topics if t.get("role") == "spoke")
             except Exception as e:  # noqa: BLE001 - one channel failing must not stop the week
                 log(f"Topics for {ch['name']} failed: {e}")
+        promo, promo_idx = None, -1                    # 20 Nov: one value-first promo Short per channel per week
+        shorts_idx = [i for i, (_w, k) in enumerate(slots) if k == "short"]
+        if shorts_idx and kind_type != "kids":
+            try:
+                from .product_promo import promo_for
+                promo = promo_for(ch["id"], start.isoformat())
+                promo_idx = shorts_idx[-1] if promo else -1
+            except Exception as e:  # noqa: BLE001 - the week is planned without the promo
+                log(f"promo for {ch['name']}: {type(e).__name__}: {e}")
         for i, (when, kind) in enumerate(slots):
             t = topics[i] if i < len(topics) else {}
             items.append({
@@ -468,6 +477,11 @@ def plan_week(brain, start: date | None = None, only: list[str] | None = None, m
                 "demand": t.get("demand") or None,
                 "status": "planned" if kind_type in BUILDABLE else "not_built",
                 "out_dir": None, "file": None, "error": None, "note": None, "log": None})
+            if promo and i == promo_idx:
+                items[-1]["product"] = promo["pid"]
+                if kind_type == "story" and promo.get("angle"):
+                    items[-1].update(topic=promo["angle"], angle=None, role=None, hub=None, demand=None,
+                                     why=f"helps viewers first; links our {promo['title']}")
     plan = {"start": start.isoformat(), "created": time.time(),
             "items": sorted(items, key=lambda x: (x["publish_at"], x["number"] or 0))}
     if only and (week_dir(start) / "plan.json").exists():  # add/replace these channels, keep everyone else's items

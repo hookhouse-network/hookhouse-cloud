@@ -444,10 +444,14 @@ def push_previews(kv, log=_log, only: str | None = None, limit: int = 6) -> int:
             log(f"preview {it['id']}: {type(e).__name__}: {e}")
             continue
         pieces = [data[i:i + PREVIEW_CHUNK] for i in range(0, len(data), PREVIEW_CHUNK)]
-        for n, p in enumerate(pieces):
-            kv.put_bytes(f"pv:{it['id']}:{n}", p, ttl=PREVIEW_TTL)
-        kv.put(f"pv:{it['id']}:meta", {"size": len(data), "chunks": len(pieces), "chunk": PREVIEW_CHUNK},
-               ttl=PREVIEW_TTL)
+        # 20 Nov: previews are the lowest KV priority (engine/cloud/kv_budget.py); a paused one retries next run
+        if not all(kv.put_bytes(f"pv:{it['id']}:{n}", p, ttl=PREVIEW_TTL) is not False for n, p in enumerate(pieces)):
+            log("previews: paused by the daily KV budget; the rest wait for tomorrow")
+            break
+        if kv.put(f"pv:{it['id']}:meta", {"size": len(data), "chunks": len(pieces), "chunk": PREVIEW_CHUNK},
+                  ttl=PREVIEW_TTL) is False:
+            log("previews: paused by the daily KV budget; the rest wait for tomorrow")
+            break
         have[it["id"]] = {"sig": sig, "size": len(data), "chunks": len(pieces), "at": time.time()}
         added += 1
         PREVIEW_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -479,9 +483,14 @@ def publish_dashboard(kv, log=_log, live: bool = False) -> int:
             log(f"previews: {type(e).__name__}: {e}")
     from . import dashboard
     page = dashboard.build().read_text(encoding="utf-8")
-    if kv is not None:
+    if kv is not None and hasattr(kv, "put_if_changed"):   # 20 Nov: only when it changed (KV: 1,000 writes/day)
+        import re as _re
+        kv.put_if_changed("dash:html", page, refresh_s=3 * 3600,
+                          normalize=lambda t: _re.sub(r"Updated \d{1,2} \w{3} \d{4}, \d{2}:\d{2}", "", t))
+        kv.put_if_changed("dash:ids", live_ids(), refresh_s=6 * 3600)   # what the Worker fetches on page load
+    elif kv is not None:
         kv.put("dash:html", page)
-        kv.put("dash:ids", live_ids())          # what the Worker fetches live on every page load
+        kv.put("dash:ids", live_ids())
     return len(page)
 
 

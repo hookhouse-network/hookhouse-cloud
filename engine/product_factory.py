@@ -18,6 +18,9 @@ BUILDERS = {   # product id -> (pdf name, builder)
     "planner_2027": ("2027_Planner_Printable.pdf", "engine.planner_product:make"),
     "seniors_word_search": ("Large_Print_Word_Search_Nostalgia.pdf", "engine.kdp_books:seniors_word_search"),
     "activity_book": ("Activity_Book_Ages_4-8.pdf", "engine.kdp_books:activity_book"),
+    # 20 Nov: in-season winners of the product research (Nov-Jan)
+    "habit_tracker_2027": ("2027_Habit_Tracker_Printable.pdf", "engine.planner_product:habit_tracker"),
+    "senior_sudoku": ("Large_Print_Sudoku_Seniors.pdf", "engine.digital_products:senior_sudoku"),
 }
 
 

@@ -855,7 +855,16 @@ def item_meta(it: dict) -> dict:
     and permission live in clips.json."""
     out = Path(it["out_dir"])
     if (out / "upload.json").exists():
-        return json.loads((out / "upload.json").read_text(encoding="utf-8"))
+        meta = json.loads((out / "upload.json").read_text(encoding="utf-8"))
+        if it.get("product") and not meta.get("made_for_kids"):    # 20 Nov: value-first promo Short of our product
+            try:
+                from .product_promo import description_line
+                line = description_line(it)
+                if line and line.strip() not in str(meta.get("description") or ""):
+                    meta["description"] = str(meta.get("description") or "").rstrip() + line
+            except Exception as e:  # noqa: BLE001 - the video posts without the shop line
+                print(f"promo line skipped for {it.get('id')}: {type(e).__name__}: {e}")
+        return meta
     cj = out / "clips.json"
     if cj.exists():
         for c in json.loads(cj.read_text(encoding="utf-8")):

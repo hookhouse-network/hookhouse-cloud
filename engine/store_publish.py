@@ -78,6 +78,39 @@ def price_usd(pid: str) -> float:
     return float(re.sub(r"[^\d.]", "", meta["price_usd"].split("(")[0]) or 5)
 
 
+def _upload_timeout(f: Path) -> float:
+    """Milliseconds for a browser file upload: 30 s + 10 s per MB, at most 10 minutes (20 Nov: a 26 MB PDF timed out
+    at the fixed 30 s; files travel through the DevTools connection)."""
+    try:
+        mb = Path(f).stat().st_size / 1024 / 1024
+    except OSError:
+        mb = 0
+    return min(600_000, 30_000 + 10_000 * mb)
+
+
+def _gate_ok(pid: str, store: str, out: list, log) -> bool:
+    """engine/product_gate.py, fail closed: a gate that cannot run holds the product."""
+    from . import product_gate
+    try:
+        probs = product_gate.verify(pid, store)
+    except Exception as e:  # noqa: BLE001
+        probs = [f"product gate could not run ({type(e).__name__}: {str(e)[:80]})"]
+    try:
+        product_gate.hold(pid, store, probs)
+    except OSError as e:
+        log(f"product gate record: {e}")
+    if probs:
+        out.append(f"{pid}: held by the product gate: {'; '.join(probs)[:300]}")
+        log(out[-1])
+        return False
+    try:
+        from . import product_promo                         # value-first promo Shorts on the matching channel
+        product_promo.register(pid)
+    except Exception as e:  # noqa: BLE001 - the listing matters more than the promo note
+        log(f"promo register: {type(e).__name__}: {e}")
+    return True
+
+
 # ---------------- Payhip (browser) ----------------
 J_ROWS = r"""() => Array.from(document.querySelectorAll('a')).filter(a => /^edit$/i.test(a.innerText.trim()))
   .map(a => { let r = a; for (let k = 0; k < 6 && r; k++) { if (r.innerText && r.innerText.length > 40) break; r = r.parentElement; }
@@ -162,7 +195,7 @@ def payhip_add(p, pid: str) -> str:
     p.wait_for_timeout(3500)
     files = p.locator("input[type=file]")
     vis = [i for i in range(files.count()) if files.nth(i).evaluate("e => e.offsetParent !== null")]
-    files.nth(vis[0]).set_input_files(str(download_file(pid)))
+    files.nth(vis[0]).set_input_files(str(download_file(pid)), timeout=_upload_timeout(download_file(pid)))
     p.wait_for_timeout(1500)
     p.fill("#p_name", title_for(pid))
     p.fill("#p_price", f"{price_usd(pid):.2f}")
@@ -210,6 +243,8 @@ def publish(store: str = "payhip", ids: list[str] | None = None, replace: bool =
             recorded = bool((listed().get(pid) or {}).get(store))   # our own record wins (no double listing)
             if (mine or recorded) and not replace:
                 out.append(f"{pid}: already listed")
+                continue
+            if not _gate_ok(pid, store, out, log):              # 20 Nov: nothing is listed past the product gate
                 continue
             try:
                 for u in mine:                                   # replace: remove the whole old product
@@ -280,7 +315,7 @@ def gumroad_add(p, pid: str) -> str:
     p.wait_for_url(re.compile(r"/edit/content"), timeout=90000, wait_until="commit")
     p.wait_for_timeout(3000)
     f = download_file(pid)
-    p.locator("input[type=file]").first.set_input_files(str(f.resolve()))
+    p.locator("input[type=file]").first.set_input_files(str(f.resolve()), timeout=_upload_timeout(f))
     for _ in range(300):                                       # big zips: wait for the upload
         t = p.evaluate("() => document.body.innerText")
         if f.stem[:20] in t and "Uploading" not in t and "%" not in t:
@@ -300,6 +335,8 @@ def publish_gumroad(ids: list[str] | None = None, log=print) -> list[str]:
         for pid in ids or products():
             if ((listed().get(pid) or {}).get("gumroad") or {}).get("url"):
                 out.append(f"{pid}: already on Gumroad")
+                continue
+            if not _gate_ok(pid, "gumroad", out, log):          # 20 Nov: nothing is listed past the product gate
                 continue
             try:
                 url = gumroad_add(p, pid)
