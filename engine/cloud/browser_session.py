@@ -37,7 +37,7 @@ async def _browser_call(method: str, params: dict | None = None) -> dict:
     async with websockets.connect(ws_url, max_size=2 ** 26) as ws:
         await ws.send(json.dumps({"id": 1, "method": method, "params": params or {}}))
         while True:
-            msg = json.loads(await ws.recv())
+            msg = json.loads(await asyncio.wait_for(ws.recv(), 60))     # a hung browser never freezes a run
             if msg.get("id") == 1:
                 if msg.get("error"):
                     raise RuntimeError(f"{method}: {msg['error']}")

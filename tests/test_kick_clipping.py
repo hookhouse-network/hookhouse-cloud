@@ -328,6 +328,39 @@ def test_done_marker_skipped_footage_is_merged_into_cloud_used(tmp_path, monkeyp
     assert {"asset:a.mp4", "asset:b.mp4"} <= set(weekly.clip_state()["used"])
 
 
+def test_a_browser_tab_that_never_answers_cannot_freeze_the_pc_maker(monkeypatch):
+    """20 Nov: kick.download waited on a DevTools reply forever; the PC maker made nothing for 30+ minutes."""
+    import asyncio
+
+    class SilentWs:
+        async def send(self, msg):
+            pass
+
+        async def recv(self):
+            await asyncio.sleep(3600)
+
+    tab = kick._Tab.__new__(kick._Tab)
+    tab.ws, tab.n = SilentWs(), 0
+    monkeypatch.setattr(kick, "CDP_REPLY_S", 0.2)
+    t0 = time.time()
+    with pytest.raises(TimeoutError):
+        asyncio.run(tab.cmd("Runtime.evaluate", {"expression": "1"}))
+    assert time.time() - t0 < 5
+
+
+def test_whole_kick_download_has_a_wall_clock_limit(tmp_path, monkeypatch):
+    import asyncio
+
+    async def stuck(url, dest, wait_s):
+        await asyncio.sleep(3600)
+    monkeypatch.setattr(kick, "_download", stuck)
+    monkeypatch.setattr(kick, "DOWNLOAD_EXTRA_S", 0.1)
+    t0 = time.time()
+    with pytest.raises(TimeoutError):
+        kick.download({"url": "https://kick.com/x/clips/1", "id": "1"}, tmp_path, wait_s=0.1)
+    assert time.time() - t0 < 5
+
+
 def test_swear_words_and_slurs_are_muted_and_starred():
     """20 Nov: every Dom clip was held for profanity/slurs; the brief allows muting ("cut, mute or blur")."""
     from engine import profanity

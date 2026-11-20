@@ -21,6 +21,9 @@ import urllib.request
 from pathlib import Path
 
 CDP = "http://127.0.0.1:9333"
+CDP_REPLY_S = 60       # one DevTools reply; 20 Nov: a tab that never answered froze the PC maker for 30+ minutes
+LIST_JOB_S = 180       # a whole clip-list read
+DOWNLOAD_EXTRA_S = 90  # a whole download = its wait_s + this (page load, pop-ups, clicks)
 SLUG = re.compile(r"kick\.com/([A-Za-z0-9_-]{2,40})(?:[/?#]|$)", re.I)
 NOT_CHANNELS = {"terms-of-service", "privacy-policy", "community-guidelines", "category", "categories", "browse",
                 "help", "search", "following", "dashboard", "video", "clips"}
@@ -105,7 +108,7 @@ class _Tab:
         self.n += 1
         await self.ws.send(json.dumps({"id": self.n, "method": method, "params": params or {}}))
         while True:
-            r = json.loads(await self.ws.recv())
+            r = json.loads(await asyncio.wait_for(self.ws.recv(), CDP_REPLY_S))
             if r.get("id") == self.n:
                 return r.get("result", {})
 
@@ -164,7 +167,7 @@ async def _list(slug: str, game: str, max_age_s: float, period: tuple[str, ...])
 
 def top_clips(slug: str, game: str = "Grand Theft Auto VI", max_age_s: float = 3 * 86400,
               period: tuple[str, ...] = ("Last Week",)) -> list[dict]:
-    return asyncio.run(_list(slug, game, max_age_s, period))
+    return asyncio.run(asyncio.wait_for(_list(slug, game, max_age_s, period), LIST_JOB_S))
 
 
 async def _download(url: str, dest: Path, wait_s: float) -> Path | None:
@@ -191,7 +194,7 @@ async def _download(url: str, dest: Path, wait_s: float) -> Path | None:
 
 def download(clip: dict, dest: Path, wait_s: float = 90) -> Path | None:
     """Press Download on the clip's page; returns the saved .mp4 (renamed to the clip id) or None."""
-    f = asyncio.run(_download(clip["url"], dest, wait_s))
+    f = asyncio.run(asyncio.wait_for(_download(clip["url"], dest, wait_s), wait_s + DOWNLOAD_EXTRA_S))
     if f is None:
         return None
     out = dest / f"{clip['id']}.mp4"

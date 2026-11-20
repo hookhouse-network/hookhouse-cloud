@@ -58,7 +58,7 @@ async def _eval(ws_url: str, expr: str):
         await ws.send(json.dumps({"id": 1, "method": "Runtime.evaluate",
                                   "params": {"expression": expr, "returnByValue": True}}))
         while True:
-            msg = json.loads(await ws.recv())
+            msg = json.loads(await asyncio.wait_for(ws.recv(), 60))     # a hung tab never freezes the PC
             if msg.get("id") == 1:
                 return (msg.get("result") or {}).get("result", {}).get("value")
 
