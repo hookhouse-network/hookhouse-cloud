@@ -26,6 +26,13 @@ platforms:
   dailymotion: {max_s: 3600}
   telegram:    {max_mb: 48}
 
+potential:                    # engine/potential_gate.py: the "viral + earning" half of 100/100
+  min_each: 9                 # every rubric criterion 9+/10 (9 = top 5 % of the niche this month)
+  hook_start_max_s: 0.6       # narration/caption must start within 0.6 s (viewed vs swiped away)
+  clip_hook_start_max_s: 1.0
+  title_repeat_ratio: 0.85    # a title this similar to an earlier one of the channel = not original
+  rubrics: {}                 # override per content type, e.g. story: [hook, retention, emotion, ...]
+
 auto_approve:                 # engine/auto_approve.py (owner 20 Nov: "yes you can consider auto-approval")
   enabled: true
   min_clean: 10               # the owner's last 10 decisions on this channel + kind must be plain approvals

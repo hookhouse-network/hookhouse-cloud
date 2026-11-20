@@ -764,7 +764,7 @@ def _campaign_held(start, it: dict, log) -> bool:
         from . import clip_gate, content_gate
         it = _with_local_media(start, it)        # the file itself is measured, so it must be here
         probs = clip_gate.verify(it, brain_fn=lambda: default_brain()[0])
-        probs += [x for x in content_gate.base_problems(it) if x not in probs]
+        probs += [x for x in content_gate.base_problems(it, brain_fn=lambda: default_brain()[0]) if x not in probs]
     except Exception as e:  # noqa: BLE001 - a gate that cannot run holds the video
         probs = [f"the content gate could not run ({str(e)[:80]})"]
     try:

@@ -77,8 +77,13 @@ def quality_report(it: dict, ch: dict, meta: dict, led=None) -> dict:
     return led.run_stage(it["id"], stage, produce, validate=lambda a: isinstance(a, dict) and "score" in a)
 
 
+def _default_brain():
+    from .autopilot import default_brain
+    return default_brain()[0]
+
+
 def base_problems(it: dict, ch: dict | None = None, meta: dict | None = None, quality: bool = True,
-                  probe=None) -> list[str]:
+                  probe=None, brain_fn=_default_brain) -> list[str]:
     """Everything that doesn't depend on the platform."""
     p: list[str] = []
     try:
@@ -163,6 +168,13 @@ def base_problems(it: dict, ch: dict | None = None, meta: dict | None = None, qu
                 p.append(f"{QUALITY}: score {q['score']}/100 (needs {r.get('min_quality', 100)}): " + "; ".join(warns)[:300])
         except Exception as e:  # noqa: BLE001 - not scored = not passed
             p.append(f"{QUALITY}: scorecard could not run ({type(e).__name__}: {str(e)[:60]})")
+    # 5. potential (owner 20 Nov: "100/100 means ... full potential to go viral and it will earn money")
+    if quality and not p:
+        try:
+            from .potential_gate import problems as potential
+            p += potential(it, ch, meta, brain_fn=brain_fn)
+        except Exception as e:  # noqa: BLE001 - not judged = not passed
+            p.append(f"potential: not judged yet (the judge could not run: {type(e).__name__}); it tries again")
     return list(dict.fromkeys(p))
 
 
@@ -232,8 +244,10 @@ def verify(it: dict, platform: str | None = None, quality: bool = True, _base: l
 
 
 def fixable_by_remake(problems: list[str]) -> bool:
-    """Only quality findings: a remake with the notes can fix them."""
-    return bool(problems) and all(x.startswith(QUALITY) for x in problems)
+    """Only quality/potential findings that a remake with the notes can fix (not "not judged yet" or a check that
+    could not run: those clear by themselves on the next tick)."""
+    return bool(problems) and all(x.startswith((QUALITY, "potential")) and "not judged yet" not in x
+                                  and "could not run" not in x for x in problems)
 
 
 def summary(problems: list[str]) -> str:

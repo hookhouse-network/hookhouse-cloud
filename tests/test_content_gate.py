@@ -22,6 +22,7 @@ def story(tmp_path, monkeypatch):
     monkeypatch.setattr("engine.reach_gate.probe", lambda v: dict(GOOD_PROBE))
     monkeypatch.setattr("engine.media.ffmpeg.duration", lambda v: 40.0)
     monkeypatch.setattr("engine.quality.check_video", lambda c, v, m, f: {"score": 100, "issues": []})
+    monkeypatch.setattr("engine.potential_gate.problems", lambda *a, **k: [])     # tested in test_potential_gate
     it = {"id": "s1", "channel": "unsolved_after_dark", "kind": "short", "out_dir": str(out), "file": "video.mp4",
           "publish_at": "2099-01-05T10:00:00+05:30",
           "made_at": 5.0}
@@ -186,3 +187,12 @@ def test_register_footage_needs_evidence(clip):
 def test_the_campaign_gate_problems_come_through(clip, monkeypatch):
     monkeypatch.setattr("engine.campaign_gate.gate_item", lambda it, brain_fn=None: ["caption is missing @brand"])
     assert "caption is missing @brand" in clip_gate.verify(clip["it"], ch=clip["ch"])
+
+
+def test_potential_is_part_of_100(story, monkeypatch):
+    monkeypatch.setattr("engine.potential_gate.problems",
+                        lambda *a, **k: ["potential: below 9/10 on hook 7. Fix: open on the payoff"])
+    probs = cg.verify(story["it"])
+    assert probs == ["potential: below 9/10 on hook 7. Fix: open on the payoff"] and cg.fixable_by_remake(probs)
+    monkeypatch.setattr("engine.potential_gate.problems", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("x")))
+    assert any("not judged yet" in p for p in cg.verify(story["it"]))

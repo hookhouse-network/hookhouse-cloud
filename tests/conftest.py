@@ -111,6 +111,11 @@ def _gates_open_unless_tested(request, monkeypatch):
     """Most tests post 1-byte fake videos through upload_item/ask to test other things; the content gate would
     (rightly) block every one. Tests marked real_gates, and the gate test modules, keep the real gates."""
     mod = request.module.__name__
+    if mod.endswith("test_potential_gate"):
+        return
+    import engine.topic_proof as tp                       # never a real YouTube search from a test
+    monkeypatch.setattr(tp, "measure", lambda *a, **k: None)
+    monkeypatch.setattr(tp, "FILE", Path(str(request.getfixturevalue("tmp_path"))) / "topic_proof_test.json")
     if request.node.get_closest_marker("real_gates") or mod.endswith(("test_content_gate", "test_clip_gate",
                                                                      "test_auto_approve")):
         return

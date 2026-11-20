@@ -351,6 +351,18 @@ def pick_topics(brain, ch: dict, n: int, memory=None, hints: list[str] | None = 
                 log(f"Topic dropped ({', '.join(flags)}): {t.get('topic')}")
                 dropped.append(t["topic"])
                 continue
+            if ch.get("type") == "story":               # 20 Nov: proof of demand now (engine/topic_proof.py)
+                try:
+                    from .topic_proof import evidence_text, proof
+                    pr = proof(str(t["topic"]), ch, log=log)
+                except Exception as e:  # noqa: BLE001 - unmeasured topics are kept (the potential gate judges)
+                    log(f"topic proof skipped: {type(e).__name__}: {e}")
+                    pr = {"tier": "unknown"}
+                t["demand"] = evidence_text(pr) if pr.get("tier") != "unknown" else ""
+                if attempt == 0 and pr.get("tier") in ("cold", "none"):
+                    log(f"Topic dropped ({t['demand'][:90]}): {t.get('topic')}")
+                    dropped.append(f"{t['topic']} ({pr.get('tier')} demand: nobody is watching it now)")
+                    continue
             if t["topic"] not in [x["topic"] for x in topics]:
                 topics.append(t)
         if len(topics) >= n or not dropped:
@@ -453,6 +465,7 @@ def plan_week(brain, start: date | None = None, only: list[str] | None = None, m
                 "kind": kind, "publish_at": when.isoformat(),
                 "topic": t.get("topic"), "angle": t.get("angle"), "why": t.get("why"),
                 "role": t.get("role"), "hub": t.get("hub"), "feeling": t.get("feeling"), "now_hook": t.get("now_hook"),
+                "demand": t.get("demand") or None,
                 "status": "planned" if kind_type in BUILDABLE else "not_built",
                 "out_dir": None, "file": None, "error": None, "note": None, "log": None})
     plan = {"start": start.isoformat(), "created": time.time(),

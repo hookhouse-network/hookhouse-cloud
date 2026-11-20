@@ -21,6 +21,15 @@ from ..config import ROOT
 from . import media, state
 from .store import Store
 
+import threading
+
+# 20 Nov (owner: "our system must not crash or fail by any means"): GitHub kills a tick at timeout-minutes (30, see
+# .github/workflows/tick.yml) WITHOUT running the final save, so everything the run did (posts in the publish log,
+# decisions, queue jobs) would be lost and the next run could post again. The guard saves first, then ends the run
+# cleanly. 22 min leaves room for the job's setup steps and the save's own retries.
+TICK_DEADLINE_S = float(os.environ.get("TICK_DEADLINE_S", str(22 * 60)))
+SLOW_STEP_S = 300.0
+_SAVE_LOCK = threading.Lock()
 CLAIM_H = 5                                      # a PC claim older than this is treated as abandoned
 OVERDUE_D = 3                                    # a missed video is still made up to 3 days after its slot
 CLOUD_KINDS = {"short", "clip"}                  # long videos are too heavy for the free 2-core cloud machine
@@ -442,12 +451,62 @@ def _live_due() -> bool:
     return True
 
 
+def deadline_guard(store, log=_log, deadline_s: float | None = None, exit_fn=None, push=None):
+    """Start the deadline timer; returns it (cancel() it before the normal save)."""
+    secs = TICK_DEADLINE_S if deadline_s is None else deadline_s
+
+    def fire():
+        if not _SAVE_LOCK.acquire(timeout=5):          # the normal save is already running: let it finish
+            return
+        try:
+            log(f"deadline: {secs:.0f}s reached; saving the state before GitHub stops this run")
+            try:
+                from ..core import ledger
+                ledger.event("tick.deadline", data={"after_s": secs})
+                from .. import heal
+                heal.report("tick", f"a cloud run hit the {secs:.0f}s deadline (a step is too slow or hung)")
+            except Exception as e:  # noqa: BLE001 - the save matters more than the report
+                log(f"deadline report: {type(e).__name__}: {e}")
+            kb = (push or state.push)(store) // 1024
+            log(f"state saved at the deadline ({kb} KB)")
+        except Exception as e:  # noqa: BLE001
+            log(f"deadline save failed: {type(e).__name__}: {e}")
+        finally:
+            (exit_fn or os._exit)(0)
+    t = threading.Timer(secs, fire)
+    t.daemon = True
+    t.start()
+    return t
+
+
+def _run_steps(steps, log, errors: dict | None = None) -> None:
+    """Each step isolated (one failure never stops the others) and timed (slow steps show in the log/ledger)."""
+    for name, fn in steps:
+        t0 = time.time()
+        try:
+            fn()
+        except Exception as e:  # noqa: BLE001 - one failing step must not stop the others
+            log(f"{name}: {type(e).__name__}: {e}")
+            if errors is not None:
+                errors[name] = redact(f"{type(e).__name__}: {e}")
+            traceback.print_exc()
+        dur = time.time() - t0
+        if dur > SLOW_STEP_S:
+            log(f"{name}: slow step ({dur:.0f}s)")
+            try:
+                from ..core import ledger
+                ledger.event("step.slow", data={"step": name, "seconds": round(dur)})
+            except Exception as e:  # noqa: BLE001
+                log(f"ledger: {type(e).__name__}: {e}")
+
+
 def tick(log=_log, light: bool = False) -> None:
     """light=True (a run started by a Telegram message): only what the owner is waiting for: merge the PC's
     videos, fetch media, handle the inbox, post what is due, save. The scheduled ticks do everything."""
     from .. import autopilot
     store = Store()
     log(f"state: {state.pull(store)} files")
+    guard = deadline_guard(store, log)
     try:                                                   # a login made on the PC in a coding session (18 Nov)
         state.merge_secrets(store, log=log)
     except Exception as e:  # noqa: BLE001
@@ -460,14 +519,11 @@ def tick(log=_log, light: bool = False) -> None:
                  ("buttons", lambda: _dash_buttons(kv, log)),     # dashboard taps (Worker /cmd)
                  ("campaigns", lambda: _campaign_footage(store, log)),
                  ("post", lambda: autopilot._post_due(log))]
-        for name, fn in steps:
-            try:
-                fn()
-            except Exception as e:  # noqa: BLE001
-                log(f"{name}: {type(e).__name__}: {e}")
-                traceback.print_exc()
-        snapshot(kv, log)
-        log(f"state saved ({state.push(store) // 1024} KB)")
+        _run_steps(steps, log)
+        guard.cancel()
+        with _SAVE_LOCK:
+            snapshot(kv, log)
+            log(f"state saved ({state.push(store) // 1024} KB)")
         return
     steps = [("recover", lambda: autopilot.recover(log)),
              ("books", books.pull_cloud_copy),             # the PC's latest KDP statuses for /books + dashboard
@@ -497,13 +553,7 @@ def tick(log=_log, light: bool = False) -> None:
              # 19 Nov: the live dashboard (page + review-player previews) is the cloud's job again after the outage
              ("dashboard", lambda: __import__("engine.pc_fallback", fromlist=["x"]).publish_dashboard(kv, log))]
     errors: dict[str, str] = {}
-    for name, fn in steps:
-        try:
-            fn()
-        except Exception as e:  # noqa: BLE001 - one failing step must not stop the others
-            log(f"{name}: {type(e).__name__}: {e}")
-            errors[name] = redact(f"{type(e).__name__}: {e}")
-            traceback.print_exc()
+    _run_steps(steps, log, errors)
     try:                                                   # 17 Nov: nothing may break silently again
         from .. import watchdog
         watchdog.record_steps(errors, [n for n, _ in steps])
@@ -515,8 +565,10 @@ def tick(log=_log, light: bool = False) -> None:
         heal.notify_due()
     except Exception as e:  # noqa: BLE001
         log(f"heal: {type(e).__name__}: {e}")
-    snapshot(kv, log)
-    log(f"state saved ({state.push(store) // 1024} KB)")
+    guard.cancel()
+    with _SAVE_LOCK:
+        snapshot(kv, log)
+        log(f"state saved ({state.push(store) // 1024} KB)")
 
 
 def _inbox_between(store, log=_log) -> int:
