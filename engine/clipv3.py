@@ -533,6 +533,11 @@ def hook_text(text: str, size: int = 72, max_w: int = 860) -> np.ndarray:   # po
                        shadow=6)            # research variant B: no box, white text, 5 px black outline
 
 
+def _mute_af(spans, start: float) -> str:
+    from .profanity import mute_filter
+    return mute_filter([tuple(x) for x in spans], offset=start)
+
+
 def headline_box(text: str, size: int = 68, width: int = OUT_W, max_lines: int = 3) -> np.ndarray:
     """Streamer-clip headline (20 Nov, the campaign's best Dasgas Shorts: 9K views): black bold text on a full-width
     white band at the seam between webcam and game, on screen for the WHOLE clip. BGRA."""
@@ -773,7 +778,8 @@ def render_clip_v3(video: Path, moment: dict, words: list, out_path: Path, style
     # audio: cut the same segments, high-pass, then two-pass loudness
     raw = work / "audio_src.wav"
     ffmpeg.run(["-ss", f"{start:.3f}", "-t", f"{end - start + 0.5:.3f}", "-i", str(video.resolve()), "-vn",
-                "-ac", "2", "-ar", "48000", str(raw)])
+                "-ac", "2", "-ar", "48000"]
+               + (["-af", _mute_af(moment.get("mute"), start)] if moment.get("mute") else []) + [str(raw)])
     filt = []
     for k, (a, b) in enumerate(segs):
         ln = b - a

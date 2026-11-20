@@ -733,6 +733,12 @@ def make_clips(brain, source: str, channel: dict, campaign: dict | None = None, 
         else:
             log("Transcribing (Whisper)…")
             words = transcribe(video, language="en")
+    mutes = []
+    if campaign:                                    # 20 Nov: swear words and slurs muted, f*** in captions (brief allows)
+        from . import profanity
+        words, mutes = profanity.clean(words)
+        if mutes:
+            log(f"  {len(mutes)} swear word(s)/slur(s) muted")
     ls = (campaign or {}).get("length_seconds") or {}
     if moments is None and ffmpeg.duration(video) <= SHORT_SOURCE_S:
         full = ffmpeg.duration(video)
@@ -760,6 +766,7 @@ def make_clips(brain, source: str, channel: dict, campaign: dict | None = None, 
         else:
             log("  campaign wants its logo on screen but no logo file could be read: clips are flagged for review")
     for i, m in enumerate(moments, 1):
+        m["mute"] = [(a, b) for a, b in mutes if b > m["start"] and a < m["end"]]
         hook = (m.get("hook_options") or [None])[0]
         path = out_dir / f"clip_{i:02d}.mp4"
         log(f"Clip {i}: {m['start']:.0f}-{m['end']:.0f}s, virality {m.get('virality')}/100 — {hook}")

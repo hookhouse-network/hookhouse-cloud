@@ -600,11 +600,15 @@ def pool_folders() -> set[Path]:
     return {Path(c["out_dir"]).resolve() for entries in s["pool"].values() for c in _live_pool(entries)}
 
 
+GATE_TRIES = 4            # campaign clips: footage tried per slot before giving up (gate holds explicit ones)
+
+
 def _make_clip(plan: dict, item: dict, brain, ch: dict, memory, log) -> tuple[str, str]:
     """One source video gives many clips; each clip slot of the channel takes the next best one."""
     s = clip_state()
     pool = _live_pool(s["pool"].get(ch["id"], []))
-    if not pool:
+    tries = 0
+    while not pool:
         src = next_source(ch["id"], s["used"])
         if not src:
             raise NeedsSource("No clip footage left for this channel. Send /source <link> in Telegram or add a "
@@ -625,9 +629,19 @@ def _make_clip(plan: dict, item: dict, brain, ch: dict, memory, log) -> tuple[st
         s["used"].append(src["source"])
         save_clip_state(s)
         remember_used_on_pc(src["source"])
+        tries += 1
+        # 20 Nov: a campaign clip the gate stops (explicit language, wrong length ...) is useless; the slot tries the
+        # next footage instead of handing the owner a held clip (Dom's stream clips are often explicit)
+        good = [m for m in metas if not campaign or not (m.get("gate") or {}).get("problems")]
+        if campaign and not good:
+            log(f"   footage held by the campaign gate, trying the next clip ({tries}/{GATE_TRIES})")
+            if tries >= GATE_TRIES:
+                raise RuntimeError(f"{tries} footage clips in a row were held by the campaign gate")
+            s = clip_state()
+            continue
         item["clip_source"] = src["source"]                      # the PC's done marker reports it to the cloud
         asset = f"{item.get('id', 'clip')}.zip"                   # the cloud runner uploads this folder under the item's name
-        pool = [{"out_dir": str(out), "file": m["file"], "at": time.time(), "asset": asset} for m in metas]
+        pool = [{"out_dir": str(out), "file": m["file"], "at": time.time(), "asset": asset} for m in good]
         if not pool:
             raise RuntimeError("The footage gave no usable clips")
     while pool:

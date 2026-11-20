@@ -227,3 +227,40 @@ def test_headline_band_is_white_with_dark_text():
     img = clipv3.headline_box("GTA 6 gas was too expensive for Dasgas Dom... so he robbed the store")
     assert img.shape[1] == clipv3.OUT_W and img.shape[2] == 4 and img[2, 2, :3].tolist() == [255, 255, 255]
     assert (img[..., :3] < 60).any()                       # black text drawn
+
+
+def test_held_clip_makes_the_slot_try_the_next_footage(tmp_path, monkeypatch):
+    """20 Nov: Dom's clips are often explicit; a gate-held clip must not fill the slot, the next footage is tried."""
+    monkeypatch.setattr(weekly, "CLIP_STATE", tmp_path / "pool.json")
+    monkeypatch.setattr(weekly, "PC_CLIP_USED", tmp_path / "pc_used.json")
+    src = tmp_path / "sources.txt"
+    monkeypatch.setattr(weekly, "CLIP_SOURCES", src)
+    src.write_text("asset:a.mp4 camp channel=stream_clips\nasset:b.mp4 camp channel=stream_clips\n", encoding="utf-8")
+    from engine import clips, db
+    monkeypatch.setattr(db, "get_campaign", lambda conn, cid: {"id": cid})
+    monkeypatch.setattr(db, "connect", lambda *a: None)
+    made = []
+
+    def fake(brain, source, ch, campaign=None, **k):
+        made.append(source)
+        held = {"problems": ["breaks the rule (explicit)"]} if source.endswith("a.mp4") else {"problems": []}
+        return tmp_path, [{"file": "clip_01.mp4", "gate": held}]
+    monkeypatch.setattr(clips, "make_clips", fake)
+    monkeypatch.setattr(weekly, "_pool_local", lambda clip: clip["out_dir"])
+    item = {"id": "s1"}
+    out, f = weekly._make_clip({}, item, None, {"id": "stream_clips"}, None, lambda *a: None)
+    assert made == ["asset:a.mp4", "asset:b.mp4"] and item["clip_source"] == "asset:b.mp4" and f == "clip_01.mp4"
+    assert "asset:a.mp4" in weekly.clip_state()["used"]           # the explicit footage is never cut again
+
+
+def test_swear_words_and_slurs_are_muted_and_starred():
+    """20 Nov: every Dom clip was held for profanity/slurs; the brief allows muting ("cut, mute or blur")."""
+    from engine import profanity
+    from engine.media.captions import Word
+    ws = [Word("What", 0, .3), Word("the", .3, .5), Word("fuck,", .5, .9), Word("bro", .9, 1.2),
+          Word("nigga", 1.2, 1.6), Word("damn", 2, 2.3), Word("Shit!", 3, 3.4), Word("assume", 4, 4.5)]
+    out, spans = profanity.clean(ws)
+    assert [w.text for w in out] == ["What", "the", "f***,", "bro", "n****", "damn", "S***!", "assume"]
+    assert len(spans) == 3 and spans[0][0] < .5 and spans[0][1] > .9          # padded; 'damn' and 'assume' kept
+    af = profanity.mute_filter(spans, offset=0.4)
+    assert af.count("volume=0") == 3 and "between(t,0.060," in af               # relative to the cut's start
