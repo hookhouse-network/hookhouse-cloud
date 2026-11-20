@@ -66,9 +66,25 @@ def install(conn: sqlite3.Connection) -> None:
     if backend() == "dual":
         for s in SHADOW_SQL:
             conn.execute(s)
+        conn.execute("CREATE TABLE IF NOT EXISTS _shadow_meta (k TEXT PRIMARY KEY, v TEXT)")
+        if not conn.execute("SELECT 1 FROM _shadow_meta WHERE k='backfilled'").fetchone():
+            backfill(conn)                          # one-time: rows written before dual mode go out too
+            conn.execute("INSERT INTO _shadow_meta(k,v) VALUES ('backfilled', datetime('now'))")
     else:
         for s in DROP_SQL:
             conn.execute(s)
+        if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='_shadow_meta'").fetchone():
+            conn.execute("DELETE FROM _shadow_meta WHERE k='backfilled'")   # switched on again later: backfill again
+
+
+def backfill(conn: sqlite3.Connection) -> int:
+    """Queue every existing row (the shared truth starts empty; the overnight diff must find nothing missing)."""
+    n = 0
+    n += conn.execute("INSERT INTO _shadow(tbl,k) SELECT 'events', json_object('id', id) FROM events").rowcount
+    n += conn.execute("INSERT INTO _shadow(tbl,k) SELECT 'jobs', json_object('id', id) FROM jobs").rowcount
+    n += conn.execute("INSERT INTO _shadow(tbl,k) SELECT 'checkpoints', "
+                      "json_object('item', item, 'stage', stage) FROM checkpoints").rowcount
+    return n
 
 
 def sign(key: str, ts: int, body: str) -> str:

@@ -121,6 +121,23 @@ def test_sqlite_mode_has_no_triggers_so_the_queue_never_grows(tmp_path, monkeypa
     assert not conn.execute("SELECT name FROM sqlite_master WHERE type='trigger'").fetchall()
 
 
+def test_rows_written_before_dual_mode_are_backfilled_once(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEDGER_BACKEND", "sqlite")
+    lg = Ledger(tmp_path / "l.db")
+    lg.event("old", item="v0")
+    lg.enqueue("post", "old:yt")
+    monkeypatch.setenv("LEDGER_BACKEND", "dual")
+    monkeypatch.setattr(d1, "_last_flush", 10 ** 12)
+    lg.event("new", item="v1")                                      # first dual connect: backfill + new row
+    fake = FakeDO()
+    client = d1.Client(url="https://x", key="k" * 32, transport=fake)
+    conn = sqlite3.connect(tmp_path / "l.db", isolation_level=None)
+    d1.flush(conn, client)
+    assert d1.diff(conn, client)["clean"]
+    lg.event("later")                                               # no second backfill
+    assert d1.pending(conn) == 1
+
+
 def test_signature_matches_the_worker_format():
     # worker: hmacHex(HH_API_KEY, `${ts}.${body}`) -> lowercase hex SHA-256 HMAC
     import hashlib
