@@ -265,3 +265,15 @@ def test_music_switches_to_a_stronger_track_at_the_climax():
     after = out[int(6.3 * sr):]
     assert np.allclose(after, after) and np.sqrt(np.mean(after ** 2)) > 0.2   # the new track, a touch louder
     assert music_library.climax_mood("mystery") == "suspense" and music_library.climax_mood("kids") is None
+
+
+def test_campaign_clip_slots_go_first_even_without_pictures(monkeypatch):
+    """20 Nov (owner: "make the first GTA clips now"): clip slots jump the queue and need no free pictures."""
+    its = [_it("d1", "deep_blue_files", 5), _it("s1", "stream_clips", 20), _it("s2", "stream_clips", 22)]
+    _setup(monkeypatch, its)
+    monkeypatch.setattr(runner, "_clip_slot", lambda it: it["channel"] == "stream_clips")
+    monkeypatch.setattr(runner, "_storyboarded", lambda cid: True)
+    assert [it["id"] for _, it in runner._due_to_make(None, set())][:2] == ["s1", "s2"]
+    from engine import storyboard
+    monkeypatch.setattr(storyboard, "images_blocked", lambda: True)
+    assert [it["id"] for _, it in runner._due_to_make(None, set())] == ["s1", "s2"]   # pictures out: clips still made

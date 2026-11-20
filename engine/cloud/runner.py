@@ -326,21 +326,27 @@ def _due_to_make(kinds: set | None, skip: set, connected_only: bool = False) -> 
             continue
         if (it.get("retry_at") or 0) > time.time() or (it.get("attempts") or 0) >= 3:
             continue
-        if pictures_out and it.get("kind") in ("short", "long", "story") and _storyboarded(it["channel"]):
+        if pictures_out and it.get("kind") in ("short", "long", "story") and _storyboarded(it["channel"]) \
+                and not _clip_slot(it):
             continue                                       # no free pictures left today: wait, never word cards
+            # (a clip slot cuts campaign footage and needs no pictures, 20 Nov)
         due.append((s, it))
     def live(it: dict) -> bool:                           # a connected account can actually post it
         c = autopilot._connected(it["channel"])
         return c["youtube"] or c["meta"]
     # owner, 14 Nov: 3 of 14 channels connected; the free cloud makes ~1-2 a day, so connected channels go first
-    due.sort(key=lambda x: (x[1]["status"] != "redo", not live(x[1]), recent.get(x[1]["channel"], 0),
-                            x[1]["publish_at"]))
+    # 20 Nov (owner: "clipping is our main agenda", "make the first GTA clips now"): a connected channel's campaign
+    # clip slot goes first; campaigns pay only while they run and their footage goes stale in days
+    clip_first = {d[1]["id"] for d in due if live(d[1]) and _clip_slot(d[1])}
+    due.sort(key=lambda x: (x[1]["status"] != "redo", x[1]["id"] not in clip_first, not live(x[1]),
+                            recent.get(x[1]["channel"], 0), x[1]["publish_at"]))
+    clips = [d for d in due if d[1]["id"] in clip_first]
     seen, fair = set(), []                                 # one per channel first, then the rest
     for d in due:
-        if d[1]["channel"] not in seen:
+        if d[1]["id"] not in clip_first and d[1]["channel"] not in seen:
             seen.add(d[1]["channel"])
             fair.append(d)
-    due = fair + [d for d in due if d not in fair]
+    due = clips + fair + [d for d in due if d not in fair and d not in clips]
     if connected_only:
         due = [d for d in due if live(d[1])]
     return due
@@ -358,6 +364,16 @@ def _cloud_long(it: dict, kinds: set | None) -> bool:
     try:
         return channel(it["channel"]).get("type") in CLOUD_LONG_TYPES
     except Exception:  # noqa: BLE001
+        return False
+
+
+def _clip_slot(it: dict) -> bool:
+    from .. import weekly
+    from ..config import channel
+    try:
+        return weekly.clip_slot(channel(it["channel"]), it)
+    except Exception as e:  # noqa: BLE001 - a broken clip check never stops the queue
+        _log(f"clip slot check {it.get('id')}: {type(e).__name__}: {e}")
         return False
 
 
