@@ -368,6 +368,30 @@ def test_whole_kick_download_has_a_wall_clock_limit(tmp_path, monkeypatch):
     assert time.time() - t0 < 5
 
 
+def test_campaign_judge_is_told_starred_words_are_muted():
+    """20 Nov: muted + starred swear words made the judge hold every Dasgas clip as 'explicit profanity'."""
+    from engine import campaign_gate
+
+    class Reply:
+        def __init__(self, data):
+            self.data = data
+
+        def json(self):
+            return self.data
+
+    class Judge:
+        prompt = ""
+
+        def ask(self, task, prompt, temperature=0.0):
+            Judge.prompt = prompt
+            return Reply([{"rule": 1, "result": "pass", "why": ""}])
+    rule = ["Keep Dom's face or voice; no explicit material"]
+    assert campaign_gate._soft_check(Judge(), rule, "Dom robs the store", "what the f*** bro") == []
+    assert "MUTED in the audio" in Judge.prompt
+    campaign_gate._soft_check(Judge(), rule, "Dom robs the store", "what a run bro")
+    assert "MUTED" not in Judge.prompt                     # no stars, no note
+
+
 def test_swear_words_and_slurs_are_muted_and_starred():
     """20 Nov: every Dom clip was held for profanity/slurs; the brief allows muting ("cut, mute or blur")."""
     from engine import profanity

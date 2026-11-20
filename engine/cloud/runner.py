@@ -708,6 +708,10 @@ def _one_helper(port: int = 47614) -> bool:
     return True
 
 
+class _SkipClaim(Exception):
+    """This helper loop takes no new work (for example the disk is low); it waits and tries again."""
+
+
 def helper(once: bool = False, every_s: int = 300, log=_log, videos_only: bool = False) -> None:
     """The PC as helper: whenever it is on, make the next unclaimed videos (any length) and hand them to the cloud.
     videos_only (owner 19 Nov, option A: "start making videos now"): the PC only makes videos; posting, Telegram,
@@ -753,7 +757,8 @@ def helper(once: bool = False, every_s: int = 300, log=_log, videos_only: bool =
             store = Store()
             try:
                 from .. import cr_footage, watchdog
-                watchdog.helper_heartbeat(store, cr_footage.chrome_up())
+                from . import pc_outbox
+                watchdog.helper_heartbeat(store, cr_footage.chrome_up(), alerts=pc_outbox.alerts())
             except Exception as e:  # noqa: BLE001
                 log(f"heartbeat: {e}")
             state.pull(store)                              # read-only copy of the cloud's plan
@@ -771,7 +776,12 @@ def helper(once: bool = False, every_s: int = 300, log=_log, videos_only: bool =
                 cr_footage.recover_sources(store, log)
             except Exception as e:  # noqa: BLE001
                 log(f"kick footage: {e}")
-            taken = set(claims(store))
+            from . import pc_outbox                        # P0 4b: finished videos waiting for their upload
+            if pc_outbox.flush(store, log):
+                _wake_cloud(log)
+            if not pc_outbox.disk_ok(log):                 # P0 4c: no new work on a full disk
+                raise _SkipClaim("disk low")
+            taken = set(claims(store)) | {r["id"] for r in pc_outbox.pending()}
             # clips stay in the cloud: their spare-clip pool lives in the cloud memory, which the PC only reads
             due = [(s, it) for s, it in _due_to_make(None, taken) if it["status"] != "making" and it.get("kind") != "clip"]
             if due:
@@ -780,22 +790,24 @@ def helper(once: bool = False, every_s: int = 300, log=_log, videos_only: bool =
                 log(f"making {it.get('channel_name')} {it.get('kind')}")
                 item = make_one(start, it, log)
                 folder = Path(item["out_dir"])
-                media.upload(store, item["id"], folder)
                 try:
                     from ..training_data import _scripts
                     training = _scripts().get(item["id"])
-                except Exception:  # noqa: BLE001
+                except Exception as e:  # noqa: BLE001 - the video still goes up without its training record
+                    log(f"training record: {type(e).__name__}: {e}")
                     training = None
-                store.put(media.TAG, f"done-{item['id']}.json", json.dumps({
+                pc_outbox.add(item["id"], folder, {    # saved before the upload: a failed upload never means a remake
                     "id": item["id"], "start": start, "out_rel": media.rel_out(folder), "file": item.get("file"),
                     "topic": item.get("topic"), "angle": item.get("angle"), "made_at": time.time(),
                     "feeling": item.get("feeling"), "now_hook": item.get("now_hook"),
                     "planned_topic": item.get("planned_topic"), "training": training,
                     "clip_source": item.get("clip_source"), "clip_skipped": item.get("clip_skipped"),
-                    "made_as": item.get("made_as")},
-                    ensure_ascii=False).encode())
-                _wake_cloud(log)
+                    "made_as": item.get("made_as")})
+                if pc_outbox.flush(store, log):
+                    _wake_cloud(log)
                 continue                                   # straight to the next one while the PC is on
+        except _SkipClaim as e:
+            log(f"helper: no new work this round ({e})")
         except KeyboardInterrupt:
             raise
         except Exception as e:  # noqa: BLE001 - the helper must keep going

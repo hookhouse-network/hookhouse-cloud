@@ -109,13 +109,24 @@ def fix_caption(caption: str, campaign: dict) -> str:
     return caption
 
 
+STARRED = re.compile(r"\b\w\*{2,}")
+# 20 Nov: engine/profanity.py mutes swear words in the audio and stars them in the captions (briefs allow "cut, mute
+# or blur"). The judge saw "f***" and held every Dasgas clip as "explicit". The words are gone from what viewers hear;
+# the judge still fails real breaches (slurs left in, violence, sexual content).
+STARRED_NOTE = ("NOTE: words written with asterisks (like f***) are MUTED in the audio and starred on screen, so "
+                "viewers neither hear nor read them. Treat them as removed, not as explicit language. Judge "
+                "everything else as usual.\n\n")
+
+
 def _soft_check(brain, rules_: list[str], caption: str, transcript: str) -> list[str]:
     """AI judge for rules that need reading. Returns problems; raises if no answer (the clip then waits)."""
     if not rules_:
         return []
     prompt = (
         "You check a short video post against a brand campaign's rules before it is sent for approval.\n"
-        f"CAPTION:\n{caption[:1500]}\n\nWHAT IS SAID IN THE CLIP:\n{transcript[:2500]}\n\nRULES:\n"
+        f"CAPTION:\n{caption[:1500]}\n\nWHAT IS SAID IN THE CLIP:\n{transcript[:2500]}\n\n"
+        + (STARRED_NOTE if STARRED.search(f"{caption} {transcript}") else "")
+        + "RULES:\n"
         + "\n".join(f"{i + 1}. {r}" for i, r in enumerate(rules_))
         + "\n\nFor each rule answer pass, fail, or na (the rule is about something other than this caption/clip, e.g. "
           "how often to post). Fail only on a real breach. Reply JSON only: "

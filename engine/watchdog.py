@@ -52,10 +52,12 @@ def record_steps(errors: dict[str, str], all_steps: list[str]) -> None:
     _save(s)
 
 
-def helper_heartbeat(store, chrome: bool, doing: str = "") -> None:
-    """PC helper, every loop: alive + whether its Chrome is open."""
+def helper_heartbeat(store, chrome: bool, doing: str = "", alerts: dict | None = None) -> None:
+    """PC helper, every loop: alive + whether its Chrome is open + its own alerts (stuck uploads, low disk: plan P0
+    4b/4c). The PC never messages the owner itself; the cloud watchdog does."""
     from .cloud import media
-    store.put(media.TAG, HELPER_ASSET, json.dumps({"at": time.time(), "chrome": chrome, "doing": doing}).encode())
+    store.put(media.TAG, HELPER_ASSET, json.dumps({"at": time.time(), "chrome": chrome, "doing": doing,
+                                                   "alerts": alerts or {}}, ensure_ascii=False).encode())
 
 
 # ---------------- checks ----------------
@@ -81,6 +83,9 @@ def problems(store=None, now: float | None = None) -> dict[str, str]:
         elif not hb.get("chrome"):
             out["chrome"] = ("The HookHouse Chrome window on the PC is closed, so I can't see your campaign joins or "
                              "post pins. Fix: double-click scripts\\chrome.cmd on the PC (don't close that window).")
+        if hb is not None and now - float(hb.get("at") or 0) <= HELPER_LATE_H * 3600:
+            for k, text in (hb.get("alerts") or {}).items():
+                out[f"pc:{k}"] = str(text)
     out.update(_campaigns_waiting(now))
     out.update(_videos(now))
     return out
