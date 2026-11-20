@@ -21,6 +21,9 @@ import time
 from .config import ROOT
 
 PICKED = ROOT / "config" / "campaigns_picked.yaml"
+# Marketplaces whose Join page we automate (host suffix -> script). Phase 7 adds vyro.com, clipping.net and others,
+# each with its own join / footage / submit / payout adapter.
+JOIN_ADAPTERS = {"contentrewards.com": "scripts.cr_join_check:one"}
 
 
 def _update_picked(cid: str, status: str, note: str) -> None:
@@ -52,6 +55,11 @@ def join(cid: str, consent_by: str = "owner", conn=None, runner=None, log=print)
         return f"🛑 Not joined: footage {fv}: {fwhy}."
     if not c.get("url"):
         return "🛑 Not joined: the campaign has no page link."
+    from urllib.parse import urlparse
+    host = (urlparse(str(c["url"])).hostname or "").lower()
+    if runner is None and not host.endswith(tuple(JOIN_ADAPTERS)):    # never run one site's script on another
+        return (f"🛑 Not joined: automatic joining on {host or 'this site'} isn't built yet (plan Phase 7 adds "
+                f"Vyro / Clipping.net / other marketplaces). Nothing was clicked.")
     ledger.event("campaign.join_consent", data={"campaign": cid, "by": consent_by, "at": time.time()})
     if runner is None:
         from scripts.cr_join_check import one as runner

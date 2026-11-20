@@ -135,3 +135,6 @@ def test_join_through_our_system_checks_footage_and_records_consent(tmp_path, mo
     async def boom(url):
         raise RuntimeError("no chrome")
     assert "Join failed" in cj.join("k1", conn=conn, runner=boom)
+    from engine import db
+    db.save_campaign(conn, {"id": "v1", "name": "Vyro one", "kick": "s", "url": "https://vyro.com/c/1"})
+    assert "isn't built yet" in cj.join("v1", conn=conn)                   # never the CR script on a Vyro page
