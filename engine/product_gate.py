@@ -91,8 +91,16 @@ def verify(pid: str, store: str = "payhip", folder: Path | None = None, listed: 
         size = f.stat().st_size
         if size < 10 * 1024 or size > max_mb * 1024 ** 2:
             p.append(f"{f.name} is {size / 1024 / 1024:.1f} MB (allowed 10 KB - {max_mb:g} MB)")
-        if f.suffix.lower() == ".pdf":
-            p += pdf_problems(f, meta.get("pages") if len(files) == 1 else None)
+        if f.suffix.lower() == ".pdf":                 # an A4 twin has the same pages as its Letter file
+            p += pdf_problems(f, meta.get("pages") if len([x for x in files if not x.name.endswith("_A4.pdf")]) == 1
+                              else None)
+    try:                                               # Phase 6: buyers outside the US print on A4
+        from .page_sizes import missing_a4
+        gaps = missing_a4(d)
+        if gaps:
+            p.append("US Letter only (no A4 version): " + ", ".join(gaps))
+    except Exception as e:  # noqa: BLE001 - fail closed
+        p.append(f"page size check could not run ({type(e).__name__})")
     cap = int(tspec.get("max_pages") or 0)
     if cap and int(meta.get("pages") or 0) > cap:
         p.append(f"{meta.get('pages')} pages: a {tname} product is focused, at most {cap} pages")

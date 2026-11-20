@@ -29,3 +29,4 @@ qrcode                  # book bonus page QR code, BSD
 holidays                # US + India holidays and festivals for the planner, MIT
 pytest
 websockets              # DevTools: the logged-in cloud Chrome (campaign pages, Frame.io)
+pypdf                   # A4 versions of the Letter printables + product gate page checks, BSD

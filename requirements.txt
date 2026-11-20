@@ -20,3 +20,4 @@ qrcode                  # QR codes in our books (BSD)
 gradio_client>=1.3,<2      # storyboard pictures: Hugging Face FLUX.1-schnell Space when Cloudflare's daily quota ends
 huggingface-hub>=0.34,<1.0 # transformers 4.x needs hub < 1.0 (gradio_client 2.x pulled hub 2.x and broke it)
 pyshp                   # book maps (US Census / Natural Earth outlines), MIT
+pypdf                   # A4 versions of the Letter printables + product gate page checks, BSD
