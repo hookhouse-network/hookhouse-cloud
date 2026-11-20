@@ -533,6 +533,34 @@ def hook_text(text: str, size: int = 72, max_w: int = 860) -> np.ndarray:   # po
                        shadow=6)            # research variant B: no box, white text, 5 px black outline
 
 
+def headline_box(text: str, size: int = 68, width: int = OUT_W, max_lines: int = 3) -> np.ndarray:
+    """Streamer-clip headline (20 Nov, the campaign's best Dasgas Shorts: 9K views): black bold text on a full-width
+    white band at the seam between webcam and game, on screen for the WHOLE clip. BGRA."""
+    words, pad = text.split(), 34
+    while True:
+        font = _font(size)
+        rows, cur = [], ""
+        for w_ in words:
+            t = f"{cur} {w_}".strip()
+            if font.getlength(t) <= width - 2 * pad or not cur:
+                cur = t
+            else:
+                rows.append(cur)
+                cur = w_
+        rows.append(cur)
+        if len(rows) <= max_lines or size <= 40:
+            break
+        size -= 4
+    asc, desc = font.getmetrics()
+    line = asc + desc + 4
+    h = line * len(rows) + 2 * 22
+    img = Image.new("RGBA", (width, h), (255, 255, 255, 255))
+    d = ImageDraw.Draw(img)
+    for k, r in enumerate(rows):
+        d.text(((width - font.getlength(r)) / 2, 22 + k * line), r, font=font, fill=(0, 0, 0, 255))
+    return np.ascontiguousarray(np.array(img)[..., [2, 1, 0, 3]])
+
+
 def pill(text: str, size: int = 42) -> np.ndarray:
     font = _font(size)
     w = int(font.getlength(text)) + 40
@@ -575,7 +603,8 @@ def _ass_color(hex_color: str, alpha: int = 0) -> str:
     return f"&H{alpha:02X}{h[4:6]}{h[2:4]}{h[0:2]}".upper()
 
 
-def build_captions(words: list, shots: list[dict], path: Path, accent: str = "#FF6A3D", size: int = 150) -> Path:
+def build_captions(words: list, shots: list[dict], path: Path, accent: str = "#FF6A3D", size: int = 150,
+                   stream_y: int | None = None) -> Path:
     """2-3 word chunks (<= 18 chars), white with 4 px outline, active word in the accent colour,
     92% -> 100% scale-in over 100 ms. Position follows the layout (below the chin / split seam)."""
     merged = []                               # the transcript splits "meet-and-greet" into meet / -and / -greet
@@ -616,7 +645,7 @@ def build_captions(words: list, shots: list[dict], path: Path, accent: str = "#F
             c1 = ch[-1].end + 0.25
         c1 = max(c1, c0 + 0.3)
         shot = next((s for s in shots if s["t0"] <= ch[0].start < s["t1"]), shots[-1])
-        y = {"B": 960, "S": STREAM_CAPTION_Y}.get(shot["layout"], 1150)  # research: ~60% height, below the chin
+        y = {"B": 960, "S": stream_y or STREAM_CAPTION_Y}.get(shot["layout"], 1150)  # research: ~60% height, below the chin
         for wi, wd in enumerate(ch):
             s0 = c0 if wi == 0 else wd.start
             s1 = ch[wi + 1].start if wi + 1 < len(ch) else c1
@@ -713,11 +742,17 @@ def render_clip_v3(video: Path, moment: dict, words: list, out_path: Path, style
     work = out_path.parent / f"{out_path.stem}_work"
     work.mkdir(parents=True, exist_ok=True)
     accent = style.get("accent_color") or "#FF6A3D"
-    build_captions(out_words, shots, work / "captions.ass", accent=accent)
+    # streamer-clip campaigns (20 Nov, owner: "design per the campaign's reference shorts"): a white headline band on
+    # the seam for the whole clip, captions under it, the credit in the webcam's corner, no separate 2.6 s hook
+    head_txt = (moment.get("title") or hook or "") if stream and (campaign or {}).get("headline_box") else ""
+    head_img = headline_box(head_txt) if head_txt else None
+    head_y = CAM_PANE_H - int(head_img.shape[0] * 0.4) if head_img is not None else 0
+    cap_y = head_y + head_img.shape[0] + 90 if head_img is not None else None
+    build_captions(out_words, shots, work / "captions.ass", accent=accent, stream_y=cap_y)
     disclosure = (campaign or {}).get("disclosure_text") or ""
     pill_img = pill(disclosure) if disclosure else None
     logo_img = brand_logo((campaign or {}).get("logo_path"))
-    hook_img = hook_text(hook) if hook else None          # boxless, first seconds only
+    hook_img = hook_text(hook) if hook and head_img is None else None   # boxless, first seconds only
     handle = (campaign or {}).get("onscreen_tag") or ""
     handle_img = None
     if handle:
@@ -827,11 +862,16 @@ def render_clip_v3(video: Path, moment: dict, words: list, out_path: Path, style
         showing_hook = hook_img is not None and t_out < HOOK_SECONDS
         if showing_hook:
             _blit(out, hook_img, (OUT_W - hook_img.shape[1]) // 2, hook_y)
-        if handle_img is not None:                           # campaign tag: small, top, whole clip (under the hook)
+        if head_img is not None:                             # headline band on the seam, whole clip
+            _blit(out, head_img, 0, head_y)
+        if handle_img is not None and head_img is not None:  # reference layout: credit in the webcam's top-left corner
+            _blit(out, handle_img, 30, 290)
+        elif handle_img is not None:                         # campaign tag: small, top, whole clip (under the hook)
             hy = hook_y + hook_img.shape[0] + 6 if showing_hook else hook_y
             _blit(out, handle_img, (OUT_W - handle_img.shape[1]) // 2, hy)
         if end_img is not None and t_out >= total - END_SECONDS and not showing_hook:
-            _blit(out, end_img, max(0, (OUT_W - end_img.shape[1]) // 2), hook_y + 60)
+            ey = (cap_y + 120) if cap_y else hook_y + 60
+            _blit(out, end_img, max(0, (OUT_W - end_img.shape[1]) // 2), ey)
         proc.stdin.write(out.tobytes())
     proc.stdin.close()
     err = proc.stderr.read().decode("utf-8", "replace")

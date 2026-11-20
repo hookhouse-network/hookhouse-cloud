@@ -468,11 +468,34 @@ Transcript (may be empty or partial):
 {transcript}"""
 
 
+KICK_OUTRO_S = 3.05             # free Kick downloads end with a 3 s card (white flash, then "Clipped by <user>")
+
+
+def content_end(video: Path, dur: float) -> float:
+    """Where the stream picture ends: a Kick download's last 3 s are Kick's own outro card (measured 20 Nov on five
+    downloads: flash at dur-3.0, then 97% black). Detected from the picture, so other sources keep their full length."""
+    try:
+        import cv2
+        cap = cv2.VideoCapture(str(video))
+        cap.set(cv2.CAP_PROP_POS_MSEC, max(0.0, dur - 1.5) * 1000)
+        ok, f = cap.read()
+        cap.release()
+        if ok and (cv2.cvtColor(f, cv2.COLOR_BGR2GRAY) < 25).mean() >= 0.95:
+            return round(max(0.0, dur - KICK_OUTRO_S), 2)
+    except Exception as e:  # noqa: BLE001 - a failed check keeps the whole clip
+        print(f"outro check: {type(e).__name__}: {e}")
+    return dur
+
+
 def whole_clip_moment(brain, words: list[Word], dur: float, campaign: dict | None = None,
                       max_len: float = 58) -> list[dict]:
     """20 Nov: Kick highlights are mostly gameplay; the podcast editor found no 20 s talking moment in them, so the
     first GTA clips failed. A short highlight is posted whole (trimmed to the campaign's max length)."""
     rules = f"- Campaign rules: banned: {campaign.get('banned')}, other: {campaign.get('other_rules')}" if campaign else ""
+    if campaign and campaign.get("hook_ideas"):        # the brief's own title pattern ("Dasgas Dom reacts to ...")
+        rules += ("\n- The title is shown as the headline for the whole clip: follow the brief's pattern, filled with "
+                  f"what really happens: {campaign['hook_ideas']}. Like the campaign's best clip: "
+                  "\"GTA 6 gas was too expensive for Dasgas Dom... so he robbed the store\".")
     data, result = brain.ask_json("editor", WHOLE_PROMPT.format(
         dur=dur, keep=min(dur, max_len), campaign_rules=rules,
         transcript=transcript_text([w for w in words if w.start >= dur - max_len]) if words else "(no speech)"),
@@ -712,7 +735,10 @@ def make_clips(brain, source: str, channel: dict, campaign: dict | None = None, 
             words = transcribe(video, language="en")
     ls = (campaign or {}).get("length_seconds") or {}
     if moments is None and ffmpeg.duration(video) <= SHORT_SOURCE_S:
-        dur = ffmpeg.duration(video)
+        full = ffmpeg.duration(video)
+        dur = content_end(video, full)
+        if dur < full:
+            log(f"  Kick's {full - dur:.1f} s outro card cut (the stream ends at {dur:.1f} s)")
         if dur < (ls.get("min") or 0):
             raise RuntimeError(f"Highlight is {dur:.0f} s, under the campaign's {ls['min']} s minimum")
         log("Short highlight (a streamer's own clip): keeping it whole, writing its hook and title…")

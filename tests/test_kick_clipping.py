@@ -201,3 +201,29 @@ def test_campaign_clip_is_long_enough_and_credited():
     from engine import clipv3
     src = inspect.getsource(clipv3.render_clip_v3)
     assert 'moment.get("whole_clip")' in src and "end_img" in src                  # never tightened; end line drawn
+
+
+def test_kick_outro_card_is_cut(tmp_path):
+    """20 Nov: free Kick downloads end with Kick's 3 s 'Clipped by <user>' card; it must never reach our Short."""
+    import cv2
+    import numpy as np
+    from engine import clips
+    p = tmp_path / "k.mp4"
+    vw = cv2.VideoWriter(str(p), cv2.VideoWriter_fourcc(*"mp4v"), 10, (64, 64))
+    for i in range(100):                                   # 7 s of picture, then 3 s black card
+        vw.write(np.full((64, 64, 3), 140 if i < 70 else 0, np.uint8))
+    vw.release()
+    assert clips.content_end(p, 10.0) == round(10.0 - clips.KICK_OUTRO_S, 2)
+    q = tmp_path / "plain.mp4"
+    vw = cv2.VideoWriter(str(q), cv2.VideoWriter_fourcc(*"mp4v"), 10, (64, 64))
+    for i in range(100):
+        vw.write(np.full((64, 64, 3), 140, np.uint8))
+    vw.release()
+    assert clips.content_end(q, 10.0) == 10.0                # no card: full length
+
+
+def test_headline_band_is_white_with_dark_text():
+    from engine import clipv3
+    img = clipv3.headline_box("GTA 6 gas was too expensive for Dasgas Dom... so he robbed the store")
+    assert img.shape[1] == clipv3.OUT_W and img.shape[2] == 4 and img[2, 2, :3].tolist() == [255, 255, 255]
+    assert (img[..., :3] < 60).any()                       # black text drawn
