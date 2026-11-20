@@ -9,6 +9,7 @@ campaigns:
     url: https://contentrewards.com/c/campaigns/051002dd-5c46-43d0-a446-43f2957ba3a9
     source: contentrewards
     status: joined                   # joined 19 Nov (scripts.cr_join_check)
+    joined: "2026-11-19"             # gate: clips must be made after joining (joined_at)
     account: stream_clips            # the GTA channel (brief: a GTA 6-specific YouTube Shorts / TikTok account)
     platforms: [youtube]             # brief: TikTok or YouTube Shorts only (TikTok is not available in India)
     kick: dasgasd3m

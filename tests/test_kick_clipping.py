@@ -175,3 +175,15 @@ def test_short_kick_highlight_is_kept_whole():
     (m,) = clips.whole_clip_moment(B(), [], 74.0, max_len=58)
     assert (m["start"], m["end"]) == (0.0, 58) and m["whole_clip"] and m["hook_options"] == ["Wait for the price"]
     assert m["title"]
+
+
+def test_config_campaign_speaks_the_gates_language(tmp_path, monkeypatch):
+    """20 Nov: first GTA clip stopped: 'join date unknown; the campaign allows none of our platforms'."""
+    from engine import db
+    _setup(tmp_path, monkeypatch, {"id": "k", "status": "joined", "platforms": ["youtube"], "joined": "2026-11-19"})
+    conn = db.connect(tmp_path / "c.db")
+    cr_footage.ensure_config_campaigns(conn, log=lambda m: None)
+    c = db.get_campaign(conn, "k")
+    assert c["platforms"] == ["youtube_shorts"] and "joined" not in c
+    assert time.strftime("%Y-%m-%d", time.gmtime(c["joined_at"] + 5.5 * 3600)) == "2026-11-19"
+    assert cr_footage.ensure_config_campaigns(conn, log=lambda m: None) == 0          # stable: no rewrite each run

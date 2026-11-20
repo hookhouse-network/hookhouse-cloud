@@ -337,6 +337,20 @@ def config_campaigns() -> list[dict]:
         return []
 
 
+PLATFORM_NAMES = {"youtube": "youtube_shorts", "shorts": "youtube_shorts", "instagram": "instagram_reels",
+                  "reels": "instagram_reels"}
+
+
+def _epoch(v) -> float:
+    """A config date (2026-11-20, a YAML date, or epoch seconds) -> epoch seconds at 00:00 IST that day."""
+    import datetime as dt
+    if isinstance(v, (int, float)):
+        return float(v)
+    d = v if isinstance(v, dt.date) else dt.date.fromisoformat(str(v)[:10])
+    ist = dt.timezone(dt.timedelta(hours=5, minutes=30))
+    return dt.datetime(d.year, d.month, d.day, tzinfo=ist).timestamp()
+
+
 def ensure_config_campaigns(conn=None, log=print) -> int:
     """Cloud tick: owner-picked campaigns (config/campaigns_picked.yaml) into the campaign database. Config fields win
     over older copies; a campaign that ended stays ended."""
@@ -347,6 +361,15 @@ def ensure_config_campaigns(conn=None, log=print) -> int:
             continue
         old = db.get_campaign(conn, c["id"]) or {}
         new = {**old, **c, "status": old.get("status") if old.get("status") == "ended" else c.get("status", "picked")}
+        # 20 Nov: the gate speaks youtube_shorts / instagram_reels and needs joined_at; the first GTA clip was stopped
+        # with "join date unknown; the campaign allows none of our platforms" although the brief allows YouTube
+        new["platforms"] = [PLATFORM_NAMES.get(str(p).lower(), str(p).lower()) for p in c.get("platforms") or []]
+        joined = c.get("joined") or c.get("joined_at")
+        if joined and not old.get("joined_at"):
+            new["joined_at"] = _epoch(joined)
+        elif old.get("joined_at"):
+            new["joined_at"] = old["joined_at"]
+        new.pop("joined", None)
         if c.get("rules"):
             new["other_rules"] = list(dict.fromkeys((old.get("other_rules") or []) + [c["rules"]]))
         if new != old:
