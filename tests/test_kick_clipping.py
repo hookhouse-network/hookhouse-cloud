@@ -355,6 +355,25 @@ def test_a_browser_tab_that_never_answers_cannot_freeze_the_pc_maker(monkeypatch
     assert time.time() - t0 < 5
 
 
+def test_a_job_that_ignores_cancellation_is_abandoned(tmp_path, monkeypatch):
+    """20 Nov: wait_for alone still hung 30+ min (the cancelled job's clean-up never ended). The hard limit returns."""
+    import asyncio
+
+    async def stubborn(url, dest, wait_s):
+        while True:
+            try:
+                await asyncio.sleep(3600)
+            except asyncio.CancelledError:
+                continue                                    # like a clean-up that never finishes
+    monkeypatch.setattr(kick, "_download", stubborn)
+    monkeypatch.setattr(kick, "DOWNLOAD_EXTRA_S", 0.1)
+    monkeypatch.setattr(kick, "HARD_GRACE_S", 0.5)
+    t0 = time.time()
+    with pytest.raises(TimeoutError, match="abandoned"):
+        kick.download({"url": "https://kick.com/x/clips/1", "id": "1"}, tmp_path, wait_s=0.1)
+    assert time.time() - t0 < 5
+
+
 def test_whole_kick_download_has_a_wall_clock_limit(tmp_path, monkeypatch):
     import asyncio
 

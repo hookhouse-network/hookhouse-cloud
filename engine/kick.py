@@ -24,6 +24,7 @@ CDP = "http://127.0.0.1:9333"
 CDP_REPLY_S = 60       # one DevTools reply; 20 Nov: a tab that never answered froze the PC maker for 30+ minutes
 LIST_JOB_S = 180       # a whole clip-list read
 DOWNLOAD_EXTRA_S = 90  # a whole download = its wait_s + this (page load, pop-ups, clicks)
+HARD_GRACE_S = 20      # past a job's limit + this, its thread is abandoned (kick._run_hard)
 SLUG = re.compile(r"kick\.com/([A-Za-z0-9_-]{2,40})(?:[/?#]|$)", re.I)
 NOT_CHANNELS = {"terms-of-service", "privacy-policy", "community-guidelines", "category", "categories", "browse",
                 "help", "search", "following", "dashboard", "video", "clips"}
@@ -101,8 +102,17 @@ class _Tab:
         return self
 
     async def __aexit__(self, *a):
-        await self.ws.close()
-        urllib.request.urlopen(f"{CDP}/json/close/{self.t['id']}", timeout=10)
+        try:                                        # 20 Nov: a close handshake with a silent tab never ended
+            await asyncio.wait_for(self.ws.close(), 5)
+        except (asyncio.TimeoutError, OSError) as e:
+            print(f"kick tab: websocket close gave up ({type(e).__name__})")
+            transport = getattr(self.ws, "transport", None)
+            if transport is not None:
+                transport.abort()
+        try:
+            urllib.request.urlopen(f"{CDP}/json/close/{self.t['id']}", timeout=10)
+        except OSError as e:
+            print(f"kick tab: could not close the tab ({type(e).__name__})")
 
     async def cmd(self, method: str, params: dict | None = None) -> dict:
         self.n += 1
@@ -165,9 +175,31 @@ async def _list(slug: str, game: str, max_age_s: float, period: tuple[str, ...])
     return parse_cards(cards, game, max_age_s, slug)
 
 
+def _run_hard(make_coro, limit_s: float):
+    """Run a browser coroutine with a HARD wall-clock limit. 20 Nov: asyncio.wait_for alone still hung for 30+ min
+    (the cancelled job's tab/websocket clean-up never finished), so the job runs in its own daemon thread and event
+    loop; past the limit it is abandoned and TimeoutError is raised. The PC maker always gets control back."""
+    import threading
+    box: dict = {}
+
+    def work():
+        try:
+            box["value"] = asyncio.run(asyncio.wait_for(make_coro(), limit_s))
+        except BaseException as e:  # noqa: BLE001 - handed to the caller below
+            box["error"] = e
+    t = threading.Thread(target=work, name="kick-browser", daemon=True)
+    t.start()
+    t.join(limit_s + HARD_GRACE_S)                  # wait_for's own timeout, plus time for a normal clean-up
+    if t.is_alive():
+        raise TimeoutError(f"browser job still running after {limit_s + HARD_GRACE_S:.0f} s; abandoned")
+    if "error" in box:
+        raise box["error"]
+    return box.get("value")
+
+
 def top_clips(slug: str, game: str = "Grand Theft Auto VI", max_age_s: float = 3 * 86400,
               period: tuple[str, ...] = ("Last Week",)) -> list[dict]:
-    return asyncio.run(asyncio.wait_for(_list(slug, game, max_age_s, period), LIST_JOB_S))
+    return _run_hard(lambda: _list(slug, game, max_age_s, period), LIST_JOB_S)
 
 
 async def _download(url: str, dest: Path, wait_s: float) -> Path | None:
@@ -194,7 +226,7 @@ async def _download(url: str, dest: Path, wait_s: float) -> Path | None:
 
 def download(clip: dict, dest: Path, wait_s: float = 90) -> Path | None:
     """Press Download on the clip's page; returns the saved .mp4 (renamed to the clip id) or None."""
-    f = asyncio.run(asyncio.wait_for(_download(clip["url"], dest, wait_s), wait_s + DOWNLOAD_EXTRA_S))
+    f = _run_hard(lambda: _download(clip["url"], dest, wait_s), wait_s + DOWNLOAD_EXTRA_S)
     if f is None:
         return None
     out = dest / f"{clip['id']}.mp4"

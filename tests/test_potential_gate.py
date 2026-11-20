@@ -188,7 +188,7 @@ def test_deadline_guard_cancelled_by_the_normal_save():
 
 def test_steps_are_isolated_and_timed(monkeypatch):
     from engine.cloud import runner
-    monkeypatch.setattr(runner, "SLOW_STEP_S", 0.0)
+    monkeypatch.setattr(runner, "SLOW_STEP_S", -1.0)    # every step counts as slow (Windows' clock often measures 0 s)
     ran, logs, errors = [], [], {}
     runner._run_steps([("a", lambda: 1 / 0), ("b", lambda: ran.append("b"))], logs.append, errors)
     assert ran == ["b"] and "a" in errors and any("slow step" in m for m in logs)
