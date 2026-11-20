@@ -113,3 +113,25 @@ def test_suggest_lists_only_topics_with_demand_now(monkeypatch):
     monkeypatch.setattr(picker, "find_topics", fake_find)
     assert [t["topic"] for t in picker.suggest("cosmos_unboxed", log=lambda m: None)] == ["A", "C"]
     assert "Voyager 1" in seen["q"]
+
+
+def test_join_through_our_system_checks_footage_and_records_consent(tmp_path, monkeypatch):
+    from engine import campaign_join as cj
+    from engine.core import ledger
+    conn = _db(tmp_path, [{"id": "k1", "name": "Kick GTA", "kick": "s", "url": "https://cr/k1"},
+                          {"id": "t1", "name": "Twitch", "allowed_sources": ["https://twitch.tv/y"], "url": "https://cr/t1"}])
+    f = tmp_path / "picked.yaml"
+    f.write_text("campaigns:\n  - id: k1\n    name: Kick GTA\n    status: picked\n", encoding="utf-8")
+    monkeypatch.setattr(cj, "PICKED", f)
+    monkeypatch.setattr("engine.picker.footage_check", lambda c, **k: ("ok", "kick") if c.get("kick") else ("blocked", "x"))
+    assert cj.join("t1", conn=conn).startswith("🛑")
+
+    async def ok(url):
+        return "Kick GTA | joined: True | stream/channel links only\n   files: []"
+    assert cj.join("k1", conn=conn, runner=ok).startswith("✅")             # Kick streamer: footage via Kick
+    assert "status: joined" in f.read_text(encoding="utf-8")
+    assert ledger.default().events("campaign.join_consent")[0]["data"]["by"] == "owner"
+
+    async def boom(url):
+        raise RuntimeError("no chrome")
+    assert "Join failed" in cj.join("k1", conn=conn, runner=boom)

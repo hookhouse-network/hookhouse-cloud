@@ -548,6 +548,11 @@ def cmd_pick(args):
         for k, c in enumerate(rows, 1):
             print(f"{k}. {c['name']} ({c['id']}) score {c['score']} | rate {c['rate']} | budget left "
                   f"{c['budget_left_pct']}% | {c['platforms']}\n   footage: {c['footage']}: {c['footage_why']}\n   {c['url']}")
+    elif args.what == "join":
+        if not args.text:
+            sys.exit("usage: python cli.py pick join <campaign id>")
+        from engine import campaign_join
+        print(campaign_join.join(args.text))
     elif args.what == "campaign":
         if not args.text:
             sys.exit("usage: python cli.py pick campaign <id> [--channel ACCOUNT]")
@@ -577,7 +582,7 @@ def main(argv=None):
     c.set_defaults(fn=cmd_campaign)
 
     pk = sub.add_parser("pick", help="Search and pick topics or campaigns (owner 20 Nov)")
-    pk.add_argument("what", choices=["suggest", "topics", "topic", "campaigns", "campaign"])
+    pk.add_argument("what", choices=["suggest", "topics", "topic", "campaigns", "campaign", "join"])
     pk.add_argument("text", nargs="?", help="search words, a topic, or a campaign id")
     pk.add_argument("--channel", help="channel id (topics) or posting account (campaign)")
     pk.add_argument("--all", action="store_true", help="campaigns: also show those without legal footage")
