@@ -58,6 +58,13 @@ class R:
             raise RuntimeError(self.status_code)
 
 
+def test_dailymotion_hashtags_keep_the_hash_and_only_word_characters():
+    """20-21 Nov: '#ThePlay' sent as 'ThePlay' was refused (INVALID_HASHTAGS) on every story channel."""
+    assert publish.dm_hashtags(["#ThePlay", "#LakePeigneur", "#1971", "#D.B. Cooper", "ThePlay", "#", "#Avengers-Doom"]) \
+        == ["#ThePlay", "#LakePeigneur", "#1971", "#DBCooper", "#AvengersDoom"]
+    assert len(publish.dm_hashtags([f"#t{i}" for i in range(20)])) == 10
+
+
 def test_dailymotion_upload_flow(tmp_path, monkeypatch):
     monkeypatch.setattr(publish, "LOG", tmp_path / "log.jsonl")
     monkeypatch.setattr(publish, "dm_creds", lambda c: {"client_id": "a", "client_secret": "b", "profile_id": "p1"})

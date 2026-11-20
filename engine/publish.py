@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -807,6 +808,18 @@ def _dm_token(creds: dict, session=HTTP) -> str:
     return d["access_token"]
 
 
+def dm_hashtags(tags: list) -> list[str]:
+    """Dailymotion hashtags as its API documents them: each with a leading '#' (example "#hello, #world"), letters,
+    digits and underscores only, at most 10. 20-21 Nov: tags sent without '#' ("ThePlay", "LakePeigneur") were refused
+    with INVALID_HASHTAGS on every story channel; Brain Snack, which sends none, uploaded fine."""
+    out = []
+    for t in tags:
+        core = re.sub(r"[^0-9A-Za-z_]", "", str(t).lstrip("#"))
+        if core and f"#{core}" not in out:
+            out.append(f"#{core}")
+    return out[:10]
+
+
 def dailymotion_upload(channel_id: str, video: Path, meta: dict, item_id: str = "", session=HTTP,
                        dry_run: bool = True) -> Action:
     """Our own video on Dailymotion: upload session -> file -> create the public video with the right labels."""
@@ -834,13 +847,13 @@ def dailymotion_upload(channel_id: str, video: Path, meta: dict, item_id: str = 
     body = {"title": title, "description": str(meta.get("description") or "")[:3000], "visibility": "public",
             "is_for_kids": bool(meta.get("made_for_kids")), "is_ai_altered": bool(meta.get("ai_label")),
             "has_paid_partnership": bool(meta.get("campaign")),
-            "hashtags": [t.lstrip("#") for t in (meta.get("hashtags") or [])][:10], "source": {"file_url": file_url}}
+            "hashtags": dm_hashtags(meta.get("hashtags") or []), "source": {"file_url": file_url}}
     r = session.post(f"{DM_API}/profiles/{creds['profile_id']}/videos", headers={**h, "Content-Type": "application/json"},
                      data=json.dumps(body), timeout=60)
     d = r.json() if r.content else {}
     vid = d.get("id") or d.get("xid") or d.get("video_id")     # 18 Nov: the profile API answers with video_id
     if r.status_code >= 400 or not vid:
-        act.result = {"error": f"Dailymotion didn't create the video: {str(d)[:200]}"}
+        act.result = {"error": f"Dailymotion didn't create the video: {str(d)[:500]}"}   # the reason was cut at 200
         _log(act)
         return act
     act.done, act.result = True, {"video_id": vid}
