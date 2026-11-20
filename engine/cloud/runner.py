@@ -130,11 +130,13 @@ def merge_helper(store, log=_log) -> int:
                                       planned_topic=info.get("planned_topic"), made_as=info.get("made_as"),
                                       clip_source=info.get("clip_source"))
                 n += 1
-                if info.get("clip_source"):                # 20 Nov: footage the PC cut is never cut again
+                done_with = [x for x in [info.get("clip_source"), *(info.get("clip_skipped") or [])] if x]
+                if done_with:                              # 20 Nov: footage the PC cut or found unusable: never again
                     from .. import weekly
                     cs = weekly.clip_state()
-                    if info["clip_source"] not in cs["used"]:
-                        cs["used"].append(info["clip_source"])
+                    new = [x for x in done_with if x not in cs["used"]]
+                    if new:
+                        cs["used"].extend(new)
                         weekly.save_clip_state(cs)
                 rec = info.get("training")                 # 19 Nov: PC-made videos join the cloud's learning loops
                 if rec:
@@ -789,7 +791,8 @@ def helper(once: bool = False, every_s: int = 300, log=_log, videos_only: bool =
                     "topic": item.get("topic"), "angle": item.get("angle"), "made_at": time.time(),
                     "feeling": item.get("feeling"), "now_hook": item.get("now_hook"),
                     "planned_topic": item.get("planned_topic"), "training": training,
-                    "clip_source": item.get("clip_source"), "made_as": item.get("made_as")},
+                    "clip_source": item.get("clip_source"), "clip_skipped": item.get("clip_skipped"),
+                    "made_as": item.get("made_as")},
                     ensure_ascii=False).encode())
                 _wake_cloud(log)
                 continue                                   # straight to the next one while the PC is on

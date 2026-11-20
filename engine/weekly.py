@@ -566,6 +566,44 @@ def remember_used_on_pc(source: str) -> None:
     PC_CLIP_USED.write_text(json.dumps((used + [source])[-500:]), encoding="utf-8")
 
 
+PC_CLIP_FAILED = ROOT / "data" / "pc" / "clip_failed.json"
+
+
+def _count_clip_failure(source: str) -> int:
+    """How often this footage failed. The cloud keeps the count in clip_pool.json (state bundle); the PC's copy of that
+    file is replaced on every pull, so the PC also keeps its own count (20 Nov: the same footage failed every 6 min
+    for hours because the count never reached 2)."""
+    from .core.where import in_runner
+    s = clip_state()
+    fails = s.setdefault("failed", {})
+    fails[source] = fails.get(source, 0) + 1
+    n = fails[source]
+    save_clip_state(s)
+    if not in_runner():
+        try:
+            pc = json.loads(PC_CLIP_FAILED.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            pc = {}
+        pc[source] = pc.get(source, 0) + 1
+        n = max(n, pc[source])
+        PC_CLIP_FAILED.parent.mkdir(parents=True, exist_ok=True)
+        PC_CLIP_FAILED.write_text(json.dumps(dict(list(pc.items())[-500:])), encoding="utf-8")
+    return n
+
+
+def _skip_source(item: dict, source: str) -> None:
+    """Never cut this footage again: cloud state, the PC's own list, and the item (the PC's done marker reports
+    `clip_skipped` so the cloud skips it too)."""
+    s = clip_state()
+    if source not in s["used"]:
+        s["used"].append(source)
+    save_clip_state(s)
+    remember_used_on_pc(source)
+    skipped = item.setdefault("clip_skipped", [])
+    if source not in skipped:
+        skipped.append(source)
+
+
 def save_clip_state(s: dict) -> None:
     CLIP_STATE.parent.mkdir(parents=True, exist_ok=True)
     CLIP_STATE.write_text(json.dumps(s, indent=1, ensure_ascii=False), encoding="utf-8")
@@ -645,13 +683,17 @@ def _make_clip(plan: dict, item: dict, brain, ch: dict, memory, log) -> tuple[st
         campaign = db.get_campaign(db.connect(), src["campaign"]) if src.get("campaign") else None
         try:
             out, metas = clips.make_clips(brain, src["source"], ch, campaign=campaign, memory=memory, keep=4, log=log)
+        except clips.UnusableFootage as e:              # never gives a clip: skip it now, try the next footage
+            _skip_source(item, src["source"])
+            tries += 1
+            log(f"   footage skipped ({e}), trying the next clip ({tries}/{GATE_TRIES})")
+            if tries >= GATE_TRIES:
+                raise RuntimeError(f"{tries} footage clips in a row could not be used; last: {e}") from e
+            s = clip_state()
+            continue
         except Exception:
-            s = clip_state()                            # a source that fails twice is skipped (bad link, no permission)
-            fails = s.setdefault("failed", {})
-            fails[src["source"]] = fails.get(src["source"], 0) + 1
-            if fails[src["source"]] >= 2:
-                s["used"].append(src["source"])
-            save_clip_state(s)
+            if _count_clip_failure(src["source"]) >= 2:  # a source that fails twice is skipped (bad link, no permission)
+                _skip_source(item, src["source"])
             raise
         s = clip_state()
         s["used"].append(src["source"])

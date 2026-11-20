@@ -1,6 +1,8 @@
 """20 Nov: GTA campaign clipping through Kick's own Download button (engine/kick.py + cr_footage.kick_job)."""
 import json
 import time
+
+import pytest
 from pathlib import Path
 
 from engine import cr_footage, kick, weekly
@@ -251,6 +253,79 @@ def test_held_clip_makes_the_slot_try_the_next_footage(tmp_path, monkeypatch):
     out, f = weekly._make_clip({}, item, None, {"id": "stream_clips"}, None, lambda *a: None)
     assert made == ["asset:a.mp4", "asset:b.mp4"] and item["clip_source"] == "asset:b.mp4" and f == "clip_01.mp4"
     assert "asset:a.mp4" in weekly.clip_state()["used"]           # the explicit footage is never cut again
+
+
+def _two_sources(tmp_path, monkeypatch):
+    monkeypatch.setattr(weekly, "CLIP_STATE", tmp_path / "pool.json")
+    monkeypatch.setattr(weekly, "PC_CLIP_USED", tmp_path / "pc_used.json")
+    monkeypatch.setattr(weekly, "PC_CLIP_FAILED", tmp_path / "pc_failed.json")
+    src = tmp_path / "sources.txt"
+    monkeypatch.setattr(weekly, "CLIP_SOURCES", src)
+    src.write_text("asset:a.mp4 camp channel=stream_clips\nasset:b.mp4 camp channel=stream_clips\n", encoding="utf-8")
+    from engine import db
+    monkeypatch.setattr(db, "get_campaign", lambda conn, cid: {"id": cid})
+    monkeypatch.setattr(db, "connect", lambda *a: None)
+    monkeypatch.setattr(weekly, "_pool_local", lambda clip: clip["out_dir"])
+
+
+def test_too_short_highlight_is_skipped_and_the_slot_uses_the_next_footage(tmp_path, monkeypatch):
+    """20 Nov: the PC maker retried one 30 s Kick highlight (campaign minimum 30 s) every 6 minutes for hours."""
+    _two_sources(tmp_path, monkeypatch)
+    from engine import clips
+    made = []
+
+    def fake(brain, source, ch, campaign=None, **k):
+        made.append(source)
+        if source.endswith("a.mp4"):
+            raise clips.UnusableFootage("Highlight is 29.9 s, under the campaign's 30 s minimum")
+        return tmp_path, [{"file": "clip_01.mp4", "gate": {"problems": []}}]
+    monkeypatch.setattr(clips, "make_clips", fake)
+    item = {"id": "s1"}
+    out, f = weekly._make_clip({}, item, None, {"id": "stream_clips"}, None, lambda *a: None)
+    assert made == ["asset:a.mp4", "asset:b.mp4"] and item["clip_source"] == "asset:b.mp4"
+    assert item["clip_skipped"] == ["asset:a.mp4"]                      # the done marker tells the cloud
+    assert "asset:a.mp4" in weekly.clip_state()["used"]
+
+
+def test_pc_failure_count_survives_the_pull_that_replaces_clip_pool(tmp_path, monkeypatch):
+    """The PC's clip_pool.json is replaced on every pull: the 'failed twice -> skip' count must live on the PC too."""
+    _two_sources(tmp_path, monkeypatch)
+    from engine import clips
+    monkeypatch.setattr("engine.core.where.in_runner", lambda: False)
+
+    def boom(brain, source, ch, campaign=None, **k):
+        raise OSError("network down")
+    monkeypatch.setattr(clips, "make_clips", boom)
+    for _ in range(2):
+        (tmp_path / "pool.json").unlink(missing_ok=True)                # the pull replaced the cloud copy
+        with pytest.raises(OSError):
+            weekly._make_clip({}, {"id": "s1"}, None, {"id": "stream_clips"}, None, lambda *a: None)
+    assert "asset:a.mp4" in weekly.clip_state()["used"]                 # skipped after the second failure
+    assert weekly.next_source("stream_clips", weekly.clip_state()["used"])["source"] == "asset:b.mp4"
+
+
+def test_done_marker_skipped_footage_is_merged_into_cloud_used(tmp_path, monkeypatch):
+    monkeypatch.setattr(weekly, "CLIP_STATE", tmp_path / "pool.json")
+    monkeypatch.setattr(weekly, "PC_CLIP_USED", tmp_path / "pc_used.json")
+    from engine import autopilot
+    from engine.cloud import runner
+
+    class Store:
+        files = {"done-s1.json": json.dumps({"id": "s1", "start": "2026-11-16", "out_rel": "output/x",
+                                             "clip_source": "asset:b.mp4", "clip_skipped": ["asset:a.mp4"]}).encode()}
+
+        def assets(self, tag):
+            return list(self.files)
+
+        def get(self, tag, name):
+            return self.files.get(name)
+
+        def delete(self, tag, name):
+            self.files.pop(name, None)
+    monkeypatch.setattr(autopilot, "items", lambda *a: [("2026-11-16", {"id": "s1", "status": "making", "channel": "c"})])
+    monkeypatch.setattr(autopilot, "update_item", lambda *a, **k: None)
+    assert runner.merge_helper(Store(), log=lambda *a: None) == 1
+    assert {"asset:a.mp4", "asset:b.mp4"} <= set(weekly.clip_state()["used"])
 
 
 def test_swear_words_and_slurs_are_muted_and_starred():

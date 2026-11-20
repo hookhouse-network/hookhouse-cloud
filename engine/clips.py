@@ -452,6 +452,11 @@ def ground(words: list[Word], m: dict, start: float, end: float) -> tuple[float,
 
 SHORT_SOURCE_S = 180             # a Kick/Twitch highlight the streamer's viewers already cut: keep it whole
 
+
+class UnusableFootage(RuntimeError):
+    """This footage can never give a clip for this campaign (for example a highlight shorter than the brief's
+    minimum). 20 Nov: the PC maker retried one 30 s Kick highlight every 6 minutes; the slot must skip it at once."""
+
 WHOLE_PROMPT = """This is ONE short highlight clip ({dur:.0f} s; the last {keep:.0f} s are posted) cut from a streamer's live stream (gameplay plus the
 streamer's reactions; little speech). It is posted whole as a vertical Short. Write its packaging.
 - Title: the concrete thing that happens or is said, under 60 chars, no "BREAKING"/"LIVE", no clickbait the clip
@@ -746,7 +751,7 @@ def make_clips(brain, source: str, channel: dict, campaign: dict | None = None, 
         if dur < full:
             log(f"  Kick's {full - dur:.1f} s outro card cut (the stream ends at {dur:.1f} s)")
         if dur < (ls.get("min") or 0):
-            raise RuntimeError(f"Highlight is {dur:.0f} s, under the campaign's {ls['min']} s minimum")
+            raise UnusableFootage(f"Highlight is {dur:.1f} s, under the campaign's {ls['min']} s minimum")
         log("Short highlight (a streamer's own clip): keeping it whole, writing its hook and title…")
         moments = whole_clip_moment(brain, words, dur, campaign=campaign, max_len=min(ls.get("max") or 58, 60))
     if moments is None:
