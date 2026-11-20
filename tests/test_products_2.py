@@ -40,7 +40,9 @@ def test_a_good_product_passes(prod):
     ({"title": "Short"}, "title is 5 characters"),
     ({"description": "too short"}, "description is"),
     ({"tags": []}, "no tags"),
-    ({"price_usd": "$0"}, "outside $1-$50"),
+    ({"price_usd": "$0"}, "outside the tracker band"),
+    ({"price_usd": "$19"}, "outside the tracker band"),
+    ({"pages": 30, "ai_art": True}, "made with AI pictures"),
     ({"pages": 60}, "PDF has 30 pages but the listing says 60"),
     ({"title": "Mickey Mouse Habit Tracker for 2027 Fans"}, "protected franchise"),
     ({"files": ["Missing.pdf"]}, "download file missing"),
@@ -119,3 +121,18 @@ def test_the_description_carries_the_link(promos, tmp_path):
     assert meta["description"].endswith("https://payhip.com/b/X")
     (out / "upload.json").write_text(json.dumps({"title": "T", "description": "x", "made_for_kids": True}))
     assert "payhip" not in publish.item_meta({"id": "i", "out_dir": str(out), "product": "habit_tracker_2027"})["description"]
+
+
+def test_focused_products_page_cap_and_file_size(prod, monkeypatch):
+    d, meta = prod
+    _pdf(d / "Tracker.pdf", 60)
+    _write(d, dict(meta, pages=60))
+    assert any("at most 40 pages" in p for p in pg.verify("habit_tracker_2027", folder=d, listed={}))
+    monkeypatch.setattr(pg, "rules", lambda: {"max_file_mb": 0.005, "types": {}})
+    assert any("MB (allowed" in p for p in pg.verify("habit_tracker_2027", folder=d, listed={}))
+
+
+def test_types_follow_the_id():
+    r = pg.rules()
+    assert pg.ptype("senior_sudoku", r)[0] == "puzzle" and pg.ptype("habit_tracker_2027", r)[0] == "tracker"
+    assert pg.ptype("planner_bundle_2027", r)[0] == "bundle" and pg.ptype("something_new", r)[0] == "default"

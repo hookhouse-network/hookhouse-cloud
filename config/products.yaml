@@ -1,0 +1,15 @@
+# Product rules (engine/product_gate.py enforces them before every listing). Owner, 20 Nov 2026: "currently you are
+# creating too big and expensive books, do correct R&D and update the system correctly". Research and reasons:
+# docs/MASTER_PLAN_2026-11-20.md section 4.4b.
+
+max_file_mb: 20                 # 1-bit pages for line art (the sudoku went 26 MB -> 1 MB); buyers download on phones
+ai_art_allowed: false           # products are drawn by code; AI pictures are the videos' scarce free quota
+types:                          # first keyword found in the product id decides the type
+  bundle:    {keywords: [bundle],                                   max_pages: 300, price: [9, 29]}
+  tracker:   {keywords: [tracker, chart, worksheet, scorebook],     max_pages: 40,  price: [2, 9]}
+  planner:   {keywords: [planner],                                  max_pages: 40,  price: [3, 12]}
+  puzzle:    {keywords: [sudoku, puzzle, word_search, crossword, maze, logic], max_pages: 100, price: [3, 12]}
+  kids:      {keywords: [colouring, coloring, activity, tracing, color_by_number, sight_words, varnamala],
+              max_pages: 100, price: [2, 12]}
+  music:     {keywords: [music_pack],                               max_pages: 0,   price: [3, 19]}
+  default:   {keywords: [],                                         max_pages: 120, price: [1, 29]}

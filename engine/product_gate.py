@@ -22,6 +22,26 @@ from .config import ROOT
 
 PROD = ROOT / "data" / "products"
 HELD = ROOT / "data" / "state" / "product_gate.json"
+RULES = ROOT / "config" / "products.yaml"
+
+
+def rules() -> dict:
+    """config/products.yaml (owner 20 Nov: "too big and expensive books"): size, page and price limits per type."""
+    import yaml
+    try:
+        return yaml.safe_load(RULES.read_text(encoding="utf-8")) or {}
+    except (OSError, ValueError) as e:
+        print(f"product rules unreadable ({type(e).__name__}): using the strict defaults")
+        return {}
+
+
+def ptype(pid: str, r: dict | None = None) -> tuple[str, dict]:
+    types = (r if r is not None else rules()).get("types") or {}
+    low = pid.lower()
+    for name, spec in types.items():
+        if name != "default" and any(k in low for k in spec.get("keywords") or []):
+            return name, spec
+    return "default", types.get("default") or {"max_pages": 120, "price": [1, 29]}
 PAGE = re.compile(rb"/Type\s*/Page(?!s)")
 
 
@@ -51,6 +71,11 @@ def verify(pid: str, store: str = "payhip", folder: Path | None = None, listed: 
     except (OSError, ValueError) as e:
         return [f"product record unreadable ({type(e).__name__})"]
     p: list[str] = []
+    r = rules()
+    tname, tspec = ptype(pid.replace("free_", "", 1), r)
+    max_mb = float(r.get("max_file_mb", 20))
+    if meta.get("ai_art") and not r.get("ai_art_allowed", False):
+        p.append("made with AI pictures: products are drawn by code (AI pictures are the videos' scarce quota)")
     for k in ("title", "description", "files", "price_usd"):
         if not meta.get(k):
             p.append(f"product record has no {k}")
@@ -64,10 +89,13 @@ def verify(pid: str, store: str = "payhip", folder: Path | None = None, listed: 
         if not f.exists():
             continue
         size = f.stat().st_size
-        if size < 10 * 1024 or size > 1.5 * 1024 ** 3:
-            p.append(f"{f.name} is {size / 1024:.0f} KB (allowed 10 KB - 1.5 GB)")
+        if size < 10 * 1024 or size > max_mb * 1024 ** 2:
+            p.append(f"{f.name} is {size / 1024 / 1024:.1f} MB (allowed 10 KB - {max_mb:g} MB)")
         if f.suffix.lower() == ".pdf":
             p += pdf_problems(f, meta.get("pages") if len(files) == 1 else None)
+    cap = int(tspec.get("max_pages") or 0)
+    if cap and int(meta.get("pages") or 0) > cap:
+        p.append(f"{meta.get('pages')} pages: a {tname} product is focused, at most {cap} pages")
     title, desc = str(meta["title"]), str(meta["description"])
     if not 15 <= len(title) <= 100:
         p.append(f"title is {len(title)} characters (15-100)")
@@ -97,8 +125,10 @@ def verify(pid: str, store: str = "payhip", folder: Path | None = None, listed: 
     if pid.startswith("free_"):
         if price not in (0.0,) and "free" not in str(meta["price_usd"]).lower():
             p.append("a free_ product must be free")
-    elif not 1 <= price <= 50:
-        p.append(f"price ${price:g} outside $1-$50")
+    else:
+        lo, hi = (tspec.get("price") or [1, 29])[:2]
+        if not float(lo) <= price <= float(hi):
+            p.append(f"price ${price:g} outside the {tname} band ${lo}-${hi}")
     cover = d / "store_cover.jpg"
     if not cover.exists():
         p.append("no store cover (store_cover.jpg)")
