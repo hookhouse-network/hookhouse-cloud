@@ -340,6 +340,8 @@ def ask(start: str, it: dict, reminder: bool = False, mark: bool = True) -> None
     if reach and reach.get("block"):
         return
     tok = token(start, it["id"], str(it.get("made_at") or ""))
+    if not reminder and mark and _auto_approved(start, it, tok, tb):     # 20 Nov: owner allowed auto-approval
+        return
     kb = {"inline_keyboard": [[{"text": "✅ Approve & post", "callback_data": f"ap:{tok}"},
                                {"text": "✏️ Change", "callback_data": f"ch:{tok}"},
                                {"text": "❌ Reject", "callback_data": f"rj:{tok}"}]]}
@@ -381,6 +383,33 @@ def ask(start: str, it: dict, reminder: bool = False, mark: bool = True) -> None
         return
     key = "reminded" if reminder else "asked"
     _update_state(lambda s: s.setdefault(key, {}).__setitem__(it["id"], time.time()))
+
+
+def _auto_approved(start: str, it: dict, tok: str, tb) -> bool:
+    """Approve without a tap when engine/auto_approve.py allows it (all gates already passed in ask()); the owner
+    still gets the video with a "❌ Stop it" button (a normal Reject). False = ask the owner as usual."""
+    try:
+        from .auto_approve import eligible
+        ok, why = eligible(it)
+    except Exception as e:  # noqa: BLE001 - when unsure, the owner decides
+        print(f"auto-approval check failed for {it.get('id')}: {e}")
+        return False
+    if not ok:
+        return False
+    reply = decide(tok, "approve")
+    fresh = next((x for x in weekly.load_plan(start)["items"] if x["id"] == it["id"]), {})
+    if fresh.get("status") != "approved":                     # preflight or a late check said no: ask the owner
+        print(f"auto-approval of {it['id']} did not go through: {reply[:120]}")
+        return False
+    update_item(start, it["id"], auto_approved=True)
+    from .core import ledger
+    ledger.event("auto_approved", item=it["id"], channel=it.get("channel") or "", data={"why": why})
+    kb = {"inline_keyboard": [[{"text": "❌ Stop it", "callback_data": f"rj:{tok}"}]]}
+    msg = tb.send(f"🤖 Auto-approved (every gate passed, quality 100/100; {why}).\n{approval_text(fresh, False)}\n"
+                  f"{reply}\nTap ❌ Stop it to cancel before it posts.", reply_markup=kb)
+    remember_buttons(it["id"], msg)
+    _update_state(lambda s: s.setdefault("asked", {}).__setitem__(it["id"], time.time()))
+    return True
 
 
 # ---------------- buttons work once (owner 17 Nov: reminders repeat the buttons; taps on old copies confused) -------
@@ -726,15 +755,31 @@ def asked_current(s: dict, it: dict) -> bool:
 
 
 def _campaign_held(start, it: dict, log) -> bool:
-    """A campaign clip reaches the owner if and only if the campaign gate passes (owner, 17 Nov). Held clips are
-    re-checked every tick (a budget update or a fixed caption can free them); reasons show in 'Anything broken?'."""
+    """A video reaches the owner (or auto-approval) if and only if every gate passes. 20 Nov (owner: "nothing should
+    bypass these gates ... according to channel, platform and content"): the strict clip gate (with the AI checker
+    for brief rules) and the content gate (engine/content_gate.py: record, content type, measured file, quality
+    100/100). Held videos are re-checked every tick; reasons show in 'Anything broken?'. A video held ONLY for
+    quality findings is remade with those findings (at most auto_redo_max times), then waits for the owner."""
     try:
-        from .campaign_gate import gate_item
-        probs = gate_item(it, brain_fn=lambda: default_brain()[0])
-    except Exception as e:  # noqa: BLE001 - a gate that cannot run holds the clip
-        probs = [f"the campaign gate could not run ({str(e)[:80]})"]
+        from . import clip_gate, content_gate
+        it = _with_local_media(start, it)        # the file itself is measured, so it must be here
+        probs = clip_gate.verify(it, brain_fn=lambda: default_brain()[0])
+        probs += [x for x in content_gate.base_problems(it) if x not in probs]
+    except Exception as e:  # noqa: BLE001 - a gate that cannot run holds the video
+        probs = [f"the content gate could not run ({str(e)[:80]})"]
+    try:
+        from .content_gate import fixable_by_remake, rules_for
+        limit = int(rules_for(_channel(it["channel"])).get("auto_redo_max", 2))
+    except Exception:  # noqa: BLE001 - no auto-redo when the rules can't be read
+        fixable_by_remake, limit = (lambda _p: False), 0
+    if fixable_by_remake(probs) and int(it.get("gate_redos") or 0) < limit and it.get("status") == "made":
+        note = "; ".join(probs)[:900]
+        update_item(start, it["id"], status="redo", gate_note=note, gate_redos=int(it.get("gate_redos") or 0) + 1)
+        log(f"Quality gate: remaking {it['id']} ({int(it.get('gate_redos') or 0) + 1}/{limit}): {note[:200]}")
+        from .core import ledger
+        ledger.event("gate.redo", item=it["id"], channel=it.get("channel") or "", data={"problems": probs})
     if probs and (_load().get("gate_held") or {}).get(it["id"], {}).get("problems") != probs:
-        log(f"Held by the campaign gate: {it['channel_name']} {it['id']}: {'; '.join(probs)[:200]}")
+        log(f"Held by the gates: {it['channel_name']} {it['id']}: {'; '.join(probs)[:200]}")
 
     def upd(s):
         held = {k: v for k, v in (s.get("gate_held") or {}).items() if time.time() - v.get("at", 0) < 3 * 86400}
@@ -808,11 +853,12 @@ def _post_due(log, allow=None) -> None:
     from .telegram_bot import notify
     now, s = _now(), _load()
     for start, it in items(3, 1):
-        if it["status"] != "approved" or it["id"] in s.get("posted", {}):
-            continue
+        done_at = s.get("posted", {}).get(it["id"])
+        if it["status"] != "approved" or (done_at is not None and float(done_at) >= float(it.get("made_at") or 0)):
+            continue                                       # this version is settled (a remake posts again)
         if allow and not allow(it):
             continue
-        if publish_queue.queued(it["id"]):                 # the queue owns it now (retries, waits)
+        if publish_queue.queued(it["id"], version=publish_queue._ver(it)):   # the queue owns this version
             continue
         if (it.get("post_retry_at") or 0) > time.time():
             continue

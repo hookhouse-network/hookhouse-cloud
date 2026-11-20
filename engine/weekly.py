@@ -699,6 +699,8 @@ def make_item(plan: dict, item: dict, brain, memory=None, log=print) -> None:
             f" (why now: {item['now_hook']})" if item.get("now_hook") else "")
     if item.get("status") == "redo" and item.get("note"):
         topic = f"{topic}\nThe owner asked for this change: {item['note']}"
+    if item.get("status") == "redo" and item.get("gate_note"):        # 20 Nov: the quality gate's findings
+        topic = f"{topic}\nThe last version failed the quality check; fix all of this: {item['gate_note']}"
     if ch["type"] == "story":
         if not item.get("topic"):                      # never write a script about nothing
             raise RuntimeError("No topic was planned for this slot. Run 'python cli.py week plan' again.")

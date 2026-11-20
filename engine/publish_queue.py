@@ -34,8 +34,13 @@ _PERMANENT = re.compile(r"not connected|no credentials|no login|longer than|must
                         r"|fact-check|never-topic", re.I)
 
 
-def key(item_id: str, platform: str) -> str:
-    return f"post:{item_id}:{platform}"
+def _ver(it: dict) -> str:
+    return str(int(float(it.get("made_at") or 0)))
+
+
+def key(item_id: str, platform: str, version: str = "0") -> str:
+    """One job per video VERSION and platform: a remade video (after Change or a gate redo) gets fresh jobs."""
+    return f"post:{item_id}:{version}:{platform}"
 
 
 def enqueue(start: str, it: dict, platforms, run_after: float = 0.0, led=None) -> int:
@@ -43,8 +48,8 @@ def enqueue(start: str, it: dict, platforms, run_after: float = 0.0, led=None) -
     led = led or ledger.default()
     n = 0
     for p in platforms:
-        if led.enqueue(KIND, key(it["id"], p), {"start": start, "item": it["id"], "platform": p,
-                                                 "channel": it.get("channel")},
+        if led.enqueue(KIND, key(it["id"], p, _ver(it)), {"start": start, "item": it["id"], "platform": p,
+                                                          "channel": it.get("channel"), "version": _ver(it)},
                        run_after=run_after, max_attempts=MAX_ATTEMPTS):
             n += 1
     if n:
@@ -52,10 +57,10 @@ def enqueue(start: str, it: dict, platforms, run_after: float = 0.0, led=None) -
     return n
 
 
-def queued(item_id: str, led=None) -> list[dict]:
-    """This video's post jobs (any state)."""
+def queued(item_id: str, led=None, version: str | None = None) -> list[dict]:
+    """This video's post jobs (any state); only one version's when given."""
     led = led or ledger.default()
-    pre = f"post:{item_id}:"
+    pre = f"post:{item_id}:" + (f"{version}:" if version is not None else "")
     return [j for j in led.jobs(kind=KIND) if j["key"].startswith(pre)]
 
 
@@ -71,6 +76,14 @@ def classify(act) -> tuple[str, str]:
     if act.done:
         return "done", ""
     err = str((act.result or {}).get("error") or "")
+    if act.what.startswith("BLOCKED"):                     # the content gate (engine/content_gate.py)
+        probs = [str(x) for x in (act.details or {}).get("problems") or []] or [err]
+        if all(re.search(r"not allowed on|never go to|lists no platforms", x) for x in probs):
+            return "skipped", err                          # the rules never allow this platform
+        if any(re.search(r"could not|not checked yet|budget is left|campaign is |payer on hold|unreadable", x)
+               for x in probs):
+            return "transient", err                        # may clear by itself: check again later
+        return "permanent", err                            # needs a fix or a remake: owner + heal queue
     if act.what.startswith("SKIPPED"):
         return ("quota", act.what) if _QUOTA.search(act.what) else ("skipped", act.what)
     if (act.details or {}).get("dry_run") and not err:
@@ -144,6 +157,7 @@ def _post_one(item_id, js, found, led, gov, worker, counts, log) -> None:
     if not try_now:
         return
     it = autopilot._with_local_media(start, it)
+    # the content gate (incl. the strict clip gate) runs inside upload_item for every platform
     acts = publish.upload_item(it, dry_run=False, platforms=tuple(try_now), publish_at=None)
     new_done, dead, waits = [], [], []
     for p in try_now:
@@ -177,7 +191,7 @@ def _settle(start, it, acts, new_done, dead, waits, led, log, notify) -> None:
     """Item status + one owner message per video: when it first goes out, and when a platform gives up."""
     from . import autopilot, heal
     item_id = it["id"]
-    pending = [j for j in queued(item_id, led) if j["state"] in ("queued", "leased")]
+    pending = [j for j in queued(item_id, led, version=_ver(it)) if j["state"] in ("queued", "leased")]
     first_post = it.get("status") == "approved" and (new_done or it.get("youtube_id"))
     for p, why in dead:
         ledger.event("post.dead", item=item_id, channel=it["channel"], data={"platform": p, "error": why[:300]})

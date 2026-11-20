@@ -112,12 +112,13 @@ def test_ask_due_holds_failing_clip(tmp_path, monkeypatch):
     store = {}
     monkeypatch.setattr(ap, "_load", lambda: json.loads(json.dumps(store.get("s", {}))))
     monkeypatch.setattr(ap, "_save", lambda s: store.__setitem__("s", s))
-    import engine.campaign_gate as cg
-    monkeypatch.setattr(cg, "gate_item", lambda it, brain_fn=None: ["caption is missing @sega"])
+    import engine.clip_gate as cg                      # 20 Nov: the strict clip gate wraps the campaign gate
+    monkeypatch.setattr(cg, "is_clip", lambda it, *a, **k: False)
+    monkeypatch.setattr(cg, "verify", lambda it, brain_fn=None, **k: ["caption is missing @sega"])
     it = {"id": "x1", "channel_name": "Hot Take HQ"}
     assert ap._campaign_held("w", it, log=lambda *_: None) is True
     assert "x1" in ap.gate_held()
-    monkeypatch.setattr(cg, "gate_item", lambda it, brain_fn=None: [])
+    monkeypatch.setattr(cg, "verify", lambda it, brain_fn=None, **k: [])
     assert ap._campaign_held("w", it, log=lambda *_: None) is False
     assert "x1" not in ap.gate_held()
 

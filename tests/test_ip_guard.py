@@ -34,8 +34,9 @@ def test_campaign_brief_limits_youtube_too(monkeypatch):
     assert platforms.campaign_allows("youtube", {})                      # our own videos: always
     monkeypatch.setattr(platforms, "_campaign_platforms", lambda cid: ["youtube_shorts"])
     assert platforms.campaign_allows("youtube", {"campaign": "c1"})
-    monkeypatch.setattr(platforms, "_campaign_platforms", lambda cid: None)  # brief lists nothing: unchanged
-    assert platforms.campaign_allows("youtube", {"campaign": "c1"})
+    monkeypatch.setattr(platforms, "_campaign_platforms", lambda cid: None)  # 20 Nov: brief lists nothing or is
+    assert not platforms.campaign_allows("youtube", {"campaign": "c1"})     # unreadable: nowhere (fail closed)
+    assert not platforms.allowed({"id": "h", "type": "clips"}, "instagram", {"campaign": "c1"})
 
 
 def test_upload_skips_youtube_for_a_brief_without_it(tmp_path, monkeypatch):

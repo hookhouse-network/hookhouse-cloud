@@ -1,0 +1,35 @@
+# Content gate rules (engine/content_gate.py). Owner, 20 Nov 2026: "make the system's policies, quality control,
+# verifications and validations strictest as much as possible"; "nothing should bypass these gates, and these gates
+# for whole system contents, rules and policies are according to channel, platform and content based".
+#
+# Every upload passes publish.upload_item, which runs the gate for each platform first; the approval path runs it
+# before anything reaches the owner. Missing data = blocked (fail closed). Add a platform / content type / channel
+# here, not in code. Platform numbers are the platforms' own API limits (checked 20 Nov 2026).
+
+defaults:
+  min_quality: 100            # owner: "each video must be 100/100, no compromise" (engine/quality.py scorecard)
+  fact_check: required        # required | if_present | off
+  ai_disclosure: required     # AI voice/pictures -> Meta "AI info" / YouTube synthetic flag must be set
+  auto_redo_max: 2            # quality below the bar -> remade with the gate's notes, at most this many times
+
+content:                      # by channel type
+  story:    {fact_check: required}
+  brainrot: {fact_check: if_present}
+  kids:     {fact_check: off, made_for_kids: required, ai_disclosure: off}
+  clips:    {fact_check: off, ai_disclosure: off, clip_gate: required}
+
+platforms:
+  youtube:     {short_max_s: 180, title_max: 100, description_max: 5000}
+  instagram:   {min_s: 3, max_s: 900, caption_max: 2200, hashtags_max: 5}
+  facebook:    {min_s: 3, max_s: 90, caption_max: 2200}
+  threads:     {caption_max: 500}
+  dailymotion: {max_s: 3600}
+  telegram:    {max_mb: 48}
+
+auto_approve:                 # engine/auto_approve.py (owner 20 Nov: "yes you can consider auto-approval")
+  enabled: true
+  min_clean: 10               # the owner's last 10 decisions on this channel + kind must be plain approvals
+  min_hours: 2                # slot at least 2 h away, so "❌ Stop it" can still cancel it
+  exclude_channels: []
+
+channels: {}                # per-channel overrides, e.g.  brain_snack: {min_quality: 100, fact_check: required}

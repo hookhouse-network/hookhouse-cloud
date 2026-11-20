@@ -930,6 +930,31 @@ def upload_item(it: dict, dry_run: bool = True, session=HTTP, platforms=("youtub
         _log(act)
         return [act]
     video = out / (it.get("file") or "video.mp4")
+    if not dry_run:
+        # 20 Nov (owner: "nothing should bypass these gates"): every real upload passes the content gate, per
+        # platform, right here (the queue, the approval-time YouTube schedule and every repost path call this).
+        from . import content_gate
+        try:
+            base = content_gate.base_problems(it)
+        except Exception as e:  # noqa: BLE001 - a gate that cannot run blocks
+            base = [f"content gate could not run ({type(e).__name__}: {str(e)[:80]})"]
+        keep = []
+        for p in platforms:
+            try:
+                probs = content_gate.verify(it, p, _base=base)
+            except Exception as e:  # noqa: BLE001
+                probs = [f"content gate could not run ({type(e).__name__}: {str(e)[:80]})"]
+            if probs:
+                act = Action(p, it["channel"], it["id"], "BLOCKED by the content gate", when or "",
+                             {"problems": probs[:6]})
+                act.result = {"error": content_gate.summary(probs)}
+                _log(act)
+                actions.append(act)
+            else:
+                keep.append(p)
+        platforms = tuple(keep)
+        if not platforms:
+            return actions
     if it.get("role") == "spoke" and it.get("hub"):           # topic cluster: the Short points to its full story
         link = _hub_link(it)
         meta["description"] = (str(meta.get("description") or "").rstrip() + "\n\n▶ The full story on this channel: "

@@ -100,3 +100,24 @@ def _no_real_ledger(monkeypatch, tmp_path):
     monkeypatch.setattr(heal, "QUEUE", tmp_path / "heal_queue_test.json")
     import engine.allocator as alloc                       # 20 Nov: no test plans with the real volume allocation
     monkeypatch.setattr(alloc, "FILE", tmp_path / "allocation_test.json")
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "real_gates: run the real content/clip gates (not opened for the test)")
+
+
+@pytest.fixture(autouse=True)
+def _gates_open_unless_tested(request, monkeypatch):
+    """Most tests post 1-byte fake videos through upload_item/ask to test other things; the content gate would
+    (rightly) block every one. Tests marked real_gates, and the gate test modules, keep the real gates."""
+    mod = request.module.__name__
+    if request.node.get_closest_marker("real_gates") or mod.endswith(("test_content_gate", "test_clip_gate",
+                                                                     "test_auto_approve")):
+        return
+    import engine.content_gate as cg
+    monkeypatch.setattr(cg, "base_problems", lambda it, *a, **k: [])
+    monkeypatch.setattr(cg, "platform_problems", lambda it, platform, *a, **k: [])
+    import engine.clip_gate as clg
+    monkeypatch.setattr(clg, "file_problems", lambda *a, **k: [])
+    import engine.auto_approve as aa
+    monkeypatch.setattr(aa, "eligible", lambda it, *a, **k: (False, "off in tests"))

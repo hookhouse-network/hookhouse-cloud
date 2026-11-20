@@ -52,8 +52,8 @@ def allowed(ch: dict, platform: str, meta: dict | None = None) -> bool:
         if meta.get("campaign") or basis not in OPEN_BASIS:     # campaign / permission-only footage: not here
             return False
     if meta.get("campaign"):                                   # campaign clip: only where the brief allows
-        names = _campaign_platforms(meta["campaign"])
-        if names is not None and CAMPAIGN_NAMES.get(platform, platform) not in names:
+        names = _campaign_platforms(meta["campaign"])        # 20 Nov: fail closed (unreadable / no platforms = nowhere)
+        if names is None or CAMPAIGN_NAMES.get(platform, platform) not in names:
             return False
     return True
 
@@ -64,7 +64,7 @@ def campaign_allows(platform: str, meta: dict | None) -> bool:
     if not (meta or {}).get("campaign"):
         return True
     names = _campaign_platforms(meta["campaign"])
-    return names is None or CAMPAIGN_NAMES.get(platform, platform) in names
+    return names is not None and CAMPAIGN_NAMES.get(platform, platform) in names     # unknown brief = nowhere
 
 
 def connected(ch: dict, platform: str) -> bool:
