@@ -535,8 +535,7 @@ def cmd_pick(args):
         except Exception as e:  # noqa: BLE001
             print(f"(no AI ideas: {type(e).__name__})")
         for k, t in enumerate(picker.suggest(args.channel, brain=brain), 1):
-            print(f"{k}. [{t['tier']}] {t['topic']}
-   {t['demand']}")
+            print(f"{k}. [{t['tier']}] {t['topic']}\n   {t['demand']}")
     elif args.what == "topic":
         if not (args.text and args.channel):
             sys.exit('usage: python cli.py pick topic "<topic>" --channel <id>')
