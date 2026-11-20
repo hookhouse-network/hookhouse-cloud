@@ -93,6 +93,9 @@ def test_redo_request_remakes_listed_unposted_videos_once(tmp_path, monkeypatch)
     cfg = tmp_path / "config"
     cfg.mkdir()
     (cfg / "replan.yaml").write_text("requests:\n  - {id: r2, redo: [a, b, c], note: remake}\n", encoding="utf-8")
+    import shutil
+    from engine.config import CONFIG_DIR as REAL
+    shutil.copy(REAL / "settings.yaml", cfg / "settings.yaml")     # run alone, settings() is not cached yet
     monkeypatch.setattr("engine.config.CONFIG_DIR", cfg)
     state = {}
     monkeypatch.setattr(autopilot, "_load", lambda: state)
