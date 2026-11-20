@@ -22,6 +22,8 @@ S = 2000
 
 # Store titles: what it is | who/what for | the words buyers search (under 100 characters)
 TITLES = {   # 20 Nov: the first 40 characters must match the live listing (record_public matches on them)
+    "planner_bundle_2027": "2027 Planner Bundle: Printable Planner + Habit Tracker | Budget Planner | Save 35%",
+    "senior_puzzle_bundle": "Large Print Puzzle Bundle for Seniors: Word Search + Sudoku | 126 Puzzles | Save 22%",
     "habit_tracker_2027": "2027 Habit Tracker & New Year Resolution Planner | 12 Monthly Trackers, Goals & Reviews",
     "senior_sudoku": "Large Print Sudoku for Seniors: 60 Easy to Medium Puzzles | One Big Puzzle per Page",
     "activity_book": "Big Fun Activity Book for Kids Ages 4-8 | Mazes, Dot to Dot, Spot the Difference, Word Search",
@@ -43,6 +45,15 @@ TITLES = {   # 20 Nov: the first 40 characters must match the live listing (reco
 
 MUSIC_FEATURES = ["Content ID-free: no claims", "Commercial use OK", "5 tracks x 90 seconds", "No credit needed"]
 SPECS = {
+    "planner_bundle_2027": dict(top="BUNDLE · SAVE 35%", head=["2027", "PLANNER BUNDLE"], sub="Planner + habit tracker + budget",
+                                bg=("#0B3D2E", "#14A38F"), accent="#FFD23F", pdf="2027_Planner_Printable.pdf",
+                                pages=[1, 3, 15], feats=["2027 printable planner", "12 monthly habit trackers",
+                                                         "Budget planner (Excel + Sheets)", "US Letter + A4"]),
+    "senior_puzzle_bundle": dict(top="BUNDLE · SAVE 22%", head=["PUZZLE BUNDLE", "FOR SENIORS"],
+                                 sub="126 large-print puzzles", bg=("#5B2C1F", "#2E7BC4"), accent="#FFD9A0",
+                                 pdf="Large_Print_Sudoku_Seniors.pdf", pages=[1, 21, 61],
+                                 feats=["50 nostalgia word searches", "60 sudoku, easy to medium",
+                                        "One big puzzle per page", "Answers included"]),
     "habit_tracker_2027": dict(top="PRINTABLE PDF", head=["2027", "HABIT TRACKER"], sub="Turn resolutions into daily habits",
                                bg=("#2B1B5E", "#6C4AB6"), accent="#FFD23F", pdf="2027_Habit_Tracker_Printable.pdf",
                                pages=[1, 2, 3], feats=["12 monthly habit trackers", "Goals for 6 areas of life",

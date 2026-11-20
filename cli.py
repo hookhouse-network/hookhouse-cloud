@@ -513,6 +513,47 @@ def cmd_cloud(args):
               "| missing before setup:", ", ".join(setup.missing(env)) or "nothing")
 
 
+def cmd_pick(args):
+    """Search and pick topics/campaigns (engine/picker.py)."""
+    from engine import picker
+    if args.what == "topics":
+        brain = None
+        try:
+            from engine.autopilot import default_brain
+            brain = default_brain()[0]
+        except Exception as e:  # noqa: BLE001 - the query itself is still checked
+            print(f"(no AI ideas: {type(e).__name__})")
+        for k, t in enumerate(picker.find_topics(args.text or "", args.channel, brain=brain), 1):
+            print(f"{k}. [{t['tier']}] {t['topic']}  ->  {t['channel']}\n   {t['demand']}" + (f"\n   {t['why']}" if t['why'] else ""))
+    elif args.what == "suggest":
+        if not args.channel:
+            sys.exit("usage: python cli.py pick suggest --channel <id>")
+        brain = None
+        try:
+            from engine.autopilot import default_brain
+            brain = default_brain()[0]
+        except Exception as e:  # noqa: BLE001
+            print(f"(no AI ideas: {type(e).__name__})")
+        for k, t in enumerate(picker.suggest(args.channel, brain=brain), 1):
+            print(f"{k}. [{t['tier']}] {t['topic']}
+   {t['demand']}")
+    elif args.what == "topic":
+        if not (args.text and args.channel):
+            sys.exit('usage: python cli.py pick topic "<topic>" --channel <id>')
+        print(picker.pick_topic(args.text, args.channel))
+    elif args.what == "campaigns":
+        rows = picker.find_campaigns(args.text or "", show_all=args.all)
+        if not rows:
+            print("No campaign with footage we can legally get. Run: python cli.py campaign discover")
+        for k, c in enumerate(rows, 1):
+            print(f"{k}. {c['name']} ({c['id']}) score {c['score']} | rate {c['rate']} | budget left "
+                  f"{c['budget_left_pct']}% | {c['platforms']}\n   footage: {c['footage']}: {c['footage_why']}\n   {c['url']}")
+    elif args.what == "campaign":
+        if not args.text:
+            sys.exit("usage: python cli.py pick campaign <id> [--channel ACCOUNT]")
+        print(picker.pick_campaign(args.text, account=args.channel))
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description="Clip Factory control tool")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -534,6 +575,13 @@ def main(argv=None):
     c.add_argument("--file", help="Text file with the pasted campaign page")
     c.add_argument("--url")
     c.set_defaults(fn=cmd_campaign)
+
+    pk = sub.add_parser("pick", help="Search and pick topics or campaigns (owner 20 Nov)")
+    pk.add_argument("what", choices=["suggest", "topics", "topic", "campaigns", "campaign"])
+    pk.add_argument("text", nargs="?", help="search words, a topic, or a campaign id")
+    pk.add_argument("--channel", help="channel id (topics) or posting account (campaign)")
+    pk.add_argument("--all", action="store_true", help="campaigns: also show those without legal footage")
+    pk.set_defaults(fn=cmd_pick)
 
     m = sub.add_parser("memory", help="Our own memory (RAG)")
     m.add_argument("action", choices=["stats", "add", "search", "seed"])

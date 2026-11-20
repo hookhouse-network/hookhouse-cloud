@@ -5,7 +5,7 @@
 max_file_mb: 20                 # 1-bit pages for line art (the sudoku went 26 MB -> 1 MB); buyers download on phones
 ai_art_allowed: false           # products are drawn by code; AI pictures are the videos' scarce free quota
 types:                          # first keyword found in the product id decides the type
-  bundle:    {keywords: [bundle],                                   max_pages: 300, price: [9, 29]}
+  bundle:    {keywords: [bundle],                                   max_pages: 300, price: [6, 29]}
   tracker:   {keywords: [tracker, chart, worksheet, scorebook],     max_pages: 40,  price: [2, 9]}
   planner:   {keywords: [planner],                                  max_pages: 40,  price: [3, 12]}
   puzzle:    {keywords: [sudoku, puzzle, word_search, crossword, maze, logic], max_pages: 100, price: [3, 12]}

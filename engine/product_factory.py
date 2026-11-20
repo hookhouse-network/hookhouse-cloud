@@ -21,6 +21,9 @@ BUILDERS = {   # product id -> (pdf name, builder)
     # 20 Nov: in-season winners of the product research (Nov-Jan)
     "habit_tracker_2027": ("2027_Habit_Tracker_Printable.pdf", "engine.planner_product:habit_tracker"),
     "senior_sudoku": ("Large_Print_Sudoku_Seniors.pdf", "engine.digital_products:senior_sudoku"),
+    # 20 Nov: bundles of products we already have (focused bundles sell; zero new production)
+    "planner_bundle_2027": ("2027_Planner_Printable.pdf", "engine.product_bundles:planner_bundle"),
+    "senior_puzzle_bundle": ("Large_Print_Sudoku_Seniors.pdf", "engine.product_bundles:senior_bundle"),
 }
 
 

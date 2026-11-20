@@ -12,6 +12,28 @@ KIND = {"money_budget_planner": "sheet", "bloop_colouring_book": "print", "brain
         "christmas_colouring_book": "print"}
 
 COPY = {
+    "planner_bundle_2027": dict(
+        hook="Everything to plan, track and budget 2027 in one download, for less than buying them one by one.",
+        inside=["2027 Printable Planner: year at a glance, 12 monthly calendars, weekly and daily pages",
+                "2027 Habit Tracker & Resolution Planner: 12 monthly trackers, goals, monthly reviews",
+                "Budget Planner: Excel + Google Sheets in rupees and dollars, plus printable pages",
+                "Bought separately: $17. Bundle: $11"],
+        who="Anyone who wants a calm, organised 2027: students, parents, freelancers, small business owners.",
+        how="Download once, print any page as often as you like; open the spreadsheets in Excel or Google Sheets.",
+        note="US Letter, prints on A4 with 'fit to page'.",
+        kdp="The complete 2027 planning bundle: printable planner, habit tracker and budget planner.",
+        social="2027 planner bundle: planner + habit tracker + budget planner"),
+    "senior_puzzle_bundle": dict(
+        hook="126 large-print puzzles in one download: nostalgic word searches and easy-to-medium sudoku.",
+        inside=["50 word searches themed on the good old days, extra-large letters",
+                "60 sudoku from easy to medium, one big grid per page",
+                "Answers at the back of both books",
+                "Bought separately: $9. Bundle: $7"],
+        who="Seniors, grandparents and anyone who loves a relaxing daily puzzle. A thoughtful gift.",
+        how="Print a puzzle, solve it, check the answer at the back. Print favourites again any time.",
+        note="Gentle on the eyes: big print, one puzzle per page.",
+        kdp="Large print puzzle bundle: 50 word searches and 60 sudoku for seniors, answers included.",
+        social="Large print puzzle bundle: word search + sudoku"),
     "habit_tracker_2027": dict(
         hook="Turn your 2027 resolutions into habits you actually keep, one tick a day.",
         inside=["A goals page for six areas of life: health, money, career, relationships, learning and fun",

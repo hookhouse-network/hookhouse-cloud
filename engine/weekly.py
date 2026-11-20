@@ -457,6 +457,20 @@ def plan_week(brain, start: date | None = None, only: list[str] | None = None, m
                 taken.extend(t["topic"] for t in topics if t.get("role") == "spoke")
             except Exception as e:  # noqa: BLE001 - one channel failing must not stop the week
                 log(f"Topics for {ch['name']} failed: {e}")
+        try:                                           # 20 Nov: topics the owner picked (engine/picker.py) go first
+            from .picker import queued_topics
+            picks = queued_topics(ch["id"]) if kind_type in ("story", "brainrot") else []
+        except Exception as e:  # noqa: BLE001 - the week is planned without them (they stay in the file)
+            log(f"picked topics for {ch['name']}: {type(e).__name__}: {e}")
+            picks = []
+        short_slots = [i for i, (_w, k) in enumerate(slots) if k == "short"]
+        for i, pk in zip(short_slots, picks):
+            t = {"topic": pk["topic"], "why": "owner picked this topic", "demand": pk.get("demand") or None,
+                 "owner_pick": True}
+            if i < len(topics):
+                topics[i] = t
+            else:
+                topics.extend([{}] * (i - len(topics)) + [t])
         promo, promo_idx = None, -1                    # 20 Nov: one value-first promo Short per channel per week
         shorts_idx = [i for i, (_w, k) in enumerate(slots) if k == "short"]
         if shorts_idx and kind_type != "kids":
@@ -474,10 +488,10 @@ def plan_week(brain, start: date | None = None, only: list[str] | None = None, m
                 "kind": kind, "publish_at": when.isoformat(),
                 "topic": t.get("topic"), "angle": t.get("angle"), "why": t.get("why"),
                 "role": t.get("role"), "hub": t.get("hub"), "feeling": t.get("feeling"), "now_hook": t.get("now_hook"),
-                "demand": t.get("demand") or None,
+                "demand": t.get("demand") or None, "owner_pick": bool(t.get("owner_pick")) or None,
                 "status": "planned" if kind_type in BUILDABLE else "not_built",
                 "out_dir": None, "file": None, "error": None, "note": None, "log": None})
-            if promo and i == promo_idx:
+            if promo and i == promo_idx and not items[-1].get("owner_pick"):   # never over the owner's own pick
                 items[-1]["product"] = promo["pid"]
                 if kind_type == "story" and promo.get("angle"):
                     items[-1].update(topic=promo["angle"], angle=None, role=None, hub=None, demand=None,
