@@ -6,3 +6,6 @@ requests:
   - id: "2026-11-20-gta-clips-campaign-design"  # owner 20 Nov: clips too short / not per the brief's reference Shorts
     redo: [1121_0100_stream_clips_short, 1121_0500_stream_clips_short, 1121_0630_stream_clips_short]
     note: "remake: 30-60 s, headline band, Kick outro cut (campaign design)"
+  - id: "2026-11-20-gta-clips-muted"            # the remakes were held for profanity before muting existed
+    redo: [1121_0100_stream_clips_short, 1121_0500_stream_clips_short, 1121_0630_stream_clips_short]
+    note: "remake: swear words muted; footage the gate holds is skipped"
