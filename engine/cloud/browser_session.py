@@ -134,5 +134,10 @@ def cloud_jobs(store, log=print) -> int:
         return 0
     if not start_cloud_chrome(store, log):
         return 0
+    try:                                    # 20 Nov: campaigns the owner confirmed in Telegram are joined here
+        from .. import campaign_join
+        campaign_join.process_requests(log=log)
+    except Exception as e:  # noqa: BLE001 - footage jobs still run
+        log(f"campaign joins: {type(e).__name__}: {e}")
     from .. import cr_footage
     return cr_footage.pc_job(store, log)

@@ -73,11 +73,16 @@ def test_pick_flow(monkeypatch, tmp_path):
     cb = lambda data: {"callback_query": {"id": "1", "data": data, "message": {"chat": {"id": 42}, "message_id": 7}}}
     tb.handle(cb(f"t:{order.index('a')}"), conn=object())
     tb.handle(cb(f"t:{order.index('b')}"), conn=object())
+    # 20 Nov: footage is confirmed first, then the SYSTEM joins (owner: "the join should be done through the system")
+    monkeypatch.setattr("engine.picker.footage_check",
+                        lambda c, **k: ("ok", "brief files") if c.get("id") == "a" else ("blocked", "only Twitch"))
+    requested = []
+    monkeypatch.setattr("engine.campaign_join.request", lambda cid, by="owner": requested.append((cid, by)))
     tb.handle(cb("c"), conn=object())
     assert saved == {"a": "picked", "b": "picked"}
-    assert "Saved 2" in sent[-1] and "Join" in sent[-1]
-    urls = [b.get("url") for r in (kbs[-1] or {}).get("inline_keyboard", []) for b in r]   # 17 Nov: Join buttons
-    assert "u1" in urls
+    assert "joining it for you now" in sent[-1] and "not joined: footage blocked" in sent[-1]
+    assert requested == [("a", "owner (Telegram Confirm)")]
+    assert not any(b.get("url") for r in (kbs[-1] or {}).get("inline_keyboard", []) for b in r) or len(kbs) < 2
     # a stranger's chat is ignored
     n = len(sent)
     tb.handle({"message": {"chat": {"id": 99}, "text": "/status"}})

@@ -67,6 +67,8 @@ def join(cid: str, consent_by: str = "owner", conn=None, runner=None, log=print)
         return f"⚠️ The page did not confirm the join: {report[:200]}"
     status = "joined" if clippable or c.get("kick") else "joined_no_footage"
     _update_picked(cid, status, report.splitlines()[0])
+    c.update(status=status, joined_at=time.time(), joined_by=consent_by)   # the DB is in the cloud memory bundle
+    db.save_campaign(conn or db.connect(), c)
     ledger.event("campaign.joined", data={"campaign": cid, "status": status})
     if status == "joined_no_footage":
         try:
@@ -76,3 +78,47 @@ def join(cid: str, consent_by: str = "owner", conn=None, runner=None, log=print)
             log(f"notify: {e}")
         return f"⚠️ Joined, but no downloadable footage after joining: {report.splitlines()[0]}"
     return f"✅ Joined {c.get('name')}: {report.splitlines()[0]}"
+
+
+QUEUE = ROOT / "data" / "state" / "join_requests.json"
+
+
+def request(cid: str, by: str = "owner") -> None:
+    """The owner's tap (Telegram Confirm / [Join]) queues a join; the next run with a logged-in browser does it."""
+    import json
+    from .core import ledger
+    try:
+        q = json.loads(QUEUE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        q = {}
+    q[cid] = {"by": by, "at": time.time()}
+    from .core.atomic import write_json
+    write_json(QUEUE, q)
+    ledger.event("campaign.join_requested", data={"campaign": cid, "by": by})
+
+
+def process_requests(log=print, runner=None) -> int:
+    """Run queued joins (cloud tick after the logged-in Chrome is up, or the PC). Each one reports to Telegram."""
+    import json
+    try:
+        q = json.loads(QUEUE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return 0
+    if not q:
+        return 0
+    from .core.atomic import write_json
+    done = 0
+    for cid, info in list(q.items()):
+        msg = join(cid, consent_by=info.get("by", "owner"), runner=runner, log=log)
+        log(f"join {cid}: {msg}")
+        if "Join failed" in msg and time.time() - float(info.get("at") or 0) < 2 * 86400:
+            continue                                    # browser trouble: try again next run (for 2 days)
+        q.pop(cid, None)
+        done += 1
+        try:
+            from .telegram_bot import notify
+            notify(msg)
+        except Exception as e:  # noqa: BLE001
+            log(f"notify: {e}")
+    write_json(QUEUE, q)
+    return done

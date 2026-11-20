@@ -238,13 +238,25 @@ def confirm(ids: list[str], conn=None) -> str:
         PICKS.parent.mkdir(parents=True, exist_ok=True)
         with PICKS.open("a", encoding="utf-8") as f:
             f.write(json.dumps({"t": time.time(), "id": cid, "name": c.get("name")}) + "\n")
-        lines.append(f"• {c.get('name', '')[:60]}" + _footage_note(c))
+        # 20 Nov (owner: "the join should be done through the system that we build"; "make sure you find the
+        # footage ... I don't want any issues after joining"): footage first, then the system joins for the owner
+        try:
+            from .picker import footage_check
+            fv, fwhy = footage_check(c)
+        except Exception as e:  # noqa: BLE001 - not confirmed = not joined
+            fv, fwhy = "unknown", f"footage check failed ({type(e).__name__})"
+        if fv == "ok":
+            from .campaign_join import request
+            request(cid, by="owner (Telegram Confirm)")
+            lines.append(f"• {c.get('name', '')[:60]}: ✅ footage confirmed ({fwhy}); joining it for you now"
+                         + _footage_note(c))
+        else:
+            lines.append(f"• {c.get('name', '')[:60]}: 🛑 not joined: footage {fv} ({fwhy})")
     if not lines:
         return "Nothing was ticked. Tap the numbers first (☑️), then ✅ Confirm."
-    return (f"👍 Saved {len(lines)} campaign(s):\n" + "\n".join(lines) +
-            "\n\n👉 Last step: tap each 🔗 Join button below and press Join Campaign on the page "
-            "(pick Hot Take HQ if it asks for an account). I notice the join by myself, fetch the footage and send "
-            "every clip here for your ✅.")
+    return (f"👍 {len(lines)} campaign(s):\n" + "\n".join(lines) +
+            "\n\nThe system presses Join on each confirmed campaign by itself and tells you here when it is done. "
+            "Then it fetches the footage and sends every clip here for your ✅.")
 
 
 def _footage_note(c: dict) -> str:
@@ -969,11 +981,7 @@ def handle(update: dict, conn=None) -> None:
         picks = ticked if ticked is not None else d.get("picked", [])
         ids = [ids_all[i] for i in picks if i < len(ids_all)]
         reply = confirm(ids, conn)
-        try:
-            kb = join_keyboard(ids, conn) if ids else None
-        except Exception:  # noqa: BLE001
-            kb = None
-        send(reply, reply_markup=kb) if kb else send(reply)
+        send(reply)                                             # 20 Nov: the system joins; no manual links
         d["picked"] = []
         note = "Saved"
     elif data == "r":

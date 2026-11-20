@@ -176,10 +176,11 @@ def footage_check(c: dict, mcp=None, live: bool = True) -> tuple[str, str]:
     direct = [u for u in c.get("allowed_sources") or [] if re.search(r"drive\.google|dropbox|frame\.io|\.mp4", str(u))]
     if direct:
         return "ok", f"{len(direct)} footage link(s) from the brief"
-    if live and str(c.get("source")) == "clippingalpha" and c.get("ref", c.get("id")):
+    ref = c.get("ca_ref") or c.get("ref") or (c.get("id") if str(c.get("source")) == "clippingalpha" else None)
+    if live and ref:
         try:
             from .discover import campaign_footage
-            f = campaign_footage(str(c.get("ref") or c.get("id")), mcp=mcp)
+            f = campaign_footage(str(ref), mcp=mcp)
         except Exception as e:  # noqa: BLE001 - not confirmed = not ok
             return "unknown", f"footage check failed ({type(e).__name__}); not confirmed"
         if f.get("files"):
