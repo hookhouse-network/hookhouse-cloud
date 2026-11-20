@@ -450,6 +450,44 @@ def ground(words: list[Word], m: dict, start: float, end: float) -> tuple[float,
     return start, end, grounded
 
 
+SHORT_SOURCE_S = 90              # a Kick/Twitch highlight the streamer's viewers already cut: keep it whole
+
+WHOLE_PROMPT = """This is ONE short highlight clip ({dur:.0f} s) cut from a streamer's live stream (gameplay plus the
+streamer's reactions; little speech). It is posted whole as a vertical Short. Write its packaging.
+- Title: the concrete thing that happens or is said, under 60 chars, no "BREAKING"/"LIVE", no clickbait the clip
+  does not deliver. Name the streamer only if the transcript does.
+- Hooks: 3 on-screen hooks, max 7 words, that make a scroller stay (a question or the stakes), true to the clip.
+- No spoilers of the game's story.
+{campaign_rules}
+Return ONLY JSON: {{"hook_options": ["..."], "title": "...", "caption": "hook line + 1 line",
+ "emphasis": ["3-6 words said in the clip"], "emoji": "one emoji",
+ "scores": {{"hook": 0, "emotion": 0, "curiosity": 0, "complete": 0, "ending": 0, "audience_fit": 0, "brand_safe": 0}},
+ "why": "one sentence"}}
+
+Transcript (may be empty or partial):
+{transcript}"""
+
+
+def whole_clip_moment(brain, words: list[Word], dur: float, campaign: dict | None = None,
+                      max_len: float = 58) -> list[dict]:
+    """20 Nov: Kick highlights are mostly gameplay; the podcast editor found no 20 s talking moment in them, so the
+    first GTA clips failed. A short highlight is posted whole (trimmed to the campaign's max length)."""
+    rules = f"- Campaign rules: banned: {campaign.get('banned')}, other: {campaign.get('other_rules')}" if campaign else ""
+    data, result = brain.ask_json("editor", WHOLE_PROMPT.format(
+        dur=dur, campaign_rules=rules, transcript=transcript_text(words) if words else "(no speech)"),
+        system=EDITOR_SYSTEM, temperature=0.5)
+    m = dict(data or {}) if isinstance(data, dict) else {}
+    m["title"], tflags = clean_title(str(m.get("title") or ""), proper_nouns(words, ""))
+    if tflags:
+        m["title_flags"] = tflags
+    m.update(start=0.0, end=round(min(dur, max_len), 2), picked_by=getattr(result, "provider", None),
+             whole_clip=True)
+    m["virality"] = virality(m.get("scores") or {})
+    if not m.get("hook_options"):
+        m["hook_options"] = [m["title"]] if m["title"] else []
+    return [m]
+
+
 def pick_moments(brain, words: list[Word], n_candidates: int = 12, keep: int = 4, min_len: int = 20,
                  max_len: int = 55, campaign: dict | None = None, memory=None, audience="US viewers",
                  channel_id: str = "hot_take_hq") -> list[dict]:
@@ -670,9 +708,13 @@ def make_clips(brain, source: str, channel: dict, campaign: dict | None = None, 
         else:
             log("Transcribing (Whisper)…")
             words = transcribe(video, language="en")
+    ls = (campaign or {}).get("length_seconds") or {}
+    if moments is None and ffmpeg.duration(video) <= SHORT_SOURCE_S:
+        log("Short highlight (a streamer's own clip): keeping it whole, writing its hook and title…")
+        moments = whole_clip_moment(brain, words, ffmpeg.duration(video), campaign=campaign,
+                                    max_len=min(ls.get("max") or 58, 58))
     if moments is None:
         log("Finding the best moments…")
-        ls = (campaign or {}).get("length_seconds") or {}
         moments = pick_moments(brain, words, keep=keep, n_candidates=max(12, keep * 2), campaign=campaign, memory=memory,
                                channel_id=channel.get("id", "hot_take_hq"), min_len=max(ls.get("min") or 20, 15), max_len=min(ls.get("max") or 55, 58))
     results = []

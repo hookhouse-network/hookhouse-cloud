@@ -161,3 +161,17 @@ def test_tab_opens_blank_then_navigates_full_url(monkeypatch):
     t = kick._Tab("https://accounts.google.com/o/oauth2/auth?client_id=a&response_type=code")
     assert asked == [f"{kick.CDP}/json/new?about:blank"]
     assert t.url.endswith("client_id=a&response_type=code")
+
+
+def test_short_kick_highlight_is_kept_whole():
+    """20 Nov: the first GTA clip failed ('no usable clips'): a 40 s gameplay highlight has no 20 s talking moment."""
+    from engine import clips
+
+    class B:
+        def ask_json(self, task, prompt, **k):
+            assert "ONE short highlight" in prompt
+            return ({"title": "He Found The Gas Price In GTA 6", "hook_options": ["Wait for the price"],
+                     "caption": "c", "scores": {"hook": 8, "brand_safe": 10}}, type("R", (), {"provider": "x"})())
+    (m,) = clips.whole_clip_moment(B(), [], 74.0, max_len=58)
+    assert (m["start"], m["end"]) == (0.0, 58) and m["whole_clip"] and m["hook_options"] == ["Wait for the price"]
+    assert m["title"]
