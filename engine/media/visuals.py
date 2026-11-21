@@ -265,6 +265,81 @@ def openverse(query: str, limit: int = 8, download: bool = False) -> list[Visual
     return out
 
 
+INAT_DATASET = "50c9509d-22c7-4a22-a47d-8c48425ef4a7"     # iNaturalist research-grade observations on GBIF
+OPEN_MEDIA = {"creativecommons.org/publicdomain/zero/1.0": "CC0", "creativecommons.org/licenses/by/4.0": "CC BY 4.0"}
+ANIMALS = re.compile(
+    r"\b(lion|lioness|tiger|leopard|cheetah|jaguar|cougar|puma|lynx|bobcat|wolf|wolves|fox|coyote|jackal|hyena|bear|"
+    r"panda|elephant|rhino|rhinoceros|hippo|hippopotamus|giraffe|zebra|buffalo|bison|moose|elk|deer|antelope|gazelle|"
+    r"wildebeest|camel|kangaroo|koala|wombat|platypus|sloth|armadillo|anteater|monkey|baboon|gorilla|chimpanzee|"
+    r"orangutan|lemur|bat|otter|beaver|badger|raccoon|skunk|squirrel|chipmunk|hedgehog|porcupine|rabbit|hare|"
+    r"meerkat|mongoose|boar|warthog|eagle|hawk|falcon|owl|vulture|condor|parrot|macaw|penguin|flamingo|pelican|"
+    r"heron|crane|stork|swan|goose|duck|hummingbird|peacock|ostrich|emu|crow|raven|albatross|puffin|woodpecker|"
+    r"kingfisher|toucan|crocodile|alligator|turtle|tortoise|lizard|iguana|gecko|chameleon|komodo|snake|python|"
+    r"cobra|viper|rattlesnake|anaconda|frog|toad|salamander|axolotl|shark|whale|orca|dolphin|seal|walrus|manatee|"
+    r"octopus|squid|jellyfish|stingray|manta|seahorse|starfish|crab|lobster|shrimp|eel|salmon|tuna|clownfish|"
+    r"pufferfish|anglerfish|coral|butterfly|moth|bee|wasp|ant|termite|beetle|dragonfly|spider|scorpion|mantis)\b",
+    re.I)
+
+
+def _gbif_species(query: str) -> int | None:
+    """GBIF backbone key of the animal a picture query names ("red fox hunting in snow" -> Vulpes vulpes)."""
+    m = ANIMALS.search(query or "")
+    if not m:
+        return None
+    words = re.findall(r"[a-z]+", query.lower())
+    i = words.index(m.group(1).lower()) if m.group(1).lower() in words else len(words) - 1
+    for phrase in ([" ".join(words[max(0, i - 1):i + 1])] if i > 0 else []) + [words[i]]:
+        try:
+            res = session().get("https://api.gbif.org/v1/species/search", params={
+                "q": phrase, "qField": "VERNACULAR", "rank": "SPECIES", "status": "ACCEPTED", "limit": 3},
+                timeout=30).json().get("results") or []
+        except (requests.RequestException, ValueError):
+            return None
+        for r in res:
+            if str(r.get("kingdom", "")).lower() == "animalia" and r.get("nubKey"):
+                return int(r["nubKey"])
+    return None
+
+
+def gbif_wildlife(query: str, limit: int = 6, download: bool = False) -> list[Visual]:
+    """Real photos of the animal a beat names, from iNaturalist research-grade observations via GBIF (free, no key).
+    The licence is checked PER PHOTO (21 Nov: GBIF's record licence filter let 'Copyright by the creator' Flickr photos
+    through): only CC0 and CC BY 4.0, credited with the photographer's name. Plan P3b: real where real exists."""
+    key = _gbif_species(query)
+    if not key:
+        return []
+    try:
+        results = session().get("https://api.gbif.org/v1/occurrence/search", params=[
+            ("taxonKey", key), ("datasetKey", INAT_DATASET), ("mediaType", "StillImage"),
+            ("basisOfRecord", "HUMAN_OBSERVATION"), ("license", "CC0_1_0"), ("license", "CC_BY_4_0"),
+            ("limit", max(10, limit * 3))], timeout=30).json().get("results") or []
+    except (requests.RequestException, ValueError):
+        return []
+    out = []
+    for r in results:
+        for m in r.get("media") or []:
+            if len(out) >= limit:
+                return out
+            lic_url = re.sub(r"^https?://|/(legalcode)?$", "", str(m.get("license") or "").strip())
+            lic = OPEN_MEDIA.get(lic_url)
+            url = str(m.get("identifier") or "")
+            if not lic or not url.startswith("https://inaturalist-open-data.s3.amazonaws.com/"):
+                continue
+            url = url.replace("/original.", "/large.")
+            who = m.get("creator") or m.get("rightsHolder") or "an iNaturalist observer"
+            name = r.get("vernacularName") or r.get("species") or query
+            dest = CACHE / f"gbif_{r.get('key')}_{len(out)}.jpg"
+            if download:
+                try:
+                    _download(url, dest)
+                except requests.RequestException:
+                    continue
+            out.append(Visual(dest, "gbif", f"Photo: {who} ({lic}) via iNaturalist / GBIF", lic,
+                              {"text": f"{name} {r.get('species', '')} {query}", "url": url}))
+            break                                         # one photo per observation: more different animals
+    return out
+
+
 NASA_COPYRIGHT = re.compile(r"©|\(c\)|copyright|getty|reuters|associated press|\bap photo\b", re.I)
 
 

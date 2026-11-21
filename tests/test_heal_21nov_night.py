@@ -61,6 +61,41 @@ def test_nasa_pictures_for_space_beats(monkeypatch):
     assert story.SPACE_WORDS.search("Apollo rocket on the pad") and not story.SPACE_WORDS.search("NBA star dunks")
 
 
+def test_wildlife_photos_check_the_licence_of_every_photo(monkeypatch):
+    """P3b picture supply: real animal photos from iNaturalist via GBIF. GBIF's record licence filter lets through
+    photos whose own licence is 'Copyright by the creator': each photo's licence is checked."""
+    from engine.media import visuals
+    calls = []
+
+    class Resp:
+        def __init__(self, data):
+            self.data = data
+
+        def json(self):
+            return self.data
+
+    def get(url, params=None, timeout=None):
+        calls.append(url)
+        if url.endswith("/species/search"):
+            return Resp({"results": [{"nubKey": 5219243, "kingdom": "Animalia", "scientificName": "Vulpes vulpes"}]})
+        media = [
+            [{"license": "Copyright by the creator. See nabu.de", "identifier": "https://live.staticflickr.com/x.jpg"}],
+            [{"license": "http://creativecommons.org/licenses/by-nc/4.0/",
+              "identifier": "https://inaturalist-open-data.s3.amazonaws.com/photos/1/original.jpg"}],
+            [{"license": "http://creativecommons.org/licenses/by/4.0/", "creator": "Ana",
+              "identifier": "https://inaturalist-open-data.s3.amazonaws.com/photos/2/original.jpg"}],
+            [{"license": "http://creativecommons.org/publicdomain/zero/1.0/", "creator": "Ben",
+              "identifier": "https://inaturalist-open-data.s3.amazonaws.com/photos/3/original.jpg"}]]
+        return Resp({"results": [{"key": k, "species": "Vulpes vulpes", "media": m} for k, m in enumerate(media)]})
+    monkeypatch.setattr(visuals, "session", lambda: type("S", (), {"get": staticmethod(get)})())
+    got = visuals.gbif_wildlife("red fox hunting in snow", limit=5)
+    assert [v.license for v in got] == ["CC BY 4.0", "CC0"]                  # copyright + NC photos refused
+    assert got[0].credit == "Photo: Ana (CC BY 4.0) via iNaturalist / GBIF"
+    assert got[0].meta["url"].endswith("/photos/2/large.jpg")
+    calls.clear()
+    assert visuals.gbif_wildlife("old oil rig at sea") == [] and calls == []    # no animal named: no API call
+
+
 def test_both_pace_passes_share_one_ceiling():
     """Story videos were held 'narration 139-148 wpm, target 180 (too slow)': the second pace pass capped at 1.12."""
     import inspect

@@ -912,6 +912,8 @@ def _photo_candidates(query: str) -> list:
             got += visuals.met_museum(query, download=False)  # public-domain museum objects for history scenes
         if SPACE_WORDS.search(query):                       # 21 Nov: real NASA pictures for space beats (public domain)
             got = visuals.nasa_images(query, download=False) + got
+        if visuals.ANIMALS.search(query):                   # 21 Nov: real animal photos (iNaturalist, CC0 / CC BY)
+            got = visuals.gbif_wildlife(query, download=False) + got
         short = re.sub(r"\s+", " ", GENERIC_SEARCH.sub(" ", query)).strip()
         if not got and short and short != query:
             got = visuals.wikimedia(short, download=False)
