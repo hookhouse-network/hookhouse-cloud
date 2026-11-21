@@ -16,7 +16,22 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS checkpoints (item TEXT NOT NULL, stage TEXT NOT NULL, status TEXT NOT NULL,
      artifact TEXT, attempts INTEGER NOT NULL DEFAULT 0, error TEXT, updated REAL NOT NULL, PRIMARY KEY (item, stage))`,
   `CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT, updated REAL NOT NULL)`,
+  // Phase 1 last step (21 Nov): the Telegram bot's working keys move off KV (1,000 free writes a day) to here
+  `CREATE TABLE IF NOT EXISTS tkv (k TEXT PRIMARY KEY, v TEXT, expires REAL, updated REAL NOT NULL)`,
 ];
+
+// Telegram keys allowed in tkv: updates, dashboard commands + their results, card decisions, small counters.
+export const TELE_PREFIX = /^(upd|cmd|res|dec|meta):[A-Za-z0-9_:.\-]{1,120}$/;
+const TELE_MAX_VALUE = 256 * 1024;
+
+export function validTele(b) {
+  if (!b || typeof b.k !== "string" || !TELE_PREFIX.test(b.k)) return false;
+  if (b.op === "tput") {
+    if (typeof b.v !== "string" || b.v.length > TELE_MAX_VALUE) return false;
+    if (b.ttl !== undefined && b.ttl !== null && !(Number(b.ttl) > 0 && Number(b.ttl) <= 30 * 86400)) return false;
+  }
+  return true;
+}
 
 // Allow-list: table -> columns and primary key. Nothing else can be written through the API.
 export const TABLES = {
@@ -67,6 +82,7 @@ export class LedgerDO extends DurableObject {
       const r = this.sql.exec(`SELECT count(*) AS n FROM ${t}`).one();
       out[t] = r.n;
     }
+    out.tkv = this.sql.exec(`SELECT count(*) AS n FROM tkv`).one().n;     // Telegram keys (Phase 1 last step)
     return out;
   }
 
@@ -82,6 +98,34 @@ export class LedgerDO extends DurableObject {
     return this.sql.exec(`SELECT * FROM ${table} WHERE id > ? ORDER BY id LIMIT ?`, Number(after) || 0, n).toArray();
   }
 
+  // ---- Telegram keys (tkv): get / put with a time-to-live / delete / list by prefix. Expired rows read as missing.
+  tele(b) {
+    const now = Date.now() / 1000;
+    if (b.op === "tlist") {
+      const p = String(b.prefix || "");
+      if (!/^(upd|cmd|res|dec|meta):/.test(p)) throw new Error("prefix outside the allow-list");
+      const n = Math.min(Number(b.limit) || 1000, 1000);
+      return { keys: this.sql.exec(`SELECT k FROM tkv WHERE k >= ? AND k < ? AND (expires IS NULL OR expires >= ?)
+                                    ORDER BY k LIMIT ?`, p, p + "￿", now, n).toArray().map(r => r.k) };
+    }
+    if (!validTele(b)) throw new Error("tele key or value outside the allow-list");
+    if (b.op === "tget") {
+      const r = this.sql.exec(`SELECT v, expires FROM tkv WHERE k = ?`, b.k).toArray()[0];
+      return { v: r && !(r.expires && r.expires < now) ? r.v : null };
+    }
+    if (b.op === "tput") {
+      this.sql.exec(`INSERT OR REPLACE INTO tkv(k, v, expires, updated) VALUES (?, ?, ?, ?)`, b.k, b.v,
+                    b.ttl ? now + Number(b.ttl) : null, now);
+      if (Math.random() < 0.02) this.sql.exec(`DELETE FROM tkv WHERE expires IS NOT NULL AND expires < ?`, now);
+      return { ok: 1 };
+    }
+    if (b.op === "tdel") {
+      this.sql.exec(`DELETE FROM tkv WHERE k = ?`, b.k);
+      return { ok: 1 };
+    }
+    throw new Error("unknown tele op");
+  }
+
   async fetch(request) {
     let b;
     try { b = await request.json(); } catch (e) { return Response.json({ error: "bad json" }, { status: 400 }); }
@@ -89,6 +133,7 @@ export class LedgerDO extends DurableObject {
       if (b.op === "apply") return Response.json(this.apply(b.changes));
       if (b.op === "stats") return Response.json(this.stats());
       if (b.op === "rows") return Response.json({ rows: this.rows(b.table, b.after, b.limit) });
+      if (["tget", "tput", "tdel", "tlist"].includes(b.op)) return Response.json(this.tele(b));
       return Response.json({ error: "unknown op" }, { status: 400 });
     } catch (e) {
       return Response.json({ error: String(e && e.message || e) }, { status: 400 });

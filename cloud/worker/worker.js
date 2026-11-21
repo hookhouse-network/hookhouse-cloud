@@ -9,6 +9,47 @@
 import { LedgerDO, api } from "./ledger_do.js";   // Phase 1 (20 Nov): shared truth, /api/* signed with HH_API_KEY
 export { LedgerDO };
 
+// Phase 1 last step (21 Nov): the Telegram bot's working keys (upd:/cmd:/res:/dec:/meta:) move from KV (1,000 free
+// writes and 1,000 lists a day) to the LedgerDO table tkv. TELE_STORE (wrangler.toml var): kv = as before; dual =
+// write both, read KV; do = read and write the DO, KV only when the DO fails. Dashboard pages, previews and the
+// snapshot stay in KV. engine/cloud/kv.py TeleKV is the Python twin (settings.yaml tele_store).
+async function doTele(env, body) {
+  const stub = env.LEDGER.get(env.LEDGER.idFromName("main"));
+  const r = await stub.fetch("https://ledger/", { method: "POST", body: JSON.stringify(body) });
+  const j = await r.json();
+  if (j.error) throw new Error(j.error);
+  return j;
+}
+const T = {
+  mode: (env) => env.TELE_STORE || "kv",
+  async get(env, k) {
+    if (T.mode(env) === "do") {
+      try { return (await doTele(env, { op: "tget", k })).v; } catch (e) { console.log("tget failed, KV used:", e.message); }
+    }
+    return env.HH.get(k);
+  },
+  async put(env, k, v, opts) {
+    const m = T.mode(env);
+    if (m !== "do") await env.HH.put(k, v, opts);
+    if (m === "kv") return;
+    try { await doTele(env, { op: "tput", k, v, ttl: opts && opts.expirationTtl }); }
+    catch (e) { console.log("tput failed:", e.message); if (m === "do") await env.HH.put(k, v, opts); }
+  },
+  async del(env, k) {
+    const m = T.mode(env);
+    if (m !== "do") await env.HH.delete(k);
+    if (m === "kv") return;
+    try { await doTele(env, { op: "tdel", k }); } catch (e) { console.log("tdel failed:", e.message); }
+  },
+  async any(env, prefix) {                         // at least one key with this prefix (the cron's inbox check)
+    if (T.mode(env) === "do") {
+      try { return (await doTele(env, { op: "tlist", prefix, limit: 1 })).keys.length > 0; }
+      catch (e) { console.log("tlist failed, KV used:", e.message); }
+    }
+    return (await env.HH.list({ prefix, limit: 1 })).keys.length > 0;
+  },
+};
+
 const IST_OFFSET_MIN = 330;
 const DEBOUNCE_MS = 2 * 60 * 1000;     // 18 Nov: 10 min made the bot look dead ("telegram is not working")
 
@@ -33,13 +74,13 @@ async function pcPrimary(env) {
   // runs are started: the PC reads the inbox (upd:*) and the dashboard taps (cmd:*) itself.
   // The flag stays until the PC hands over (it pushes its memory first), even if the PC is off for a while: the
   // cloud must not resume from its older memory and post twice. After 24 h without a heartbeat the cloud resumes.
-  const pc = JSON.parse((await env.HH.get("meta:pc_primary")) || "null");
+  const pc = JSON.parse((await T.get(env, "meta:pc_primary")) || "null");
   if (!pc) return false;
   const age = Date.now() / 1000 - pc.at;
   if (age > 900 && age < 86400) {                 // the PC is off (heartbeat every 5 min): tell the owner (at most every 3 hours)
-    const last = Number((await env.HH.get("meta:pc_off_warn")) || 0);
+    const last = Number((await T.get(env, "meta:pc_off_warn")) || 0);
     if (Date.now() - last > 3 * 3600 * 1000) {
-      await env.HH.put("meta:pc_off_warn", String(Date.now()));
+      await T.put(env, "meta:pc_off_warn", String(Date.now()));
       await tg(env, "sendMessage", { chat_id: env.OWNER_CHAT, text:
         "💻 The PC stand-in is off, so taps and posts wait. Please switch the PC on (it starts by itself) until " +
         "GitHub restores the cloud." });
@@ -59,14 +100,14 @@ async function dispatch(env, eventType) {
     body: JSON.stringify({ event_type: eventType }),
   });
   if (r.status === 204) {
-    await env.HH.delete("meta:dispatch_fail");
+    await T.del(env, "meta:dispatch_fail");
     return true;
   }
   // 17 Nov: a redeploy lost GH_REPO and every run start failed silently for hours. Never silent again:
   // tell the owner (at most once an hour) what failed.
-  const lastWarn = Number((await env.HH.get("meta:dispatch_fail")) || 0);
+  const lastWarn = Number((await T.get(env, "meta:dispatch_fail")) || 0);
   if (Date.now() - lastWarn > 3600 * 1000) {
-    await env.HH.put("meta:dispatch_fail", String(Date.now()));
+    await T.put(env, "meta:dispatch_fail", String(Date.now()));
     await tg(env, "sendMessage", { chat_id: env.OWNER_CHAT, text:
       `⚠️ HookHouse alarm: the cloud run "${eventType}" could not start (GitHub said ${r.status}, repo "${env.GH_REPO}"). ` +
       "Your taps are saved and will run once this is fixed. Tell Claude: 'worker dispatch failing'." });
@@ -75,10 +116,10 @@ async function dispatch(env, eventType) {
 }
 
 async function wakeInbox(env, force = false) {
-  const last = Number((await env.HH.get("meta:last_dispatch")) || 0);
+  const last = Number((await T.get(env, "meta:last_dispatch")) || 0);
   if (!force && Date.now() - last < DEBOUNCE_MS) return false;
   if (await dispatch(env, "inbox")) {
-    await env.HH.put("meta:last_dispatch", String(Date.now()));
+    await T.put(env, "meta:last_dispatch", String(Date.now()));
     return true;
   }
   return false;
@@ -264,7 +305,7 @@ async function dash(request, env, url) {
   if (url.pathname === "/live") return Response.json(await liveNumbers(env), { headers: SEC });
   if (url.pathname === "/res") {
     const id = (url.searchParams.get("id") || "").replace(/[^0-9a-z-]/gi, "");
-    const r = id ? await env.HH.get(`res:${id}`) : null;
+    const r = id ? await T.get(env, `res:${id}`) : null;
     return new Response(r || JSON.stringify({ state: "queued" }), { headers: { "content-type": "application/json", ...SEC } });
   }
   if (url.pathname === "/pv") return preview(request, env, url);
@@ -275,8 +316,8 @@ async function dash(request, env, url) {
     const cmd = { op: b.op, item: String(b.item || "").slice(0, 80), note: String(b.note || "").slice(0, 500),
                   force: Boolean(b.force), at: Date.now() / 1000 };
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    await env.HH.put(`cmd:${id}`, JSON.stringify(cmd), { expirationTtl: 2 * 86400 });
-    await env.HH.put(`res:${id}`, JSON.stringify({ state: "queued" }), { expirationTtl: 2 * 86400 });
+    await T.put(env, `cmd:${id}`, JSON.stringify(cmd), { expirationTtl: 2 * 86400 });
+    await T.put(env, `res:${id}`, JSON.stringify({ state: "queued" }), { expirationTtl: 2 * 86400 });
     const pc = await pcPrimary(env);
     if (!pc) await dispatch(env, "inbox");       // the cloud handles taps too (runner reads cmd:* once it is back)
     return Response.json({ id, pc }, { headers: SEC });
@@ -324,7 +365,7 @@ export default {
       const q = snap.queue;
       if (q && Array.isArray(q.cards)) {
         const open = [];
-        for (const c of q.cards) if (!(await env.HH.get(`dec:${c.tok}`))) open.push(c);
+        for (const c of q.cards) if (!(await T.get(env, `dec:${c.tok}`))) open.push(c);
         const decided = q.cards.length - open.length;
         let head = q.header;
         if (decided) head = open.length || q.checking ? `📥 ${open.length} video(s) still need your OK (you decided ${decided} already)` +
@@ -337,7 +378,7 @@ export default {
       await tg(env, "sendMessage", { chat_id: chat, text: n === 0 ? "📥 Nothing is waiting for you right now. 👍" :
         `📥 ${n ?? "Your"} video(s) waiting. Sending them with ✅ / ✏️ / ❌ buttons in a few minutes…` });
       if (n !== 0) {
-        await env.HH.put(`upd:${String(update.update_id).padStart(12, "0")}`, JSON.stringify(update), { expirationTtl: 7 * 86400 });
+        await T.put(env, `upd:${String(update.update_id).padStart(12, "0")}`, JSON.stringify(update), { expirationTtl: 7 * 86400 });
         await wakeInbox(env, true);
       }
       return new Response("ok");
@@ -350,12 +391,12 @@ export default {
       await tg(env, "answerCallbackQuery", { callback_query_id: cq.id, text: cq.data === "a" ? "Ticked all ✅ ones" : "" });
       return new Response("ok");
     }
-    await env.HH.put(`upd:${String(update.update_id).padStart(12, "0")}`, JSON.stringify(update), { expirationTtl: 7 * 86400 });
+    await T.put(env, `upd:${String(update.update_id).padStart(12, "0")}`, JSON.stringify(update), { expirationTtl: 7 * 86400 });
     const dec = cq && /^(ap|rj|ch):([0-9a-f]{6,16})$/.exec(cq.data || "");
     if (dec) {
       // 20 Nov: the tap shows its result on the card at once (the cloud run does the work a moment later)
       const [, act, tok] = dec;
-      await env.HH.put(`dec:${tok}`, act, { expirationTtl: 3 * 86400 });
+      await T.put(env, `dec:${tok}`, act, { expirationTtl: 3 * 86400 });
       const label = { ap: "✅ Approved: posts at its slot", rj: "❌ Rejected", ch: "✏️ Change: type what to fix" }[act];
       await tg(env, "answerCallbackQuery", { callback_query_id: cq.id, text: label });
       if (cq.message) await tg(env, "editMessageReplyMarkup", { chat_id: chat, message_id: cq.message.message_id,
@@ -382,22 +423,21 @@ export default {
 
   async scheduled(event, env) {
     // 1) messages waiting longer than the debounce: run now
-    const pending = await env.HH.list({ prefix: "upd:", limit: 1 });
-    if (pending.keys.length) await wakeInbox(env);
+    if (await T.any(env, "upd:")) await wakeInbox(env);
     // 2) the day's scheduled runs, at Indian times (each slot once a day)
     const now = istNow();
     const slots = (env.TICK_SLOTS || "06:00,10:00,14:00,18:00,22:30,01:30").split(",").map(s => s.trim());
     for (const s of slots) {
       const key = `meta:tick:${now.day}:${s}`;
-      if (now.mins >= minsOf(s) && now.mins < minsOf(s) + 30 && !(await env.HH.get(key))) {
-        if (await dispatch(env, "tick")) await env.HH.put(key, "1", { expirationTtl: 3 * 86400 });
+      if (now.mins >= minsOf(s) && now.mins < minsOf(s) + 30 && !(await T.get(env, key))) {
+        if (await dispatch(env, "tick")) await T.put(env, key, "1", { expirationTtl: 3 * 86400 });
       }
     }
     // 18 Nov: one render a day made ~3 videos for 14 channels; RENDER_SLOT may now list several times
     for (const r of (env.RENDER_SLOT || "20:00").split(",").map(s => s.trim())) {
       const rkey = `meta:render:${now.day}:${r}`;
-      if (now.mins >= minsOf(r) && now.mins < minsOf(r) + 30 && !(await env.HH.get(rkey))) {
-        if (await dispatch(env, "render")) await env.HH.put(rkey, "1", { expirationTtl: 3 * 86400 });
+      if (now.mins >= minsOf(r) && now.mins < minsOf(r) + 30 && !(await T.get(env, rkey))) {
+        if (await dispatch(env, "render")) await T.put(env, rkey, "1", { expirationTtl: 3 * 86400 });
       }
     }
   },

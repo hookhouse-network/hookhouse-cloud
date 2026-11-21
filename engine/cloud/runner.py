@@ -50,8 +50,8 @@ def _log(msg: str) -> None:
 
 def _kv():
     try:
-        from .kv import KV
-        return KV()
+        from .kv import KV, tele_store
+        return tele_store(KV(), log=_log)          # Phase 1 last step: Telegram keys follow settings tele_store
     except Exception as e:  # noqa: BLE001 - the inbox is optional until Cloudflare is set up
         _log(f"inbox off: {e}")
         return None

@@ -6,6 +6,10 @@ timezone: Asia/Kolkata
 # Phase 1 shared truth (engine/core/d1.py): sqlite = local ledger only; dual = the cloud also mirrors every ledger
 # row to the Worker's LedgerDO (SQLite stays authoritative). Cloud runner only. Set back to sqlite to switch it off.
 ledger_backend: dual
+# Phase 1 last step (21 Nov): the Telegram bot's working keys (upd:/cmd:/res:/dec:/meta:) leave KV (1,000 free writes
+# a day) for the LedgerDO. kv = as before; dual = write both, read KV; do = the DO first. Move together with the
+# Worker's TELE_STORE var (cloud/worker/wrangler.toml).
+tele_store: dual
 
 # P3r (owner 21 Nov): picture-free formats rendered by HyperFrames on the PC (Brain Snack "colorsort" first).
 # Only machines with HyperFrames installed pick them; set false to switch them off everywhere.

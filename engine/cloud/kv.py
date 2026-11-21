@@ -117,6 +117,81 @@ class KV:
         return True
 
 
+TELE_KEY = __import__("re").compile(r"^(upd|cmd|res|dec|meta):")
+
+
+class TeleKV:
+    """Phase 1 last step (owner plan, 21 Nov): the Telegram bot's working keys (upd:/cmd:/res:/dec:/meta:) move from
+    KV (1,000 free writes and 1,000 lists a day) to the LedgerDO table tkv (cloud/worker/ledger_do.js), reached
+    through the signed /api/ledger. Same methods as KV, so no caller changes; every other key stays on KV.
+    mode: "kv" = as before; "dual" = write both, read KV; "do" = read/write the DO, KV only when the DO fails.
+    The Worker's TELE_STORE var must move together with settings.yaml tele_store."""
+
+    def __init__(self, kv, client, mode: str = "dual", log=print):
+        self.kv, self.client, self.mode, self.log = kv, client, mode, log
+
+    def __getattr__(self, name):                       # put_if_changed, put_bytes, ...: dashboard keys, plain KV
+        return getattr(self.kv, name)
+
+    def _tele(self, key: str) -> bool:
+        return self.mode in ("dual", "do") and bool(TELE_KEY.match(key or ""))
+
+    def _do(self, payload: dict) -> dict:
+        return self.client.call(payload)
+
+    def keys(self, prefix: str = "") -> list[str]:
+        if not self._tele(prefix) or self.mode == "dual":
+            return self.kv.keys(prefix)
+        try:
+            return sorted(self._do({"op": "tlist", "prefix": prefix})["keys"])
+        except Exception as e:  # noqa: BLE001 - the DO is down: KV still has the bot working (said, never silent)
+            self.log(f"tele store: list {prefix} from KV ({type(e).__name__}: {e})")
+            return self.kv.keys(prefix)
+
+    def get(self, key: str) -> str | None:
+        if not self._tele(key) or self.mode == "dual":
+            return self.kv.get(key)
+        try:
+            return self._do({"op": "tget", "k": key}).get("v")
+        except Exception as e:  # noqa: BLE001
+            self.log(f"tele store: get {key} from KV ({type(e).__name__}: {e})")
+            return self.kv.get(key)
+
+    def put(self, key: str, value, ttl: int | None = None) -> bool:
+        if not self._tele(key):
+            return self.kv.put(key, value, ttl)
+        text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+        ok_kv = self.kv.put(key, value, ttl) if self.mode == "dual" else True
+        try:
+            self._do({"op": "tput", "k": key, "v": text, **({"ttl": int(ttl)} if ttl else {})})
+            return ok_kv
+        except Exception as e:  # noqa: BLE001
+            self.log(f"tele store: put {key} failed on the DO ({type(e).__name__}: {e})")
+            return self.kv.put(key, value, ttl) if self.mode == "do" else ok_kv
+
+    def delete(self, key: str) -> bool:
+        if not self._tele(key):
+            return self.kv.delete(key)
+        ok = self.kv.delete(key) if self.mode == "dual" else True
+        try:
+            self._do({"op": "tdel", "k": key})
+        except Exception as e:  # noqa: BLE001 - its TTL removes it anyway
+            self.log(f"tele store: delete {key} failed on the DO ({type(e).__name__}: {e})")
+        return ok
+
+
+def tele_store(kv, log=print):
+    """The KV object the runner hands around: TeleKV when settings.yaml tele_store is dual/do and the signed
+    /api/ledger is configured (HH_API_URL + HH_API_KEY), else the plain KV."""
+    from ..config import settings
+    from ..core import d1
+    mode = str(settings().get("tele_store", "kv"))
+    client = d1.Client()
+    if mode not in ("dual", "do") or not client.configured():
+        return kv
+    return TeleKV(kv, client, mode, log)
+
+
 def _hashes_file():
     from pathlib import Path
     return Path(__file__).resolve().parents[2] / "data" / "state" / "kv_hashes.json"
