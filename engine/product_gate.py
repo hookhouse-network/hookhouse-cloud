@@ -11,7 +11,9 @@ Checks:
   - price: free_* products are free, paid ones $1-$50;
   - cover: the store cover exists and is at least 600 px wide;
   - no duplicate: no other listed product uses the same title;
-  - AI art: a product made with AI art must say so where the store requires it (KDP)."""
+  - AI art: a product made with AI art must say so where the store requires it (KDP);
+  - owner OK: a NEW product (needs_owner_ok, e.g. printable kits) waits for the owner's OK (owner_ok) before its
+    first listing (owner rule: nothing first-time public without approval)."""
 from __future__ import annotations
 
 import json
@@ -162,6 +164,8 @@ def verify(pid: str, store: str = "payhip", folder: Path | None = None, listed: 
                 break
     if store == "kdp" and meta.get("ai_art") and not meta.get("ai_disclosed"):
         p.append("AI art must be disclosed to KDP")
+    if meta.get("needs_owner_ok") and not meta.get("owner_ok"):      # owner rule: nothing first-time public
+        p.append("new product: waits for the owner's OK before its first listing")      # without approval
     return list(dict.fromkeys(p))
 
 

@@ -228,7 +228,17 @@ def _free(pid: str) -> dict | None:
 
 
 def copy_for(pid: str) -> dict:
-    return COPY.get(pid) or _music(pid) or _free(pid) or {}
+    return COPY.get(pid) or _music(pid) or _free(pid) or _kit(pid) or {}
+
+
+def _kit(pid: str) -> dict:
+    """P6 printable kits carry their own copy in config/printables.yaml."""
+    try:
+        from .printables import copy_for as kit_copy
+        return kit_copy(pid)
+    except Exception as e:  # noqa: BLE001 - no copy = the catalogue description is used
+        print(f"store copy: kit {pid} skipped ({type(e).__name__})")
+        return {}
 
 
 def description(pid: str, platform: str = "payhip") -> str:

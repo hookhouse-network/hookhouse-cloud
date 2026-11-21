@@ -74,14 +74,17 @@ def test_kdp_spine_and_listing_rules():
 def test_pin_queue_alternates_products_and_skips_posted(tmp_path, monkeypatch):
     from engine import pinterest_post as pp
     monkeypatch.setattr(pp, "PROD", tmp_path)
-    for pid in ("planner_2027", "money_budget_planner"):
+    monkeypatch.setattr("engine.store_publish.listed", lambda: {     # 22 Nov: only products on sale get pinned
+        p: {"payhip": {"public": f"https://payhip.com/b/{p}"}} for p in ("planner_2027", "money_budget_planner")})
+    for pid in ("planner_2027", "money_budget_planner", "debt_payoff_planner"):
         d = tmp_path / pid / "pins"
         d.mkdir(parents=True)
         (d / "pins.json").write_text(json.dumps({"board": "B", "link": "L", "pins": [
             {"image": "pins/pin_1.jpg", "title": "t1", "description": "d", "posted": "x" if pid == "planner_2027" else None},
             {"image": "pins/pin_2.jpg", "title": "t2", "description": "d"}]}), encoding="utf-8")
     q = [(pid, k) for pid, k, _, _ in pp.queue()]
-    assert q == [("money_budget_planner", 0), ("planner_2027", 1), ("money_budget_planner", 1)]
+    assert q == [("money_budget_planner", 0), ("planner_2027", 1), ("money_budget_planner", 1)]   # the kit is not
+    # on sale yet: none of its pins are queued
 
 
 def test_daily_pins_runs_once_a_day(tmp_path, monkeypatch):

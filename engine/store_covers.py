@@ -174,6 +174,24 @@ for _pid, _fb in FREEBIES.items():
     TITLES["free_" + _pid] = _fb["title"][:100]
 
 
+def _printable_kits() -> tuple[dict, dict]:
+    """P6: printable kits (config/printables.yaml `cover:` + `title:`) join SPECS and TITLES, so covers, pins, the
+    dashboard and the store publisher see them like every other product; a hand-written entry above always wins."""
+    try:
+        from .printables import cover_specs, specs
+        return cover_specs(), {k: str(s["title"])[:100] for k, s in specs().items() if s.get("title")}
+    except Exception as e:  # noqa: BLE001 - the other products' covers must still work
+        print(f"store covers: printable kits skipped ({type(e).__name__}: {e})")
+        return {}, {}
+
+
+_kit_specs, _kit_titles = _printable_kits()
+for _pid, _spec in _kit_specs.items():
+    SPECS.setdefault(_pid, _spec)
+    if _pid in _kit_titles:
+        TITLES.setdefault(_pid, _kit_titles[_pid])
+
+
 def _pdf_pages(pdf: Path, pages: list[int], width: int) -> list[Image.Image]:
     import fitz
     doc = fitz.open(pdf)

@@ -33,14 +33,17 @@ def _f(size: int, name: str = "Poppins-ExtraBold.ttf"):
     return ImageFont.truetype(str(FONTS / name), size)
 
 
-def _page(title: str, sub: str = "") -> tuple[Image.Image, ImageDraw.ImageDraw]:
+def _page(title: str, sub: str = "", footer: str | None = None) -> tuple[Image.Image, ImageDraw.ImageDraw]:
     img = Image.new("RGB", (PW, PH), "white")
     d = ImageDraw.Draw(img)
     d.rectangle([0, 0, PW, 26], fill=ACC)
     d.text((M, M - 70), title, font=_f(130, "Anton-Regular.ttf"), fill=INK)
     if sub:
         d.text((M + 6, M + 105), sub, font=_f(48), fill=ACC)
-    d.text((PW - M - 330, PH - 120), f"{YEAR} Planner · HookHouse Media", font=_f(30), fill=(150, 150, 160))
+    if footer is None:
+        d.text((PW - M - 330, PH - 120), f"{YEAR} Planner · HookHouse Media", font=_f(30), fill=(150, 150, 160))
+    else:                                                            # printable kits: their own name, right-aligned
+        d.text((PW - M - d.textlength(footer, font=_f(30)), PH - 120), footer, font=_f(30), fill=(150, 150, 160))
     return img, d
 
 

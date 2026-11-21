@@ -21,11 +21,15 @@ MAX_PER_RUN = 2
 
 def queue() -> list[tuple[str, int, dict, dict]]:
     """(product id, pin index, pin, plan) not posted yet, alternating products so boards fill evenly."""
+    from .store_publish import listed
+    live = listed()
     rows = []
     for pid in store_covers.SPECS:
         f = PROD / pid / "pins" / "pins.json"
         if not f.exists():
             continue
+        if not ((live.get(pid) or {}).get("payhip") or {}).get("public"):   # 22 Nov: never pin a product that is
+            continue                                                       # not on sale (kits wait for the owner)
         plan = json.loads(f.read_text(encoding="utf-8"))
         for k, pin in enumerate(plan["pins"]):
             if not pin.get("posted"):

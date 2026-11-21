@@ -57,6 +57,8 @@ def assets(log=print) -> None:
 def run(log=print) -> list[str]:
     from . import store_publish
     out = [f"built {p}" for p in build_missing(log)]
+    from .printables import build_missing as build_kits         # P6 printable kits (config/printables.yaml)
+    out += [f"built {p}" for p in build_kits(log)]
     from .page_sizes import ensure_all                         # Phase 6: A4 + US Letter in every printable download
     if ensure_all(PROD, log):
         out.append("A4 versions added")

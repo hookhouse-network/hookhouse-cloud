@@ -1,0 +1,207 @@
+# Printable kits drawn by code (engine/printables.py). Phase 6 acceptance: 2 new products a week through the gate.
+# Ideas come from the weekly research (config/product_ideas.yaml, `idea:`). Every kit gets an A4 twin
+# (engine/page_sizes.py), a store cover made from its own pages (engine/store_covers.py reads `cover:`) and passes
+# engine/product_gate.py before it is listed. A NEW product goes live only after the owner's OK (first-time public).
+# Page kinds: cover, steps, table, tracker, grid, bars, milestones, nospend, notes (see engine/printables.py).
+# Amounts are written in "units" so one file works in rupees and dollars (buyers pick ₹50, ₹100, $1, $5 ...).
+
+debt_payoff_planner:
+  idea: debt_tracker
+  file: Debt_Payoff_Planner_Printable.pdf
+  footer: "Debt Payoff Planner · HookHouse Media"
+  title: "Debt Payoff Planner Printable | Debt Snowball & Avalanche Tracker | Debt Free Worksheets PDF"
+  price_usd: "$4"
+  price_inr: "₹99"
+  channel: money_cheat_codes
+  description: >-
+    A calm, step-by-step plan to pay off every debt. 13 printable pages: how the snowball and avalanche methods
+    work, a My Debts list (who you owe, balance, rate, minimum, due day), your payoff order, six color-in payoff
+    trackers (100 squares, one per 1% paid, plus a payment log), a 12-month overview to watch the total come down,
+    and milestones to celebrate on the way. Works in rupees, dollars or any currency. US Letter and A4 included.
+    Print any page as often as you like. General education, not financial advice.
+  tags: [debt payoff planner, debt tracker printable, debt snowball, debt avalanche, debt free planner,
+         finance planner printable, budget printable]
+  promo_angles:
+    - "Snowball or avalanche: which debt to pay first, and why both work"
+    - "The minimum-payment trap: how long a card balance really lasts"
+    - "Roll it over: the one habit that speeds up every debt payoff"
+  cover:
+    top: "PRINTABLE PDF"
+    head: ["DEBT FREE", "PLANNER"]
+    sub: "Snowball & avalanche, step by step"
+    bg: ["#0B2E4A", "#1F7A8C"]
+    accent: "#FFD23F"
+    pages: [2, 4, 1]
+    feats: ["Snowball + avalanche plan", "6 color-in payoff trackers", "12-month overview", "US Letter + A4"]
+  copy:                               # store listing text (engine/store_copy.py) and pins
+    hook: "A calm, step-by-step plan to pay off every debt, one colored square at a time."
+    inside:
+      - "How the snowball and avalanche methods work, in plain words"
+      - "My Debts list: who you owe, balance, rate, minimum and due day"
+      - "Your payoff order and the extra you can pay each month"
+      - "6 color-in payoff trackers (100 squares = 100%) with a payment log"
+      - "A 12-month overview and 5 milestones to celebrate"
+    who: "Anyone paying off credit cards, loans or EMIs who wants a clear plan and visible progress. Works in rupees, dollars or any currency."
+    how: "Download once, print any page as often as you like and fill it in by hand."
+    note: "US Letter and A4 included. General education, not financial advice."
+    kdp: "Debt payoff planner: snowball and avalanche worksheets, payoff trackers and a monthly log."
+    social: "Debt payoff planner: snowball + avalanche trackers"
+  pages:
+    - kind: cover
+      title: "DEBT FREE PLANNER"
+      sub: "Snowball & avalanche payoff plan"
+      lines: ["List it. Order it. Pay it off.", "6 color-in payoff trackers", "Monthly overview and milestones"]
+    - kind: steps
+      title: "HOW IT WORKS"
+      sub: "Two proven ways to order your debts"
+      blocks:
+        - head: "1. List every debt"
+          text: "Write each debt on the My Debts page: who you owe, the balance, the interest rate, the minimum payment and the due day."
+        - head: "2. Choose your order"
+          text: "Snowball: smallest balance first, so you clear a debt quickly and feel the win. Avalanche: highest interest rate first, which costs the least interest overall. Both work if you stick with one."
+        - head: "3. Pay every minimum, every month"
+          text: "Late fees and penalty rates undo progress fast. Set reminders for each due day."
+        - head: "4. Put all extra money on debt number 1"
+          text: "When it is paid off, add its whole payment to debt number 2, then 3. Your payment grows as you go: that is the snowball."
+        - head: "5. Color in your progress"
+          text: "Every payoff tracker has 100 squares. Color one in for each 1% of that debt you pay off, and log each payment below."
+      note: "General education, not financial advice. For legal or collection problems, speak to a qualified adviser."
+    - kind: table
+      title: "MY DEBTS"
+      sub: "Everything I owe, in one place"
+      fields: ["Date: ______________", "Total owed: ______________"]
+      columns: [["Who I owe", 30], ["Balance", 15], ["Rate %", 11], ["Minimum", 15], ["Due day", 12], ["Order", 17]]
+      rows: 14
+    - kind: table
+      title: "MY PAYOFF ORDER"
+      sub: "Circle one:  SNOWBALL  or  AVALANCHE"
+      fields: ["Extra I can pay each month: ______________"]
+      columns: [["#", 7], ["Debt", 29], ["Balance", 16], ["Minimum", 15], ["Extra", 15], ["Paid off on", 18]]
+      rows: 10
+      row_labels: numbers
+    - kind: tracker
+      title: "PAYOFF TRACKER"
+      sub: "Color one square for every 1% paid off"
+      fields: ["Debt: __________________", "Starting balance: ___________", "Target date: ___________"]
+      log: [["Date", 30], ["Payment", 35], ["Balance left", 35]]
+      repeat: 6
+    - kind: table
+      title: "12-MONTH OVERVIEW"
+      sub: "Watch the total come down"
+      fields: ["Year: __________"]
+      columns: [["Month", 16], ["Owed at start", 19], ["Paid", 15], ["Extra", 15], ["Owed at end", 19], ["Notes", 16]]
+      rows: 12
+      row_labels: months
+    - kind: milestones
+      title: "MILESTONES"
+      sub: "Celebrate every step (cheaply!)"
+      items: ["First debt paid off", "25% of my total debt paid", "Halfway: 50% paid", "75% paid",
+              "Last payment made: DEBT FREE"]
+    - kind: notes
+      title: "NOTES"
+
+savings_challenge_tracker:
+  idea: sinking_funds
+  file: Savings_Challenge_Tracker_Printable.pdf
+  footer: "Savings Challenge Kit · HookHouse Media"
+  title: "Savings Challenge Printable | 52 Week Money Challenge, 100 Envelope Challenge & Sinking Funds PDF"
+  price_usd: "$4"
+  price_inr: "₹99"
+  channel: money_cheat_codes
+  description: >-
+    Turn small amounts into real savings. 11 printable pages: the 52-week challenge (1,378 units in a year), the
+    100-envelope challenge (5,050 units), eight sinking-fund progress bars with a fund log, an emergency-fund tracker
+    with 100 color-in squares, two no-spend month calendars and a savings goals list. Every box is in units, so you
+    pick what fits: ₹50, ₹100, $1 or $5. US Letter and A4 included. Print any page as often as you like.
+  tags: [savings challenge printable, 52 week savings challenge, 100 envelope challenge, sinking funds tracker,
+         emergency fund tracker, no spend challenge, money saving printable]
+  promo_angles:
+    - "The 52-week challenge: 1 unit in week 1, and how it adds up to 1,378"
+    - "Sinking funds: why the 'surprise' bills were never a surprise"
+    - "A no-spend month: what it teaches you about where money leaks"
+  cover:
+    top: "PRINTABLE PDF"
+    head: ["SAVINGS", "CHALLENGE KIT"]
+    sub: "52-week, 100-envelope & sinking funds"
+    bg: ["#1D4D2B", "#3FA34D"]
+    accent: "#FFE066"
+    pages: [2, 3, 4]
+    feats: ["52-week + 100-envelope", "8 sinking-fund trackers", "Emergency fund tracker", "₹, $ or any currency"]
+  copy:
+    hook: "Small amounts, saved every week, add up fast. Color in each box as you go."
+    inside:
+      - "52-week challenge: 1 unit in week 1 up to 52 in week 52 (1,378 units a year)"
+      - "100-envelope challenge: any box, any order (5,050 units)"
+      - "8 sinking-fund progress bars and a fund log"
+      - "An emergency-fund tracker with 100 color-in squares"
+      - "2 no-spend month calendars and a savings goals list"
+    who: "Anyone building a savings habit: students, couples, families. Pick a unit that fits you: ₹50, ₹100, $1 or $5."
+    how: "Download once, print any page as often as you like and color in as you save."
+    note: "US Letter and A4 included. General education, not financial advice."
+    kdp: "Savings challenge kit: 52-week and 100-envelope challenges, sinking funds and an emergency fund tracker."
+    social: "Savings challenge kit: 52-week + 100-envelope + sinking funds"
+  pages:
+    - kind: cover
+      title: "SAVINGS CHALLENGE KIT"
+      sub: "52-week, 100-envelope & sinking funds"
+      lines: ["Small amounts. Every week.", "Pick your unit: ₹50, ₹100, $1 or $5", "Color in as you save"]
+    - kind: steps
+      title: "HOW THE CHALLENGES WORK"
+      sub: "Choose a unit, then save one box at a time"
+      blocks:
+        - head: "Choose your unit"
+          text: "Every box shows a number of units. Pick one unit that fits your budget, such as ₹50, ₹100, $1 or $5, and write it at the top of each page."
+        - head: "52-week challenge"
+          text: "Save 1 unit in week 1, 2 units in week 2, and so on up to 52 units in week 52. That adds up to 1,378 units a year: ₹68,900 at ₹50, or $1,378 at $1."
+        - head: "100-envelope challenge"
+          text: "Save the amount in any box, in any order, and cross it out. All 100 boxes add up to 5,050 units. Two boxes a week finishes it in 50 weeks."
+        - head: "Sinking funds"
+          text: "Split big costs you know are coming (school fees, festivals, gifts, a car service) into monthly amounts, so they never catch you out."
+        - head: "Emergency fund"
+          text: "A common target is 3 to 6 months of essential costs, kept somewhere you can reach quickly."
+      note: "General education, not financial advice."
+    - kind: grid
+      title: "52-WEEK CHALLENGE"
+      sub: "Save the units in each box, then color it in"
+      fields: ["My unit: __________", "Started on: __________"]
+      count: 52
+      cols: 4
+      small: "WEEK {n}"
+      big: "{n}"
+      total: "All 52 weeks = 1,378 units"
+    - kind: grid
+      title: "100-ENVELOPE CHALLENGE"
+      sub: "Any box, any order: save it, cross it out"
+      fields: ["My unit: __________", "Started on: __________"]
+      count: 100
+      cols: 10
+      big: "{n}"
+      total: "All 100 boxes = 5,050 units"
+    - kind: bars
+      title: "SINKING FUNDS"
+      sub: "One segment = 5% of the goal"
+      rows: 8
+      segments: 20
+      label: "Fund: ______________   Goal: __________   By: __________   Per month: __________"
+    - kind: table
+      title: "SINKING FUND LOG"
+      sub: "Every time you add money"
+      columns: [["Date", 18], ["Fund", 34], ["Added", 22], ["New total", 26]]
+      rows: 24
+    - kind: tracker
+      title: "EMERGENCY FUND"
+      sub: "Color one square for every 1% of your goal"
+      fields: ["Goal (3-6 months of essentials): ______________", "Started on: __________"]
+      log: [["Date", 30], ["Added", 35], ["Total saved", 35]]
+    - kind: nospend
+      title: "NO-SPEND MONTH"
+      sub: "Cross out every day you buy nothing extra"
+      fields: ["Month: ______________", "I will not buy: ________________________"]
+      repeat: 2
+    - kind: table
+      title: "SAVINGS GOALS"
+      sub: "What I am saving for"
+      columns: [["Goal", 34], ["Amount", 17], ["By when", 17], ["Per month", 17], ["Done", 15]]
+      rows: 12
+    - kind: notes
+      title: "NOTES"
