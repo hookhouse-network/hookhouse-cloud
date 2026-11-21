@@ -41,6 +41,11 @@ BUNDLES = {
 }
 
 
+BUILT = ("title", "price_usd", "price_inr", "channel", "description", "tags", "files", "pages", "stores", "bundle_of")
+DIGITAL_BONUS = (" Bonus: the planner's hyperlinked digital version for GoodNotes, Notability or any PDF app (tap a "
+                 "month tab to jump there).")
+
+
 def compress_pdf(src: Path, dst: Path, dpi: int = 300) -> Path:
     """Re-save a black-and-white PDF as 1-bit pages (fax-compressed): same print quality, a fraction of the size."""
     import fitz
@@ -76,9 +81,14 @@ def make(bid: str, log=print) -> Path:
             else:
                 shutil.copy2(src, dst)
             files.append(name)
-    info = {k: spec[k] for k in ("title", "price_usd", "price_inr", "channel", "description", "tags")}
+    pj = out / "product.json"
+    old = json.loads(pj.read_text(encoding="utf-8")) if pj.exists() else {}
+    info = {k: v for k, v in old.items() if k not in BUILT}       # fields added later (page_sizes ...) stay
+    info.update({k: spec[k] for k in ("title", "price_usd", "price_inr", "channel", "description", "tags")})
     info.update(files=files, pages=pages, stores=["Payhip", "Gumroad"], bundle_of=spec["parts"])
-    (out / "product.json").write_text(json.dumps(info, indent=1, ensure_ascii=False), encoding="utf-8")
+    if any("_Digital_" in f for f in files):                       # P6: a part's digital bonus comes along
+        info["description"] = info["description"].rstrip() + DIGITAL_BONUS
+    pj.write_text(json.dumps(info, indent=1, ensure_ascii=False), encoding="utf-8")
     first = PROD / spec["parts"][0] / "cover.jpg"
     if first.exists():
         shutil.copy2(first, out / "cover.jpg")

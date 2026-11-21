@@ -189,6 +189,104 @@ def payhip_delete_product(p, code: str) -> bool:
     return False
 
 
+FILE_NAME = re.compile(r"[\w\-]+\.(?:zip|pdf|xlsx|csv|png|jpg|epub)", re.I)
+# 22 Nov: "/uploading|\d+%/" on the whole page matched Payhip's static "You've completed 50% of your store setup"
+# banner, so every upload wait ran to its full limit; only the upload rows tell whether a file is still uploading
+J_UPLOADING = (r"""() => Array.from(document.querySelectorAll('.js-upload-digital-file-row, .upload_ebook_file_row, """
+               r"""[class*=plupload], [class*=progress]')).some(r => r.offsetParent && """
+               r"""/uploading|\b\d{1,2}%/i.test(r.innerText))""")
+
+
+def payhip_code(pid: str) -> str | None:
+    """The product code from our record's public link (https://payhip.com/b/<code>)."""
+    pub = str(((listed().get(pid) or {}).get("payhip") or {}).get("public") or "")
+    m = re.search(r"/b/([A-Za-z0-9]+)", pub)
+    return m.group(1) if m else None
+
+
+def missing_files(pid: str, shown: list[str]) -> list[Path]:
+    """Files of the product (product.json) that the live listing does not have yet."""
+    d = PROD / pid
+    meta = json.loads((d / "product.json").read_text(encoding="utf-8"))
+    have = {s.lower() for s in shown}
+    return [d / f for f in meta.get("files", []) if (d / f).exists() and not f.endswith("preview.mp3")
+            and f.lower() not in have]
+
+
+def zip_members(pid: str, shown: list[str]) -> list[str] | None:
+    """Names inside the zips a listing delivers (several files went up as one {pid}.zip), read from the local zip,
+    which is the one that was uploaded (download_file rebuilds it only when a product is listed; never call it
+    here). New files then go up NEXT TO the zip, so nothing is deleted. None = a zip we do not have."""
+    names: list[str] = []
+    for s in shown:
+        if not s.lower().endswith(".zip"):
+            continue
+        local = PROD / pid / s
+        if not local.exists():
+            return None
+        with zipfile.ZipFile(local) as zf:
+            names += [Path(n).name for n in zf.namelist() if not n.endswith("/")]
+    return names
+
+
+def payhip_files(p, code: str) -> list[str]:
+    """The files a live listing delivers. 22 Nov: a read 3.5 s after load missed the file rows (still drawing) and
+    the sync uploaded the existing file again: now it waits until the list is drawn and reads the same twice."""
+    p.goto(f"https://payhip.com/product/edit/{code}", timeout=90000, wait_until="domcontentloaded")
+    if "login" in p.url:
+        raise RuntimeError("Payhip is signed out in the co-pilot Chrome")
+    last = None
+    for _ in range(20):
+        p.wait_for_timeout(1500)
+        now = sorted(FILE_NAME.findall(p.evaluate("() => document.body.innerText")))
+        if now and now == last:
+            return sorted(set(now))
+        last = now
+    raise RuntimeError("the listing's file rows never finished drawing")
+
+
+def payhip_sync_files(p, pid: str, dry_run: bool = False, log=print) -> dict:
+    """P6 (22 Nov): bring a LIVE listing's download up to date IN PLACE: upload the product's missing files next to
+    the existing ones ('Upload another product file'), save, re-read. Never deletes anything and never re-lists
+    (re-listing changes the URL used in posted shop links and may cut existing buyers off)."""
+    code = payhip_code(pid)
+    if not code:
+        return {"pid": pid, "ok": False, "why": "no Payhip listing recorded"}
+    shown = payhip_files(p, code)
+    inside = zip_members(pid, shown)
+    if inside is None:
+        return {"pid": pid, "ok": False, "why": "the listing's zip is not on this PC: its contents are unknown",
+                "shown": shown}
+    todo = missing_files(pid, shown + inside)
+    if not todo:
+        return {"pid": pid, "ok": True, "added": [], "shown": shown}
+    link = p.locator("a", has_text="Upload another product file").filter(visible=True)
+    if link.count():
+        link.first.click()
+        p.wait_for_timeout(1200)
+    files = p.locator("input[type=file]")
+    vis = [i for i in range(files.count()) if files.nth(i).evaluate("e => e.offsetParent !== null")]
+    if not vis:
+        return {"pid": pid, "ok": False, "why": "no file input on the edit page"}
+    files.nth(vis[0]).set_input_files([str(f) for f in todo],
+                                      timeout=min(900_000, sum(_upload_timeout(f) for f in todo)))   # ms
+    want = {f.name.lower() for f in todo}
+    for _ in range(600):                                      # every upload finished and listed by name
+        p.wait_for_timeout(1000)
+        listed_now = {n.lower() for n in FILE_NAME.findall(p.evaluate("() => document.body.innerText"))}
+        if want <= listed_now and not p.evaluate(J_UPLOADING):
+            break
+    names_now = sorted(set(FILE_NAME.findall(p.evaluate("() => document.body.innerText"))))
+    if dry_run:
+        return {"pid": pid, "ok": True, "dry_run": True, "would_add": [f.name for f in todo], "page_lists": names_now}
+    p.click("#addsubmit")
+    p.wait_for_timeout(6000)
+    after = payhip_files(p, code)
+    ok = all(f.name.lower() in {a.lower() for a in after} for f in todo)
+    log(f"{pid}: {'added' if ok else 'NOT all added'} {[f.name for f in todo]} -> now {after}")
+    return {"pid": pid, "ok": ok, "added": [f.name for f in todo], "now": after}
+
+
 def payhip_add(p, pid: str) -> str:
     folder = PROD / pid
     p.goto("https://payhip.com/product/add/digital", timeout=90000, wait_until="domcontentloaded")
@@ -211,7 +309,7 @@ def payhip_add(p, pid: str) -> str:
     except Exception:  # noqa: BLE001 - the listing itself matters more
         pass
     for _ in range(180):                                       # big zips: wait for the uploads
-        if not p.evaluate(r"() => /uploading|\d+%/i.test(document.body.innerText)"):
+        if not p.evaluate(J_UPLOADING):
             break
         p.wait_for_timeout(1000)
     p.wait_for_timeout(2000)
