@@ -113,6 +113,10 @@ def choose_format(history: list[dict], wanted: str | None = None, made: list[str
     # the pool (make() doesn't record it as used).
     if topic and TOPIC_FORMATS & set(options) and (not recent or recent[-1] not in TOPIC_FORMATS):
         options = [f for f in options if f in TOPIC_FORMATS]
+        if len(options) > 1 and "ladder" in options:     # 22 Nov: a quiz only when a quiz category carries the idea
+            from .ladder import category_for
+            if not category_for(topic):
+                options.remove("ladder")
     weights = [0.5 if f in recent else 1.0 for f in options]
     return random.choices(options, weights=weights)[0]
 
@@ -220,14 +224,11 @@ TITLES = {
 }
 
 
-SHAPE_NAMES = {"heart": "heart", "star": "star", "blob": "blob", "brain": "brain", "donut": "donut",
-               "rocket": "rocket", "bolt": "lightning bolt", "drop": "water drop"}
-
-
 def titles_for(spec: dict) -> list[str]:
     fmt = spec["format"]
     if fmt == "multiply":
-        name = SHAPE_NAMES.get(spec.get("shape"), f"letter {spec.get('letter', '')}".strip())
+        from .multiply import shape_name
+        name = shape_name(spec)
         return [f"1 bounce = 2 balls inside a {name} (wait for the reveal) 🧠",
                 f"Filling a {name} with multiplying balls 😳", "Watch it hit 100%… 🤯"]
     if fmt == "ladder":
@@ -288,9 +289,11 @@ def describe(spec: dict, info: dict) -> str:
                 f"The last try breaks through to the center at {_mmss(info.get('win_at'))}: a flash and a chord.{tune} "
                 f"{total:.0f} s, the end loops back to the start.")
     if fmt == "multiply":
-        name = SHAPE_NAMES.get(spec.get("shape"), f"letter {spec.get('letter', '')}".strip())
-        return (f"0:00 One ball bounces inside a {name}; every bounce makes a new ball, so the count keeps doubling "
-                f"and the {name} fills up live. At {_mmss(info.get('t_fill'))} it is full with {info.get('balls')} "
+        from .multiply import hook_lines, shape_name
+        name, (line1, line2) = shape_name(spec), hook_lines(spec)
+        return (f"0:00 Big words on screen: \"{line1}\" and \"{line2}\" over a {name} outline with one ball inside. "
+                f"Every bounce makes a new ball, so the count keeps doubling, a meter counts up to 100% and the "
+                f"{name} fills up live. At {_mmss(info.get('t_fill'))} it is full with {info.get('balls')} "
                 f"balls and the shape bursts.{tune} {total:.0f} s.")
     if fmt == "versus":
         a, b = str(spec.get("pair", "Red|Blue")).split("|")
@@ -303,11 +306,12 @@ def describe(spec: dict, info: dict) -> str:
         quiz = spec.get("quiz") or {}
         qs = quiz.get("questions") or []
         hook = str(quiz.get("hook") or f"Only 1% get all {len(qs)}. Ready?")    # what ladder.render says and shows
-        first = f" First question: \"{qs[0].get('q')}\"" if qs else ""
-        return (f"0:00 A voice dares you: \"{hook}\" (the words pop up one by one). Then a "
+        opening = (f"The first question card (\"{qs[0].get('q')}\") is already on screen while a voice dares you"
+                   if qs else "A voice dares you")
+        return (f"0:00 {opening}: \"{hook}\" (the words pop up one by one). Then a "
                 f"{len(qs) or 'multi'}-question quiz ladder about {spec.get('category', 'mixed topics')}: each "
-                f"question appears with a countdown, a voice reads it, the answer is revealed and the ladder climbs a "
-                f"step.{first} Ends asking you to comment your score. {total:.0f} s.")
+                f"question is read out with a countdown, the answer is revealed and the ladder climbs a step. "
+                f"Ends asking you to comment your score. {total:.0f} s.")
     if fmt == "readfast":
         fact = str((spec.get("fact") or {}).get("fact") or "").strip()
         return (f"0:00 \"READ IT IF YOU CAN\" fills the screen in big yellow letters. Then a surprising fact flashes "
@@ -321,10 +325,87 @@ def describe(spec: dict, info: dict) -> str:
     return f"{fmt}: {total:.0f} s satisfying animation drawn in code."
 
 
-def write_meta(channel: dict, spec: dict, info: dict, out_dir: Path) -> dict:
+def screen_hook(spec: dict) -> str:
+    """The words on screen at 0:00, for the potential judge's 'HOOK / FIRST LINE' (22 Nov: it was given the title,
+    e.g. 'Venus vs. Birthday: Food Edition', instead of what the viewer meets first)."""
+    fmt = spec["format"]
+    if fmt == "spiral":
+        from .spiral import RULES
+        return str(RULES.get(spec.get("rule"), {}).get("hook") or "").replace("\n", " ")
+    if fmt == "multiply":
+        from .multiply import hook_lines
+        return " ".join(hook_lines(spec))
+    if fmt == "versus":
+        a, b = str(spec.get("pair", "Red|Blue")).split("|")
+        return f"WHO WINS? {a} or {b}? Comment now"
+    if fmt == "ladder":
+        quiz = spec.get("quiz") or {}
+        return str(quiz.get("hook") or f"Only 1% get all {len(quiz.get('questions') or [])}. Ready?")
+    if fmt == "readfast":
+        return "READ IT IF YOU CAN"
+    if fmt == "colorsort":
+        return str(spec.get("hook") or "Watch it sort itself")
+    return ""
+
+
+TITLE_PROMPT = """Write 6 YouTube Shorts titles for this animation on the channel "Brain Snack" (teens and adults,
+United States). What the viewer sees and hears: {shown}
+Rules: at most 8 words plus one emoji at the end; say what really happens (no lies, no "you won't believe"); make the
+viewer curious about the ending or dare them to guess; plain everyday words (never "mesmerizing", "ultimate", "epic");
+build every title differently.
+These earlier titles are taken, so write nothing close to them: {past}
+Return JSON only: {{"titles": ["...", "..."]}}"""
+
+
+def ai_titles(brain, spec: dict, shown: str, channel_id: str, log=print) -> list[str]:
+    """22 Nov: the physics formats had 3 fixed titles each, so their titles soon 'nearly repeat an earlier one' in the
+    potential gate (only the shape name differs: 'inside a heart' vs 'inside a blob' is a 0.9 match). The writer
+    drafts titles from what this video really shows; the fixed titles stay as the fallback. Fact/quiz formats already
+    get titles written for their own subject."""
+    if brain is None or spec["format"] in TOPIC_FORMATS:
+        return []
+    from .. import uniq
+    from ..ip_guard import hits
+    past = sorted(uniq.used_titles(channel_id))[:80]
+    try:
+        data, _ = brain.ask_json("writer", TITLE_PROMPT.format(shown=shown, past="; ".join(past) or "none"),
+                                 temperature=0.9)
+    except Exception as e:  # noqa: BLE001 - the fixed titles still work
+        log(f"Brain Snack titles: the writer is unavailable ({type(e).__name__}); fixed titles used")
+        return []
+    try:
+        from ..humanize import tells
+    except Exception:  # noqa: BLE001
+        tells = None
+    out = []
+    for t in (data or {}).get("titles") or []:
+        t = " ".join(str(t).split())
+        if 8 <= len(t) <= 80 and t not in out and not hits(t) and not (tells and tells(t)):
+            out.append(t)
+    return out[:6]
+
+
+def order_titles(channel_id: str, options: list[str]) -> list[str]:
+    """Never a title used before; among the new ones the writer's order is kept for those clearly unlike every earlier
+    title (closest match under 0.8, the gate holds at 0.85), then the rest by how different they are."""
+    from .. import uniq
+    used = uniq.used_titles(channel_id)
+    fresh = [t for t in options if uniq._norm(t) not in used]
+    if not fresh:
+        return uniq.pick(channel_id, options, used=used)
+    scores = uniq.repeat_scores(channel_id, fresh)
+    clear = [t for t in fresh if scores[t] < 0.8]
+    return clear + sorted((t for t in fresh if t not in clear), key=lambda t: scores[t]) + \
+        [t for t in options if t not in fresh]
+
+
+def write_meta(channel: dict, spec: dict, info: dict, out_dir: Path, extra_titles: list[str] | None = None) -> dict:
     fmt = spec["format"]
     from .. import uniq
-    titles = uniq.pick(channel["id"], titles_for(spec))       # 17 Nov: never the same title twice on a channel
+    if extra_titles:                                          # 22 Nov: written for this video, fixed ones as backup
+        titles = order_titles(channel["id"], list(extra_titles) + titles_for(spec))
+    else:
+        titles = uniq.pick(channel["id"], titles_for(spec))   # 17 Nov: never the same title twice on a channel
     melody = MELODY_NAMES.get(spec.get("melody"), "")
     made = MADE_WITH.get(fmt) or ("Simulated and rendered from scratch with our own physics engine. "
                                   "Every note is played by a collision"
@@ -335,7 +416,7 @@ def write_meta(channel: dict, spec: dict, info: dict, out_dir: Path) -> dict:
             + (f"\n\n{channel['catchphrase']}" if channel.get("catchphrase") else "")
             + "\n\n" + " ".join(channel.get("hashtags", [])))
     meta = {"channel": channel["id"], "format": "short", "snack_format": fmt, "title": titles[0],
-            "title_options": titles, "hook_text": titles[0], "description": desc,
+            "title_options": titles, "hook_text": screen_hook(spec) or titles[0], "description": desc,
             "instagram_caption": f"{titles[0]}\n\n" + "\n".join(cta_for(fmt)) + "\n\n"
                                  + " ".join(channel.get("hashtags", [])),
             "duration_s": round(ffmpeg.duration(out_dir / "video.mp4"), 2), "made_for_kids": False,
@@ -362,16 +443,24 @@ def make(brain, channel: dict, topic: str | None = None, fmt: str | None = None,
     fmt = choose_format(history, fmt, made=made_formats(channel["id"]), topic=topic)
     spec = new_spec(fmt, history, seed)
     used = bool(topic) and fmt in TOPIC_FORMATS          # physics formats don't use (or use up) the planned topic
+    if used and fmt == "ladder":                         # 22 Nov: the quiz is about the idea's own category
+        from .ladder import category_for
+        cat = category_for(topic)
+        if cat:
+            spec["category"] = cat
+        else:
+            used = False                                 # no quiz category carries it: the idea waits for a fact video
     if used:
         spec["topic"] = topic
     out_dir = ROOT / "output" / channel["id"] / f"{time.strftime('%Y%m%d_%H%M%S')}_{fmt}"
     out_dir.mkdir(parents=True, exist_ok=True)
     log(f"Brain Snack v3: format '{fmt}', spec {spec}")
     info = render_spec(spec, out_dir, brain=brain, channel=channel, log=log)
+    shown = describe(spec, info)
     (out_dir / "script.json").write_text(json.dumps({"title": fmt, "topic": topic if used else None,
-                                                     "shown": describe(spec, info), "spec": spec},
+                                                     "shown": shown, "spec": spec},
                                                     indent=2, ensure_ascii=False), encoding="utf-8")
-    meta = write_meta(channel, spec, info, out_dir)
+    meta = write_meta(channel, spec, info, out_dir, extra_titles=ai_titles(brain, spec, shown, channel["id"], log))
     meta["used_topic"] = used
     save_cover(out_dir / "video.mp4", info.get("cover_at", max(0.0, info["total"] - 1.2)), out_dir / "cover.jpg")
     try:

@@ -64,10 +64,9 @@ def pick(channel_id: str, options: list[str], detail: str = "", used: set[str] |
     return options
 
 
-def freshest(channel_id: str, options: list[str], past: set[str] | None = None) -> list[str]:
-    """Options ordered by how different they are from every earlier title/topic of the channel, measured the way the
-    potential gate measures it (normalised text, difflib ratio; >= 0.85 = "title nearly repeats"). 21 Nov: every
-    Bloop long title came from one template and was held as a near-repeat."""
+def repeat_scores(channel_id: str, options: list[str], past: set[str] | None = None) -> dict[str, float]:
+    """Each option's closest match among the channel's earlier titles/topics, measured the way the potential gate
+    measures it (normalised text, difflib ratio; >= 0.85 = "title nearly repeats")."""
     import difflib
     if past is None:
         past = set(used_titles(channel_id))
@@ -80,7 +79,14 @@ def freshest(channel_id: str, options: list[str], past: set[str] | None = None) 
     def worst(t: str) -> float:
         n = _norm(t)
         return max((difflib.SequenceMatcher(None, n, p).ratio() for p in past if p and p != n), default=0.0)
-    return sorted(options, key=worst)
+    return {t: worst(t) for t in options}
+
+
+def freshest(channel_id: str, options: list[str], past: set[str] | None = None) -> list[str]:
+    """Options ordered by how different they are from every earlier title/topic of the channel. 21 Nov: every
+    Bloop long title came from one template and was held as a near-repeat."""
+    scores = repeat_scores(channel_id, options, past)
+    return sorted(options, key=lambda t: scores[t])
 
 
 def _join(title: str, extra: str) -> str:

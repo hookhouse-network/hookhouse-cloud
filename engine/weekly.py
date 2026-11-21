@@ -785,6 +785,20 @@ def clip_slot(ch: dict, item: dict) -> bool:
         src["source"] not in s["used"] and _source_channel(src) == ch["id"] for src in _read_sources())
 
 
+def snack_theme(item: dict) -> str:
+    """Brain Snack's theme for a fact/quiz video: the PLANNED idea. 22 Nov: a physics game overwrote the item's topic
+    with its own title, a second one overwrote the kept planned topic too, and every remake got that title + the
+    angle + the judge's notes about the previous (different) format as its theme: a food quiz came out as 'Venus vs.
+    Birthday: Food Edition' with a hook copied from the judge's example. The judge's findings are about the old video
+    and are fixed in the formats themselves (on-screen hooks, titles); only the owner's own change request is passed."""
+    theme = str(item.get("planned_topic") or item.get("topic") or "").strip()
+    if theme and item.get("angle"):
+        theme = f"{theme} (angle: {item['angle']})"
+    if item.get("status") == "redo" and item.get("note"):
+        theme = f"{theme}\nThe owner asked for this change: {item['note']}"
+    return theme.strip()
+
+
 def make_item(plan: dict, item: dict, brain, memory=None, log=print) -> None:
     from .config import channel as get_channel
     ch = get_channel(item["channel"])
@@ -836,10 +850,16 @@ def make_item(plan: dict, item: dict, brain, memory=None, log=print) -> None:
             pass
     elif ch["type"] == "brainrot":
         from .snack import maker as snack              # Brain Snack v3: five rotating game formats
-        out, meta = snack.make(brain, ch, topic=topic or None, memory=memory, log=log)
+        if item.get("status") == "redo" and item.get("gate_note"):
+            log(f"Brain Snack remake; the last version's findings are fixed in the formats: {item['gate_note'][:160]}")
+        out, meta = snack.make(brain, ch, topic=snack_theme(item) or None, memory=memory, log=log)
         item["out_dir"], item["file"] = str(out), (sorted(out.glob("*.mp4")) or [Path("")])[0].name
         if item.get("topic") and not (meta or {}).get("used_topic"):     # a physics game: the plan shows what was
-            item["planned_topic"], item["topic"] = item["topic"], (meta or {}).get("title") or item["topic"]  # made
+            if not item.get("planned_topic"):                            # made; the planned idea is kept ONCE
+                item["planned_topic"] = item["topic"]
+            item["topic"] = (meta or {}).get("title") or item["topic"]
+        elif (meta or {}).get("used_topic") and item.get("planned_topic"):
+            item["topic"] = item["planned_topic"]                        # a fact/quiz video made from the idea
     elif ch["type"] == "clips":
         item["out_dir"], item["file"] = _make_clip(plan, item, brain, ch, memory, log)
     elif ch["type"] == "kids":

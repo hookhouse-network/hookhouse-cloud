@@ -4,6 +4,7 @@ Questions are written by the AI brain and double-checked by a second model; doub
 from __future__ import annotations
 
 import math
+import re
 from pathlib import Path
 
 import cv2
@@ -24,6 +25,45 @@ CATEGORIES = {
 }
 TIER = ["#FACC15"] * 3 + ["#22C55E"] * 3 + ["#EF4444"] * 3 + ["#D946EF"]
 
+# 22 Nov: the quiz got a random category AND the planned idea as a "theme", so a food quiz came out with the hook
+# "Did you know Venus beats your birthday?" and the title "Venus vs. Birthday: Food Edition" (clarity 4/10). A planned
+# idea now picks the category it belongs to; an idea no category carries goes to a fact video instead.
+CATEGORY_WORDS = {
+    "space": "space planet planets venus mars jupiter saturn mercury neptune uranus pluto moon moons sun solar star "
+             "stars galaxy galaxies nasa astronaut astronauts rocket rockets orbit orbits comet comets asteroid "
+             "asteroids meteor meteors telescope universe spacecraft satellite satellites eclipse",
+    "ocean": "ocean oceans sea seas whale whales shark sharks octopus octopuses coral reef reefs tide tides "
+             "submarine jellyfish dolphin dolphins seabed squid",
+    "animals": "animal animals cat cats dog dogs bird birds lion lions tiger tigers elephant elephants panda pandas "
+               "bear bears insect insects ant ants bee bees snake snakes frog frogs wildlife pet pets horse horses "
+               "owl owls penguin penguins monkey monkeys spider spiders",
+    "geography": "country countries city cities capital capitals river rivers mountain mountains desert deserts "
+                 "island islands continent continents border borders map lake lakes",
+    "human body": "body brain brains heart blood bone bones skin teeth tooth eye eyes muscle muscles sleep lungs "
+                  "stomach dna nerves",
+    "history": "history ancient century centuries war wars king kings queen queens empire emperor pharaoh pharaohs "
+               "roman romans medieval castle castles president presidents",
+    "science": "science chemistry physics atom atoms experiment electricity magnet magnets energy gravity "
+               "temperature weather climate snow volcano volcanoes volcanic lightning",
+    "food": "food foods fruit fruits vegetable vegetables cheese bread butter cream milk pizza burger burgers "
+            "chocolate candy sugar spice spices cooking recipe dinner lunch breakfast snack snacks turkey pie cake "
+            "coffee tea sauce takeout gravy cranberry pumpkin",
+    "inventions": "invention inventions invented inventor inventors patent machine machines robot robots computer "
+                  "computers phone phones internet engine engines airplane airplanes bulb",
+    "sports records": "sport sports football soccer basketball baseball cricket olympic olympics athlete athletes "
+                      "marathon tennis golf",
+}
+_CAT_SETS = {c: set(w.split()) for c, w in CATEGORY_WORDS.items()}
+
+
+def category_for(topic: str | None) -> str | None:
+    """The quiz category a planned idea belongs to (most matching words; None when no category carries it)."""
+    words = re.findall(r"[a-z]+", str(topic or "").lower())
+    scores = {c: sum(w in s for w in words) for c, s in _CAT_SETS.items()}
+    best = max(scores, key=lambda c: scores[c])
+    return best if scores[best] else None
+
+
 N_QUESTIONS = 7          # 21 Nov: 10 questions made a 60 s Short; the quality bar wants 8-45 s (watch-through)
 QUIZ_PROMPT = """Write a 7-question quiz for the YouTube Shorts channel "Brain Snack" (teens and adults, United States).
 Category: {category}. {topic_line}
@@ -31,6 +71,8 @@ Difficulty rises: questions 1-2 easy, 3-4 medium, 5-6 hard, 7 very hard.
 Rules: each question is at most 9 words; each answer is 1-3 words; every answer must be 100% true and the only
 correct answer (no trick questions, no opinions, nothing about living private people, no brands, no dates that
 change). Use simple words. Write 9 questions so weak ones can be dropped.
+The hook dares the viewer to get all 7 right in THIS quiz (never a fact, a joke or a question the quiz doesn't ask).
+The titles say what the quiz is about as a challenge (max 8 words, plain words, one emoji at most).
 Return JSON only: {{"hook": "max 7 words, e.g. Only 1% get all 7. Ready?", "questions": [{{"q": "...", "a": "...",
 "emoji": "one emoji that fits"}}], "title_options": ["3 short titles"], "hashtags": ["#quiz", "..."]}}"""
 
@@ -89,7 +131,10 @@ def render(spec: dict, quiz: dict, voice: dict, work: Path, writer, fps: int, lo
         start = t
         timer_start = start + qd + 0.15
         reveal = timer_start + 2.5
-        items.append({"q": q, "audio": qa, "start": start, "timer": timer_start, "reveal": reveal, "end": reveal + 0.75})
+        # 22 Nov: the first ~3 s were an empty backdrop with one hook word at a time (judge: hook 4/10). The first
+        # question card is on screen from 0.2 s while the dare is voiced; its own voice and countdown follow.
+        items.append({"q": q, "audio": qa, "start": 0.0 if i == 0 else start, "voice_at": start,
+                      "timer": timer_start, "reveal": reveal, "end": reveal + 0.75})
         t = reveal + 0.75
     cta_a, cta_d = _voice_line(cta_text, work / "q_cta.wav", voice)
     timeline["cta"] = (t, cta_d)
@@ -135,7 +180,7 @@ def render(spec: dict, quiz: dict, voice: dict, work: Path, writer, fps: int, lo
         if cur is not None:
             i = items.index(cur)
             age = tv - cur["start"]
-            sc = pop_scale(age, 0.24, 1.08)
+            sc = 1.0 if i == 0 else pop_scale(age, 0.24, 1.08)      # the first card is whole on the very first frame
             if sc > 0.02:
                 card = np.full((640, 640, 3), 255, np.uint8)
                 cv2.rectangle(card, (0, 0), (639, 639), (30, 30, 30), 8)
@@ -180,10 +225,10 @@ def render(spec: dict, quiz: dict, voice: dict, work: Path, writer, fps: int, lo
     voice_track = np.zeros(int(total * au.SR) + au.SR, np.float32)
     au.place(voice_track, hook_a, timeline["hook"][0])
     for it in items:
-        au.place(voice_track, it["audio"], it["start"])
+        au.place(voice_track, it["audio"], it["voice_at"])
     au.place(voice_track, cta_a, timeline["cta"][0])
     return {"total": total, "items": [{k: v for k, v in it.items() if k != "audio"} for it in items],
-            "voice": voice_track[: int(total * au.SR)], "ai_voice": True, "cover_at": items[0]["start"] + 0.6}
+            "voice": voice_track[: int(total * au.SR)], "ai_voice": True, "cover_at": items[0]["voice_at"] + 0.6}
 
 
 def soundtrack(info: dict, spec: dict) -> np.ndarray:

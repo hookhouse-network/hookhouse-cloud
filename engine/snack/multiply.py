@@ -10,11 +10,24 @@ import numpy as np
 from numba import njit
 
 from . import audio as au
-from .canvas import W, H, add_glow, blit, bgr, hue_bgr, radial_bg, text_sprite
+from .canvas import W, H, add_glow, blit, bgr, fit_size, hue_bgr, radial_bg, text_sprite
 
 CX, CY = 540, 960
 COLORS = ["#FF3B6B", "#FFC531", "#3BFF8A", "#31C8FF", "#B44CFF", "#FF7A1A"]
 SHAPES = ["heart", "star", "blob", "brain", "donut", "rocket", "bolt", "drop", "letter"]
+SHAPE_NAMES = {"heart": "heart", "star": "star", "blob": "blob", "brain": "brain", "donut": "donut",
+               "rocket": "rocket", "bolt": "lightning bolt", "drop": "water drop"}
+HOOK_S = 2.6          # the hook question is on screen for the first 2.6 s
+
+
+def shape_name(spec: dict) -> str:
+    return SHAPE_NAMES.get(spec.get("shape"), f"letter {spec.get('letter', '')}".strip())
+
+
+def hook_lines(spec: dict) -> tuple[str, str]:
+    """22 Nov: the opening was a small '1 bounce = 2 balls' for 1.2 s over one ball in an empty shape (judge: hook 6,
+    'start with a punchy question'). Now a big rule line + the question the video answers."""
+    return "1 BOUNCE = 2 BALLS", f"Can it fill the {shape_name(spec)}?"
 
 
 # ---------- silhouettes and their reveal art (all drawn by code) ----------
@@ -313,7 +326,10 @@ def render(spec: dict, writer, fps: int, log=print) -> dict:
     t_shock = max_r / shock_v
     total = t_fill + t_shock + cross + hold + collapse
     n_frames = int(round(total * fps))
-    label = text_sprite("1 bounce = 2 balls", "Poppins Black", 56, stroke=7)
+    line1, line2 = hook_lines(spec)
+    hook1 = text_sprite(line1, "Poppins Black", fit_size(line1, "Poppins Black", 990, 100, 48, 10), stroke=10)
+    hook2 = text_sprite(line2, "Poppins Black", fit_size(line2, "Poppins Black", 990, 80, 40, 9), fill="#FFE600",
+                        stroke=9)
     art_masked = np.zeros_like(art)
     art_masked[mask > 0] = art[mask > 0]
 
@@ -321,8 +337,17 @@ def render(spec: dict, writer, fps: int, log=print) -> dict:
         hue = base_hue + 0.055 * math.sin(2 * math.pi * t / max(total, 1))
         cv2.drawContours(layer, contours, -1, hue_bgr(hue, 0.45, 1.0), 14, cv2.LINE_AA)
 
-    def meter(frame, pct):
-        blit(frame, text_sprite(f"{pct}%", "Poppins Black", 120, stroke=10), W / 2, 245)
+    def hook_alpha(t):
+        if t < HOOK_S:
+            return min(1.0, (HOOK_S - t) / 0.35)
+        return max(0.0, min(1.0, (t - (total - 0.45)) / 0.4))     # back in before the end: the loop stays seamless
+
+    def meter(frame, pct, t):
+        a = hook_alpha(t)
+        if a > 0.01:                                  # the hook question, then the fill meter in the same place
+            blit(frame, hook1, W / 2, 190, alpha=a)
+            blit(frame, hook2, W / 2, 322, alpha=a)
+        blit(frame, text_sprite(f"{pct}%", "Poppins Black", 120, stroke=10), W / 2, 245, alpha=1 - a)
 
     first = None
     last_frame = None
@@ -340,9 +365,7 @@ def render(spec: dict, writer, fps: int, log=print) -> dict:
             for x, y, c in zip(px.astype(np.int32), py.astype(np.int32), col):
                 cv2.circle(layer, (int(x), int(y)), 9, colors[c], -1, cv2.LINE_AA)
             add_glow(frame, layer, passes=((6, 0.5), (22, 0.3)))
-            meter(frame, min(99, int(100 * len(px) / sim.target)))
-            if t < 1.2:
-                blit(frame, label, W / 2, 118, alpha=min(1.0, (1.2 - t) / 0.3))
+            meter(frame, min(99, int(100 * len(px) / sim.target)), t)
         else:
             px, py, col = frames[-1]
             tt = t - t_fill
@@ -359,11 +382,11 @@ def render(spec: dict, writer, fps: int, log=print) -> dict:
                 add_glow(frame, layer, passes=((6, 0.45), (22, 0.25)))
                 if fade > 0:
                     cv2.addWeighted(frame, 1 - fade, np.maximum(frame, art_masked), fade, 0, dst=frame)
-                meter(frame, 100)
+                meter(frame, 100, t)
             elif tt < t_shock + cross + hold:
                 np.maximum(frame, art_masked, out=frame)
                 add_glow(frame, layer)
-                meter(frame, 100)
+                meter(frame, 100, t)
             else:                                     # collapse back to one ball
                 p = min(1.0, (tt - t_shock - cross - hold) / collapse)
                 k = 1 - p
@@ -376,7 +399,7 @@ def render(spec: dict, writer, fps: int, log=print) -> dict:
                 sx, sy = sim.start
                 cv2.circle(layer, (int(sx), int(sy)), max(1, int(9 * p)), colors[int(frames[0][2][0])], -1, cv2.LINE_AA)
                 add_glow(frame, layer, passes=((6, 0.5), (22, 0.3)))
-                meter(frame, int(100 * k))
+                meter(frame, int(100 * k), t)
         if fi == 0:
             first = frame.copy()
         writer.write(frame)
