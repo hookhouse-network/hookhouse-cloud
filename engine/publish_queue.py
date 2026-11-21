@@ -213,7 +213,23 @@ def _settle(start, it, acts, new_done, dead, waits, led, log, notify) -> None:
         from .publish import item_meta
         camp = item_meta(it).get("campaign")
         if camp:
-            lines.append(f"💰 Campaign clip: submit these links on the campaign page within 30 minutes: {camp}")
+            try:                                        # owner 21 Nov: submitting is the system's job, within 30 min
+                from . import campaign_submit, db
+                campaign = db.get_campaign(db.connect(), camp) or {"id": camp}
+                links = {"youtube": f"https://www.youtube.com/shorts/{it['youtube_id']}"} if it.get("youtube_id") else {}
+                for p, r in new_done:
+                    url = (r or {}).get("url") or (r or {}).get("permalink") if isinstance(r, dict) else None
+                    if p != "youtube" and url:
+                        links[p] = url
+                res = campaign_submit.after_post(it, links, campaign, log=log)
+                if res.get("ok"):
+                    it = autopilot.update_item(start, item_id, campaign_submitted_at=time.time(),
+                                               campaign_post_url=res.get("post_url"))
+                lines.append("💰 Campaign: " + ("submitted automatically" if res.get("ok")
+                                                else f"not submitted ({res.get('message')})"))
+            except Exception as e:  # noqa: BLE001 - the post itself succeeded; tell the owner
+                log(f"campaign submit: {type(e).__name__}: {e}")
+                lines.append(f"💰 Campaign clip: automatic submit failed ({type(e).__name__}); campaign {camp}")
             try:
                 from . import share_packs
                 share_packs.send_now(it, log)

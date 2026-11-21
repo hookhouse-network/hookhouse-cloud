@@ -109,6 +109,7 @@ def _no_real_ledger(monkeypatch, tmp_path):
 
 def pytest_configure(config):
     config.addinivalue_line("markers", "real_gates: run the real content/clip gates (not opened for the test)")
+    config.addinivalue_line("markers", "live_config: use the real config/gates.yaml auto_approve settings")
 
 
 @pytest.fixture(autouse=True)

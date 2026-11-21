@@ -2,7 +2,26 @@
 only with time to stop it, never counting its own approvals."""
 from datetime import datetime, timedelta
 
+import pytest
+
 from engine import auto_approve as aa, weekly
+
+
+@pytest.fixture(autouse=True)
+def trust_rule(request, monkeypatch):
+    """These tests cover the earned-trust rule itself (10 clean approvals, 2 h to veto); the live config may differ."""
+    if "live_config" not in request.keywords:
+        monkeypatch.setattr(aa, "settings", lambda: dict(aa.DEFAULTS))
+
+
+@pytest.mark.live_config
+def test_owner_21_nov_config_approves_every_gate_passed_video():
+    """Owner 21 Nov: approving is the system's job; any video that passed every gate is approved (Stop still works)."""
+    s = aa.settings()
+    assert s["min_clean"] == 0 and s["min_hours"] <= 0.5
+    ok, why = aa.eligible(_it(hours=1), plan_items=[])
+    assert ok, why
+    assert not aa.eligible(dict(_it(hours=1), status="planned"), plan_items=[])[0]    # only made (gate-passed) videos
 
 
 def _now():

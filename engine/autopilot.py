@@ -488,6 +488,10 @@ def decide(tok: str, action: str, note: str = "") -> str:
         yt = _schedule_youtube(start, it)
         return (f"✅ Approved: {it['channel_name']} posts {_when(it):%a %d %b %H:%M} IST." +
                 (f"\nYouTube: {yt}" if yt else ""))
+    from .campaign_submit import is_frozen
+    if action in ("reject", "change") and is_frozen(plan_it):     # Content Rewards rejects edited/deleted posts
+        return ("🔒 This campaign clip was already submitted, so it stays as posted (editing or deleting it would get "
+                "the submission rejected). Delete it yourself in the app only if you also want to give up the payout.")
     if action in ("reject", "change") and plan_it.get("youtube_id"):
         from .publish import youtube_delete
         ok = youtube_delete(plan_it["channel"], plan_it["youtube_id"])

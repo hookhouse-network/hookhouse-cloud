@@ -41,8 +41,10 @@ potential:                    # engine/potential_gate.py: the "viral + earning" 
 
 auto_approve:                 # engine/auto_approve.py (owner 20 Nov: "yes you can consider auto-approval")
   enabled: true
-  min_clean: 10               # the owner's last 10 decisions on this channel + kind must be plain approvals
-  min_hours: 2                # slot at least 2 h away, so "❌ Stop it" can still cancel it
+  # owner 21 Nov: "approving cards ... this is your part of job not mine, automation must handle this also":
+  # every video that passes ALL gates is approved by the system; the owner keeps "❌ Stop it" as a veto.
+  min_clean: 0                # was 10 owner approvals per channel + kind before the system could approve
+  min_hours: 0.25             # was 2 h: campaign clips and late-made videos must not wait for a tap
   exclude_channels: []
 
 channels: {}                # per-channel overrides, e.g.  brain_snack: {min_quality: 100, fact_check: required}
