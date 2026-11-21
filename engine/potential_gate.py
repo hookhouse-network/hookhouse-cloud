@@ -146,9 +146,13 @@ def deterministic(it: dict, ch: dict, meta: dict, past_titles: list[str] | None 
         except Exception as e:  # noqa: BLE001
             p.append(f"{PREFIX}: originality check could not run ({type(e).__name__})")
             past_titles = []
-    low = title.lower()
+    # 21 Nov: used_titles stores titles normalised (lower case, no emoji/punctuation) and includes THIS video's own
+    # upload.json, so "Wait for the last try 😳" was judged a repeat of its own "wait for the last try". Both sides
+    # are compared normalised; the video's own title is skipped.
+    from .uniq import _norm
+    low = _norm(title)
     for old in past_titles:
-        if old and old.lower() != low and difflib.SequenceMatcher(None, low, str(old).lower()).ratio() >= \
+        if old and _norm(old) != low and difflib.SequenceMatcher(None, low, _norm(old)).ratio() >= \
                 float(cfg["title_repeat_ratio"]):
             p.append(f"{PREFIX}: title nearly repeats an earlier one (\"{str(old)[:60]}\")")
             break

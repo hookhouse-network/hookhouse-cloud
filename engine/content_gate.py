@@ -120,11 +120,14 @@ def repair_title(it: dict, ch: dict, problems: list[str], past: list[str] | None
         print(f"content gate: title repair could not read past titles ({type(e).__name__})")
         return False
     current = str(m.get("title") or "")
+    from .uniq import _norm
 
-    def fresh(t: str) -> bool:
-        low = t.lower()
-        return bool(t) and all(not o or str(o).lower() in (low, current.lower())
-                               or difflib.SequenceMatcher(None, low, str(o).lower()).ratio() < ratio for o in past)
+    def fresh(t: str) -> bool:                      # same normalised test as potential_gate
+        low = _norm(t)
+        if difflib.SequenceMatcher(None, low, _norm(current)).ratio() >= ratio:
+            return False                                # a near-copy of the flagged title repeats the same thing
+        return bool(low) and all(not o or _norm(o) == _norm(current)          # this video's own record is skipped
+                                 or difflib.SequenceMatcher(None, low, _norm(o)).ratio() < ratio for o in past)
     for t in [str(x) for x in m.get("title_options") or []]:
         if t and t != current and fresh(t):
             m["title"], m["title_options"] = t, list(dict.fromkeys([t, current] + list(m.get("title_options") or [])))

@@ -137,6 +137,18 @@ def test_repeated_title_is_swapped_for_a_fresh_option(story):
     assert not cg.repair_title(story["it"], {"id": "brain_snack"}, ["potential: hook 5"], past=past)
 
 
+def test_a_title_never_repeats_its_own_normalised_copy():
+    """21 Nov: 'Wait for the last try 😳' was flagged as repeating its own stored 'wait for the last try'."""
+    from engine import potential_gate as pg
+    it = {"id": "b1", "channel": "brain_snack", "out_dir": "", "file": ""}
+    own = pg.deterministic(it, {"id": "brain_snack"}, {"title": "Wait for the last try 😳"},
+                           past_titles=["wait for the last try", "which try reaches the center"])
+    assert not any("nearly repeats" in x for x in own)
+    other = pg.deterministic(it, {"id": "brain_snack"}, {"title": "Wait for the last try 😳"},
+                             past_titles=["wait for the very last try"])
+    assert any("nearly repeats" in x for x in other)                     # a real near-repeat is still caught
+
+
 def test_fact_check_and_franchise_holds_are_remade_not_left_waiting():
     """21 Nov: these sat in gate_held forever; the owner never saw a card and nothing was remade."""
     assert cg.fixable_by_remake(["fact-check failed: He left behind his clip-on black tie. - Contradicted"])
