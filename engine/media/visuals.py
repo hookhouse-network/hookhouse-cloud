@@ -230,6 +230,75 @@ def pixabay(query: str, limit: int = 8, download: bool = True, orientation: str 
     return out
 
 
+OPENVERSE_OK = {"cc0": "CC0", "pdm": "Public Domain Mark", "by": "CC BY"}   # owner rule: CC0 / CC-BY with credit only
+
+
+def openverse(query: str, limit: int = 8, download: bool = False) -> list[Visual]:
+    """Openverse (WordPress; 800M+ openly licensed images, no key). Master plan 5.10 layer 3: real licensed media
+    where real is better. 21 Nov: Cloudflare's free AI quota is gone by mid-afternoon and Pixabay/Wikimedia alone fail
+    'shows this moment' -> word cards. Only CC0 / Public Domain Mark / CC BY (credited); never BY-SA/NC/ND."""
+    if not query.strip():
+        return []
+    try:
+        data = session().get("https://api.openverse.org/v1/images/", params={
+            "q": query[:100], "license": ",".join(OPENVERSE_OK), "page_size": max(3, limit)},   # mature is off by default
+            timeout=30).json()
+    except (requests.RequestException, ValueError):
+        return []
+    out = []
+    for h in (data.get("results") or [])[:limit]:
+        lic, url = str(h.get("license") or "").lower(), h.get("url")
+        if lic not in OPENVERSE_OK or not url or (h.get("width") or 0) < 700:
+            continue
+        tags = " ".join(t.get("name", "") for t in h.get("tags") or [] if isinstance(t, dict))
+        if re.search(r"\bai\b|ai[- ]generated|midjourney|stable diffusion", tags.lower()):
+            continue
+        title, who = h.get("title") or query, h.get("creator") or "unknown"
+        credit = f"\"{title}\" by {who} ({OPENVERSE_OK[lic]}{(' ' + h['license_version']) if h.get('license_version') else ''}) via Openverse"
+        dest = CACHE / f"ov_{h.get('id')}.jpg"
+        if download:
+            try:
+                _download(url, dest)
+            except requests.RequestException:
+                continue
+        out.append(Visual(dest, "openverse", credit, OPENVERSE_OK[lic], {"text": f"{title} {tags}", "url": url}))
+    return out
+
+
+def met_museum(query: str, limit: int = 4, download: bool = False) -> list[Visual]:
+    """The Met Open Access (public-domain objects, CC0). History, art, ancient objects (master plan 5.10)."""
+    if not query.strip():
+        return []
+    base = "https://collectionapi.metmuseum.org/public/collection/v1"
+    try:                                               # v1/search was retired on 1 Oct 2026; v1.1/search replaces it
+        ids = (session().get(f"{base}.1/search", params={"q": query[:80], "hasImages": "true"}, timeout=30)
+               .json().get("objectIDs") or [])[:limit * 3]
+    except (requests.RequestException, ValueError):
+        return []
+    out = []
+    for oid in ids:
+        if len(out) >= limit:
+            break
+        try:
+            o = session().get(f"{base}/objects/{oid}", timeout=30).json()
+        except (requests.RequestException, ValueError):
+            continue
+        url = o.get("primaryImage") or o.get("primaryImageSmall")
+        if not (o.get("isPublicDomain") and url):
+            continue
+        title = o.get("title") or query
+        dest = CACHE / f"met_{oid}.jpg"
+        if download:
+            try:
+                _download(url, dest)
+            except requests.RequestException:
+                continue
+        out.append(Visual(dest, "met_museum", f"\"{title}\", The Metropolitan Museum of Art (Open Access, CC0)", "CC0",
+                          {"text": f"{title} {o.get('objectName', '')} {o.get('culture', '')} {o.get('period', '')}",
+                           "url": url}))
+    return out
+
+
 def ai_prompt_key(prompt: str, style: str = "") -> tuple[str, str]:
     """The full prompt sent to FLUX and its file key (shared with the GPU batch worker)."""
     full = f"{prompt}, {style}, cinematic lighting, highly detailed, vertical composition".strip(", ")

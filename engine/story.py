@@ -887,7 +887,11 @@ def _photo_candidates(query: str) -> list:
     on Wikimedia), then accept smaller historical pictures (most pre-1950 photos are under 900 px wide)."""
     def search():
         got = (visuals.wikimedia(query, download=False) + visuals.pexels(query, download=False)
-               + visuals.pixabay(query, download=False))     # 19 Nov: everyday scenes when AI pictures run out
+               + visuals.pixabay(query, download=False)      # 19 Nov: everyday scenes when AI pictures run out
+               + visuals.openverse(query, download=False))   # 21 Nov: 800M+ CC0/CC-BY images (plan 5.10 layer 3)
+        if re.search(r"\b(ancient|medieval|century|dynasty|empire|temple|museum|artifact|sculpture|painting|"
+                     r"manuscript|pharaoh|samurai|roman|greek|mughal|maurya|vedic)\b", query, re.I):
+            got += visuals.met_museum(query, download=False)  # public-domain museum objects for history scenes
         short = re.sub(r"\s+", " ", GENERIC_SEARCH.sub(" ", query)).strip()
         if not got and short and short != query:
             got = visuals.wikimedia(short, download=False)
