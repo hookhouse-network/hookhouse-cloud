@@ -1,0 +1,19 @@
+# Viral pattern library (plan P3r creativity, standard S8 A1): proven story structures. Every fresh story video uses
+# one, in rotation per channel (engine/patterns.py); the pattern is saved on the video so the learning loop (P8) can
+# measure which structures win on which channel. The writer still owns the facts and the hook. Edit freely.
+patterns:
+  - name: the detail that didn't fit
+    shape: "open on the one strange detail; set the scene in one line; follow the people who tried to explain it; end on what that detail still means (or loop to the first line)"
+  - name: countdown
+    shape: "three true facts that escalate, each bigger than the last; the third is the most surprising; say the number before each one"
+  - name: myth vs fact
+    shape: "first line states what almost everyone believes; then the evidence piece by piece; the payoff is the true version, stated plainly"
+  - name: before and after
+    shape: "open on the exact moment that split everything into before and after; show what was lost or won; end on how it looks today"
+  - name: race against time
+    shape: "a clock is running (minutes, seconds, days); each beat says how much time is left and what is at stake; the payoff lands as time runs out"
+  - name: two choices, one ending
+    shape: "two people or sides face the same moment and choose differently; cut between them; one choice decides the ending"
+  - name: hidden in plain sight
+    shape: "show something the viewer has seen many times; plant small clues; the reveal shows it was there all along"
+skip: [bloop_and_friends, brain_snack, hot_take_hq, stream_clips]     # kids, games and clips have their own formats

@@ -2283,11 +2283,13 @@ def make(brain, channel: dict, topic: str | None = None, fmt: str = "short", scr
          memory=None, log=print) -> tuple[Path, dict]:
     fresh = script is None
     if script is None:
-        from . import series                       # S8 A13: every fresh video is an episode of a named series
-        ser = series.pick(channel["id"])
-        log(f"Script: writing '{topic}' for {channel['name']}" + (f" (series: {ser['name']})" if ser else ""))
-        script = write_script(brain, channel, topic, fmt, memory, extra_rules=series.rule(ser))
-        script = series.apply(script, ser, fmt)
+        from . import patterns, series             # S8 A13 named series + A1 viral pattern library
+        ser, pat = series.pick(channel["id"]), patterns.pick(channel["id"])
+        extra = "\n".join(x for x in (series.rule(ser), patterns.rule(pat)) if x)
+        log(f"Script: writing '{topic}' for {channel['name']}" + (f" (series: {ser['name']})" if ser else "")
+            + (f" (structure: {pat['name']})" if pat else ""))
+        script = write_script(brain, channel, topic, fmt, memory, extra_rules=extra)
+        script = patterns.apply(series.apply(script, ser, fmt), pat)
         if fmt == "long":
             lw = _range((channel.get("spec") or {}).get("long_words", ""))
             script = expand_long(brain, script, log=log, minimum=lw[0] if lw else LONG_MIN_WORDS,
@@ -2297,8 +2299,8 @@ def make(brain, channel: dict, topic: str | None = None, fmt: str = "short", scr
         if flags:                                   # owner's rule: never-topics are rewritten out, not just warned
             log(f"Never-topics in the script ({', '.join(flags)}); rewriting once without them")
             script = write_script(brain, channel, f"{topic}\nDo not touch these subjects at all: {', '.join(flags)}",
-                                  fmt, memory, extra_rules=series.rule(ser))
-            script = series.apply(script, ser, fmt)
+                                  fmt, memory, extra_rules=extra)
+            script = patterns.apply(series.apply(script, ser, fmt), pat)
             flags = script_flags(script)
         script["_policy_flags"] = flags
         if fmt == "short":
