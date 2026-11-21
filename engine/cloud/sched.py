@@ -167,6 +167,11 @@ class Heartbeat:
             self._stop.wait(self.every_s)
 
     def start(self) -> "Heartbeat":
+        try:                                      # registered before the first claim (no "unknown worker" race)
+            self.client.register(self.wid, self.kind, self.caps)
+            self.beats += 1
+        except Exception as e:  # noqa: BLE001 - the thread keeps trying (said, never silent)
+            self.log(f"scheduler: first registration failed ({type(e).__name__}: {str(e)[:120]})")
         self.thread.start()
         return self
 

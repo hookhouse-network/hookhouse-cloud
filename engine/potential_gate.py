@@ -90,7 +90,10 @@ def srt_text(folder: Path, stem: str | None = None) -> tuple[str, float | None]:
     """(what is said, first caption start in seconds) from the video's .srt, if any. A clip folder holds one .srt per
     clip (clip_01.srt, clip_02.srt): `stem` picks the one that belongs to the video."""
     own = folder / f"{stem}.srt" if stem else None
-    files = [own] if own is not None and own.exists() else sorted(folder.glob("*.srt"))
+    # 21 Nov: a clip without its own .srt borrowed clip_01.srt (another clip's words), so the judge scored the wrong
+    # moment ("counting ... the pen"); another clip's captions are never used, only a folder-wide captions file
+    files = [own] if own is not None and own.exists() else sorted(
+        f for f in folder.glob("*.srt") if not (stem and f.stem.startswith("clip_") and f.stem != stem))
     if not files:
         return "", None
     raw = files[0].read_text(encoding="utf-8", errors="ignore")

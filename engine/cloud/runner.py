@@ -93,6 +93,23 @@ def _dash_buttons(kv, log=_log) -> int:
     return n
 
 
+def _gh_worker(log=_log):
+    """The GitHub render run as a 'gh_render' worker on the shared queue (scheduler: on): it gets only the jobs the
+    fallback rules allow (no PC online AND slack < 2x the estimate; never long videos). None in shadow/off mode."""
+    from . import sched as _sched
+    try:
+        if _sched.mode() != "on":
+            return None
+        client = _sched.SchedClient()
+        if not client.available():
+            return None
+        return _sched.Heartbeat(client, f"gh-render-{os.environ.get('GITHUB_RUN_ID', 'local')}", "gh_render",
+                                ["ffmpeg", "kokoro"], log=log).start()
+    except Exception as e:  # noqa: BLE001 - the render run works the old way (said, never silent)
+        log(f"render: queue worker not started ({type(e).__name__}: {e})")
+        return None
+
+
 def _make_and_hand_over(store, start: str, it: dict, log=_log) -> Path:
     """Claim file (older paths still read it), make the video, save it to the outbox BEFORE uploading (a failed
     upload never means a remake), then upload. Shared by the claim-file path and the scheduler path."""
@@ -654,11 +671,22 @@ def render(budget_min: float = 40, log=_log) -> int:
         log(f"merge: {e}")
     _inbox_between(store, log)
     t0, made = time.time(), 0
+    gh = _gh_worker(log)                                   # Phase 2 'on': GitHub render takes only queue fallbacks
     while (time.time() - t0) / 60 < budget_min * 0.6:      # don't start one we can't finish
         due = _due_to_make(CLOUD_KINDS, set(claims(store)), connected_only=True)   # scarce cloud minutes
         if not due:
             break
-        start, it = due[0]
+        job = None
+        if gh is not None:
+            from . import sched as _sched
+            pick = _sched.next_job(gh, {x["id"]: (s, x) for s, x in due}, log)
+            if pick is None:
+                log("render: the queue keeps this work for the PC (online, or the deadline has room)")
+                break
+            if pick != "fallback":
+                start, it, job = pick
+        if job is None:
+            start, it = due[0]
         autopilot.update_item(start, it["id"], status="making", making_by="cloud")
         state.push(store)                                  # the PC sees it's taken
         try:
@@ -672,7 +700,11 @@ def render(budget_min: float = 40, log=_log) -> int:
                                   now_hook=item.get("now_hook"), made_by="cloud")
             made += 1
             log(f"made {item.get('channel_name')} in {(time.time() - t0) / 60:.0f} min")
+            if job is not None:
+                _sched.finish_job(gh, job, {"asset": media.asset_name(item["id"]), "item": item["id"]}, log=log)
         except Exception as e:  # noqa: BLE001
+            if job is not None:
+                _sched.finish_job(gh, job, error=e, log=log)
             wait = autopilot.free_limit_wait(e)
             if wait:                                       # a daily free limit: wait for the reset, keep the tries
                 autopilot.update_item(start, it["id"], status="failed", error=f"{type(e).__name__}: {e}", retry_at=wait)
@@ -687,6 +719,8 @@ def render(budget_min: float = 40, log=_log) -> int:
             traceback.print_exc()
         _inbox_between(store, log)
         state.push(store)
+    if gh is not None:
+        gh.stop()                                          # leases back at once; the run is over
     try:
         autopilot._ask_due(log)                            # previews for what was just made
     except Exception as e:  # noqa: BLE001

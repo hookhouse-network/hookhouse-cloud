@@ -152,6 +152,31 @@ def test_pc_takes_its_work_from_the_queue_in_on_mode(monkeypatch):
     assert sched.next_job(hb2, items, log=lambda *_: None) == "fallback"   # degraded mode: claim files
 
 
+def test_github_render_joins_the_queue_only_in_on_mode(monkeypatch):
+    from engine.cloud import runner
+    monkeypatch.setattr("engine.config.settings", lambda: {"scheduler": "shadow"})
+    assert runner._gh_worker(log=lambda *_: None) is None                   # shadow: the render run works as before
+    t = JobsTwin([])
+
+    class Client(sched.SchedClient):
+        def __init__(self):
+            super().__init__(client=t)
+
+        def available(self):
+            return True
+    monkeypatch.setattr("engine.config.settings", lambda: {"scheduler": "on"})
+    monkeypatch.setattr(sched, "SchedClient", Client)
+    monkeypatch.setenv("GITHUB_RUN_ID", "4242")
+    gh = runner._gh_worker(log=lambda *_: None)
+    try:
+        assert gh.kind == "gh_render" and gh.wid == "gh-render-4242"
+        assert t.sent[0]["op"] == "s_register" and t.sent[0]["worker"]["kind"] == "gh_render"   # before any claim
+        assert sched.next_job(gh, {}, log=lambda *_: None) is None          # nothing handed out: no Actions minutes
+    finally:
+        gh.stop()
+    assert t.sent[-1]["op"] == "s_release"
+
+
 def test_client_sends_the_scheduler_ops():
     t = Transport({"jobs": [{"id": 7, "epoch": 3, "key": "a"}], "ok": 1, "added": True, "state": "queued",
                    "released": 2})

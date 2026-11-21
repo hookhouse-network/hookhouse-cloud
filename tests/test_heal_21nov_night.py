@@ -108,6 +108,19 @@ def test_both_pace_passes_share_one_ceiling():
     assert "0.9, 1.12)" not in src                                              # no second, lower cap anywhere
 
 
+def test_a_clip_never_borrows_another_clips_captions(tmp_path):
+    """Hot Take HQ clip judged on another clip's words: srt_text fell back to the first .srt in the folder."""
+    from engine import potential_gate as pg
+    (tmp_path / "clip_01.srt").write_text("1\n00:00:00,100 --> 00:00:02,000\nCount the pens with me\n",
+                                          encoding="utf-8")
+    assert pg.srt_text(tmp_path, "clip_03") == ("", None)                      # its own words are unknown
+    (tmp_path / "clip_03.srt").write_text("1\n00:00:00,300 --> 00:00:02,000\nHe walked out mid-show\n",
+                                          encoding="utf-8")
+    assert pg.srt_text(tmp_path, "clip_03")[0] == "He walked out mid-show"
+    (tmp_path / "captions.srt").write_text("1\n00:00:00,200 --> 00:00:01,000\nStory words\n", encoding="utf-8")
+    assert pg.srt_text(tmp_path, "video")[0] == "Story words"                 # a folder-wide file still works
+
+
 def test_quiz_fits_the_short_length():
     """Brain Snack quiz: 10 questions = 60 s; the scorecard wants 8-45 s."""
     from engine.snack import ladder
