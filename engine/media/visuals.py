@@ -257,12 +257,22 @@ def ai_image(prompt: str, style: str = "") -> Visual | None:
     acct, token = os.environ.get("CLOUDFLARE_ACCOUNT_ID"), os.environ.get("CLOUDFLARE_API_TOKEN")
     if not (acct and token):
         return None
+    from .. import storyboard
+    if not storyboard._open("cloudflare"):            # used up today: don't spend a call per scene
+        return None
     try:
         r = requests.post(
             f"https://api.cloudflare.com/client/v4/accounts/{acct}/ai/run/@cf/black-forest-labs/flux-1-schnell",
             headers={"Authorization": f"Bearer {token}"}, json={"prompt": full, "steps": 8}, timeout=120)
-        img_b64 = r.json().get("result", {}).get("image")
+        data = r.json()
+        img_b64 = (data.get("result") or {}).get("image")
     except (requests.RequestException, ValueError):
+        return None
+    if r.status_code == 429 or any(e.get("code") == 4006 for e in data.get("errors") or [] if isinstance(e, dict)):
+        # 21 Nov: "used up your daily free allocation of 10,000 neurons" was swallowed, so the NoPictures rule never
+        # fired and story videos were made with word cards (then held). Mark it; the video waits for the reset.
+        storyboard._block("cloudflare")
+        print("AI pictures: Cloudflare's free daily allowance is used up; resting until 00:00 UTC")
         return None
     if not img_b64:
         return None
