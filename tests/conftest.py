@@ -45,8 +45,10 @@ def _no_real_experiments(monkeypatch, tmp_path):
     """21 Nov: the daily review now starts/ends per-channel experiments (engine/scorecard.py); tests never touch the
     real experiment state or the real analytics."""
     import engine.scorecard as sc
+    import engine.series as series
     monkeypatch.setattr(sc, "STATE", tmp_path / "experiments_test.json")
     monkeypatch.setattr(sc, "DB", tmp_path / "analytics_scorecard_test.db")
+    monkeypatch.setattr(series, "STATE", tmp_path / "series_rotation_test.json")
 
 
 @pytest.fixture(autouse=True)

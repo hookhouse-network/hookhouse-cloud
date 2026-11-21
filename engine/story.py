@@ -658,7 +658,7 @@ def _tuning_rules(cid: str, fmt: str = "short") -> str:
         return ""
 
 
-def write_script(brain, channel: dict, topic: str, fmt: str = "short", memory=None) -> dict:
+def write_script(brain, channel: dict, topic: str, fmt: str = "short", memory=None, extra_rules: str = "") -> dict:
     f = dict(FORMATS[fmt])
     if fmt == "short" and (channel.get("spec") or {}).get("short_words"):
         f["words"] = channel["spec"]["short_words"]         # research length/pace for this niche
@@ -686,7 +686,7 @@ def write_script(brain, channel: dict, topic: str, fmt: str = "short", memory=No
         long_rules=(LONG_RULES.format(catchphrase=channel.get("catchphrase") or "a calm, memorable closing line")
                     if fmt == "long" else ""),
         rules=json.dumps(channel.get("content_rules", {})) + "\n" + (channel.get("writer_rules") or "") + "\n"
-        + _tuning_rules(channel["id"], fmt) + "\n"
+        + _tuning_rules(channel["id"], fmt) + "\n" + (extra_rules + "\n" if extra_rules else "")
         + never_rules_text() + (
             "" if visuals.ai_image_available() else
             "\nAI images are switched OFF right now: never use visual \"ai\". Use photo, footage or text, and give "
@@ -2275,8 +2275,11 @@ def make(brain, channel: dict, topic: str | None = None, fmt: str = "short", scr
          memory=None, log=print) -> tuple[Path, dict]:
     fresh = script is None
     if script is None:
-        log(f"Script: writing '{topic}' for {channel['name']}")
-        script = write_script(brain, channel, topic, fmt, memory)
+        from . import series                       # S8 A13: every fresh video is an episode of a named series
+        ser = series.pick(channel["id"])
+        log(f"Script: writing '{topic}' for {channel['name']}" + (f" (series: {ser['name']})" if ser else ""))
+        script = write_script(brain, channel, topic, fmt, memory, extra_rules=series.rule(ser))
+        script = series.apply(script, ser, fmt)
         if fmt == "long":
             lw = _range((channel.get("spec") or {}).get("long_words", ""))
             script = expand_long(brain, script, log=log, minimum=lw[0] if lw else LONG_MIN_WORDS,
@@ -2286,7 +2289,8 @@ def make(brain, channel: dict, topic: str | None = None, fmt: str = "short", scr
         if flags:                                   # owner's rule: never-topics are rewritten out, not just warned
             log(f"Never-topics in the script ({', '.join(flags)}); rewriting once without them")
             script = write_script(brain, channel, f"{topic}\nDo not touch these subjects at all: {', '.join(flags)}",
-                                  fmt, memory)
+                                  fmt, memory, extra_rules=series.rule(ser))
+            script = series.apply(script, ser, fmt)
             flags = script_flags(script)
         script["_policy_flags"] = flags
         if fmt == "short":

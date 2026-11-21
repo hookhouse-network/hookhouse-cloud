@@ -1,0 +1,38 @@
+# Named series per story channel (plan P3r creativity workstream, standard S8 A13: "1-2 named series per channel").
+# A series makes every video feel like an episode of a show people come back for (binge + brand recall). Each video of
+# a channel is written as an episode of one of its series, in rotation (engine/series.py):
+#   promise  = what every episode delivers (the writer keeps it: angle, structure, payoff)
+#   hashtag  = first hashtag of the episode (description, tags, Reel caption): one series, one tag
+#   long videos get the series name as a title prefix when it fits; Shorts keep a search-first title (hook first)
+# Playlists per series follow later (A4). Edit freely: the writer reads this file every time.
+
+unsolved_after_dark:
+  - {name: "Cold Case Files", promise: "a real unsolved case and the one clue that never fit", hashtag: "#ColdCaseFiles"}
+  - {name: "Vanished", promise: "a real person or place that disappeared without a trace, and the theories that still divide people", hashtag: "#Vanished"}
+clutch_tales:
+  - {name: "Final Seconds", promise: "the last seconds of a real game that decided everything, told like a movie", hashtag: "#FinalSeconds"}
+  - {name: "Comeback Files", promise: "a real comeback nobody believed possible, and the moment it turned", hashtag: "#ComebackFiles"}
+ending_decoded:
+  - {name: "Ending Decoded", promise: "what a famous film's final scene really means, proven with details from the film", hashtag: "#EndingDecoded"}
+  - {name: "Hidden in Plain Sight", promise: "one detail most viewers miss on the first watch, and why it changes the story", hashtag: "#HiddenInPlainSight"}
+money_cheat_codes:
+  - {name: "Cheat Code", promise: "one money rule rich people and companies use, explained in plain words with a real example", hashtag: "#CheatCode"}
+  - {name: "How They Make Money", promise: "how a famous company, app or AI tool really earns its money", hashtag: "#HowTheyMakeMoney"}
+itihaas_ke_raaz:
+  - {name: "Raaz Ki Baat", promise: "ek sachcha raaz Bharat ke itihaas ya pauranik kahaniyon se, jo bahut kam log jaante hain", hashtag: "#RaazKiBaat"}
+  - {name: "Ankahi Kahaani", promise: "ek mashhoor kahaani ka woh hissa jo aksar nahi sunaya jaata", hashtag: "#AnkahiKahaani"}
+cricket_ke_kisse:
+  - {name: "Aakhri Over", promise: "cricket ka woh aakhri over jisne poora match badal diya", hashtag: "#AakhriOver"}
+  - {name: "Underdog Kisse", promise: "jab kamzor maani gayi team ya khiladi ne sabko chaunka diya", hashtag: "#UnderdogKisse"}
+picture_abhi_baaki_hai:
+  - {name: "Box Office Ka Sach", promise: "kisi film ke hit ya flop hone ki asli kahaani, sachche facts ke saath", hashtag: "#BoxOfficeKaSach"}
+  - {name: "Filmy Raaz", promise: "kisi mashhoor film ke banne ka ek anjaana sachcha kissa", hashtag: "#FilmyRaaz"}
+cosmos_unboxed:
+  - {name: "Space Mysteries", promise: "a real unanswered question about space and what scientists actually know", hashtag: "#SpaceMysteries"}
+  - {name: "Mission Files", promise: "a real space mission and the moment it almost failed", hashtag: "#MissionFiles"}
+deep_blue_files:
+  - {name: "Deep File", promise: "a real mystery from the deep ocean, from creatures to strange sounds", hashtag: "#DeepFile"}
+  - {name: "Shipwreck Stories", promise: "the true story of a famous wreck and what was found on the seabed", hashtag: "#ShipwreckStories"}
+wild_instinct:
+  - {name: "Survival Mode", promise: "how one real animal survives something that should be impossible", hashtag: "#SurvivalMode"}
+  - {name: "Animal Superpowers", promise: "a real animal ability that sounds made up but is proven", hashtag: "#AnimalSuperpowers"}
