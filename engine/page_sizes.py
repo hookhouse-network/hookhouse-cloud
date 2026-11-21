@@ -94,6 +94,8 @@ def missing_a4(folder: Path) -> list[str]:
         src = folder / f
         if f.endswith("_A4.pdf") or not (f.lower().endswith(".pdf") and src.exists()):
             continue
+        if "digital" in f.lower() or "goodnotes" in f.lower():     # a tablet file is never printed: no A4 twin
+            continue
         try:
             box = PdfReader(str(src)).pages[0].mediabox
         except (PdfReadError, IndexError, KeyError, ValueError) as e:   # pdf_problems reports a broken PDF itself

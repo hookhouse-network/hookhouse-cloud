@@ -248,10 +248,14 @@ def make(log=print) -> Path:
     pdf = OUT / f"{YEAR}_Planner_Printable.pdf"
     pages[0].save(pdf, save_all=True, append_images=pages[1:], resolution=300)
     pages[0].save(OUT / "cover.jpg", quality=92)
-    info = {"title": f"{YEAR} Printable Planner Bundle", "files": [pdf.name], "pages": len(pages),
+    from .digital_planner import make as make_digital      # P6: GoodNotes / Notability version with working tabs
+    digital = make_digital(OUT, log)
+    info = {"title": f"{YEAR} Printable Planner Bundle", "files": [pdf.name, digital.name], "pages": len(pages),
             "description": f"A clean {YEAR} planner you print at home: year at a glance, goals, 12 monthly calendars "
                            "with US holidays, weekly and daily planners, habit tracker, monthly budget, reading list "
-                           "and notes. US Letter, prints on A4 with 'fit to page'. Reprint any page as often as you like.",
+                           "and notes. US Letter, prints on A4 with 'fit to page'. Reprint any page as often as you like. "
+                           "Bonus: a hyperlinked digital version for GoodNotes, Notability or any PDF app (tap a "
+                           "month tab to jump there).",
             "price_usd": "$6", "price_inr": "₹149", "stores": ["Payhip", "Gumroad"], "channel": "money_cheat_codes",
             "tags": [f"{YEAR} planner", "printable planner", "monthly planner", "weekly planner", "habit tracker",
                      "budget planner", "goal planner", "daily planner"]}
