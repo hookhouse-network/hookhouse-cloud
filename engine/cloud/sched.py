@@ -64,8 +64,45 @@ class SchedClient:
     def release(self, wid: str) -> int:
         return int(self._call("s_release", worker=wid).get("released") or 0)
 
+    def cancel(self, key: str) -> bool:
+        return bool(self._call("s_cancel", key=key).get("ok"))
+
+    def list(self, state: str = "queued", limit: int = 500) -> list[dict]:
+        return list(self._call("s_list", state=state, limit=limit).get("jobs") or [])
+
     def stats(self) -> dict:
         return self._call("s_stats")
+
+
+def job_for(start: str, it: dict, now: float) -> dict:
+    """The queue job for one plan item: P1 when its slot is under 24 h away, else P2 (the 72 h work-ahead buffer);
+    long videos need the PC (never GitHub Actions); Shorts may fall back to GitHub render only when no PC is online
+    and the slack is under twice the estimate (master plan 5.3)."""
+    from .. import autopilot
+    when = autopilot._when(it).timestamp()
+    kind = str(it.get("kind") or "short")
+    long_ = kind == "long"
+    return {"kind": "make", "key": f"make:{it['id']}:{it.get('gate_redos') or 0}:{it.get('status')}",
+            "cls": 1 if when - now < 24 * 3600 else 2, "deadline": when, "est_min": 45 if long_ else 12,
+            "requires": ["ffmpeg"] + (["pc"] if long_ else []), "prefer": ["pc"],
+            "fallback": [] if long_ else [{"kind": "gh_render", "when": "no_pc_online&slack_lt_2x"}],
+            "payload": {"item": it["id"], "start": start, "channel": it.get("channel"), "kind": kind}}
+
+
+def sync_due(client: SchedClient, due: list[tuple[str, dict]], now: float | None = None, log=print) -> dict:
+    """Keep the queue in step with what is due to make: enqueue every due item (idempotent key, a remake gets a new
+    key) and cancel queued make-jobs whose item is no longer due (made through the claim files, slot dropped)."""
+    import time
+    now = now or time.time()
+    want = {}
+    for start, it in due:
+        j = job_for(start, it, now)
+        want[j["key"]] = j
+    added = sum(1 for j in want.values() if client.enqueue(**j))
+    stale = [j["key"] for j in client.list("queued") if j.get("kind") == "make" and j["key"] not in want]
+    cancelled = sum(1 for k in stale if client.cancel(k))
+    log(f"queue: {len(want)} due, {added} new job(s), {cancelled} cancelled")
+    return {"due": len(want), "added": added, "cancelled": cancelled}
 
 
 def mode() -> str:
@@ -101,7 +138,15 @@ class Heartbeat:
         self.client, self.wid, self.kind, self.caps, self.every_s, self.log = client, wid, kind, caps, every_s, log
         self._stop = threading.Event()
         self.beats = 0
+        self.jobs: dict[int, int] = {}                  # job id -> epoch: leases extended while the work runs
+        self.lost: set[int] = set()                     # leases that ran out (someone else may have the job now)
         self.thread = threading.Thread(target=self._loop, name="sched-heartbeat", daemon=True)
+
+    def track(self, job: dict) -> None:
+        self.jobs[int(job["id"])] = int(job["epoch"])
+
+    def untrack(self, job: dict) -> None:
+        self.jobs.pop(int(job["id"]), None)
 
     def _loop(self) -> None:
         warned = False
@@ -109,6 +154,11 @@ class Heartbeat:
             try:
                 self.client.register(self.wid, self.kind, self.caps)
                 self.beats += 1
+                for jid, epoch in list(self.jobs.items()):
+                    if not self.client.heartbeat(jid, self.wid, epoch):
+                        self.lost.add(jid)
+                        self.log(f"scheduler: lease of job {jid} was lost (its result will be refused)")
+                        self.jobs.pop(jid, None)
                 warned = False
             except Exception as e:  # noqa: BLE001 - the work goes on without the heartbeat (said once per outage)
                 if not warned:
@@ -126,6 +176,50 @@ class Heartbeat:
             self.client.release(self.wid)
         except Exception as e:  # noqa: BLE001 - leases expire by themselves after 15 minutes
             self.log(f"scheduler release: {type(e).__name__}: {str(e)[:120]}")
+
+
+def next_job(hb: Heartbeat | None, items: dict[str, tuple[str, dict]], log=print):
+    """Scheduler 'on' mode: (start, item, job) for this worker's next make job, None when the queue has nothing for
+    it, or "fallback" when the queue cannot be reached (the caller uses the claim files this round). A job whose item
+    is no longer due is closed at once (the queue moves on)."""
+    if hb is None or mode() != "on":
+        return "fallback"
+    try:
+        jobs = hb.client.claim(hb.wid, limit=1)
+    except Exception as e:  # noqa: BLE001 - degraded mode: the old claim files (said, never silent)
+        log(f"scheduler: queue unreachable ({type(e).__name__}: {str(e)[:100]}); claim files this round")
+        return "fallback"
+    import time
+    for job in jobs:
+        iid = str((job.get("payload") or {}).get("item") or "")
+        if iid not in items:                   # made or claimed elsewhere: back to the queue for 30 min (no attempt
+            hb.client.fail(job["id"], hb.wid, job["epoch"], "not due on this PC now", "quota",   # counted); the
+                           time.time() + 1800)                        # cloud's next sync cancels it if it is done
+            log(f"scheduler: job {job['key']} put back: its item is not due here right now")
+            continue
+        hb.track(job)
+        start, it = items[iid]
+        return start, it, job
+    return None
+
+
+def finish_job(hb: Heartbeat, job: dict, result: dict | None = None, error: Exception | None = None,
+               log=print) -> str:
+    """Complete (with the artifact) or fail the job with its epoch; returns done / queued / dead / lost / refused."""
+    hb.untrack(job)
+    try:
+        if error is None:
+            ok = hb.client.complete(job["id"], hb.wid, job["epoch"], result or {})
+            if not ok:
+                log(f"scheduler: completion of {job['key']} refused (lease lost: someone else has it)")
+            return "done" if ok else "refused"
+        kind = "permanent" if isinstance(error, (ValueError, KeyError)) else "transient"
+        state = hb.client.fail(job["id"], hb.wid, job["epoch"], f"{type(error).__name__}: {error}", kind)
+        log(f"scheduler: {job['key']} failed ({kind}) -> {state}")
+        return state
+    except Exception as e:  # noqa: BLE001 - the lease expires and the job returns by itself (said, never silent)
+        log(f"scheduler: could not report {job['key']} ({type(e).__name__}: {e})")
+        return "lost"
 
 
 def start_pc_heartbeat(log=print) -> Heartbeat | None:

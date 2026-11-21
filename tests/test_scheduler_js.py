@@ -64,6 +64,94 @@ def test_heartbeat_off_switch_and_unconfigured(monkeypatch):
     assert {"ffmpeg", "pc"} <= set(sched.pc_caps())
 
 
+class QueueTwin:
+    """In-memory stand-in for the LedgerDO queue (enqueue / list / cancel only)."""
+    def __init__(self):
+        self.jobs = {}
+
+    def enqueue(self, **j):
+        if j["key"] in self.jobs:
+            return False
+        self.jobs[j["key"]] = dict(j, state="queued")
+        return True
+
+    def list(self, state="queued", limit=500):
+        return [j for j in self.jobs.values() if j["state"] == state]
+
+    def cancel(self, key):
+        if self.jobs.get(key, {}).get("state") == "queued":
+            self.jobs[key]["state"] = "cancelled"
+            return True
+        return False
+
+
+def test_queue_mirrors_what_is_due(monkeypatch):
+    from datetime import datetime, timedelta, timezone
+
+    from engine import autopilot
+    now = datetime(2026, 11, 21, 17, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(autopilot, "_when", lambda it: now + timedelta(hours=it["h"]))
+    q = QueueTwin()
+    due = [("s1", {"id": "a", "kind": "short", "status": "planned", "h": 5, "channel": "brain_snack"}),
+           ("s2", {"id": "b", "kind": "long", "status": "planned", "h": 50, "channel": "bloop_and_friends"})]
+    r = sched.sync_due(q, due, now=now.timestamp(), log=lambda *_: None)
+    assert r == {"due": 2, "added": 2, "cancelled": 0}
+    a, b = q.jobs["make:a:0:planned"], q.jobs["make:b:0:planned"]
+    assert a["cls"] == 1 and a["fallback"] and "pc" not in a["requires"]
+    assert b["cls"] == 2 and b["fallback"] == [] and "pc" in b["requires"] and b["est_min"] == 45
+    # 'a' was made through the claim files and 'b' was remade: a's job is cancelled, b gets a new key
+    due2 = [("s2", {"id": "b", "kind": "long", "status": "redo", "gate_redos": 1, "h": 50})]
+    r2 = sched.sync_due(q, due2, now=now.timestamp(), log=lambda *_: None)
+    assert r2 == {"due": 1, "added": 1, "cancelled": 2}
+    assert q.jobs["make:a:0:planned"]["state"] == "cancelled" and "make:b:1:redo" in q.jobs
+    assert sched.sync_due(q, due2, now=now.timestamp(), log=lambda *_: None)["added"] == 0   # idempotent
+
+
+class JobsTwin(Transport):
+    """A queue that hands out given jobs and records the reports."""
+    def __init__(self, jobs):
+        super().__init__({})
+        self.queue = list(jobs)
+
+    def call(self, payload):
+        self.sent.append(payload)
+        op = payload["op"]
+        if op == "s_claim":
+            return {"jobs": [self.queue.pop(0)] if self.queue else []}
+        if op == "s_complete":
+            return {"ok": 1}
+        if op == "s_fail":
+            return {"state": "queued"}
+        return {"ok": 1}
+
+
+def test_pc_takes_its_work_from_the_queue_in_on_mode(monkeypatch):
+    monkeypatch.setattr("engine.config.settings", lambda: {"scheduler": "on"})
+    job = {"id": 5, "epoch": 2, "key": "make:a:0:planned", "payload": {"item": "a"}}
+    gone = {"id": 6, "epoch": 1, "key": "make:z:0:planned", "payload": {"item": "z"}}
+    t = JobsTwin([gone, job])
+    hb = sched.Heartbeat(sched.SchedClient(client=t), "pc-test", "pc", ["ffmpeg"], log=lambda *_: None)
+    items = {"a": ("s1", {"id": "a"})}
+    assert sched.next_job(hb, items, log=lambda *_: None) is None          # 'z' is not due here: put back
+    assert t.sent[-1]["op"] == "s_fail" and t.sent[-1]["kind"] == "quota" and t.sent[-1]["retry_at"]
+    start, it, j = sched.next_job(hb, items, log=lambda *_: None)
+    assert (start, it["id"], j["id"]) == ("s1", "a", 5) and hb.jobs == {5: 2}   # its lease is kept alive
+    assert sched.finish_job(hb, j, {"out_rel": "x"}, log=lambda *_: None) == "done" and hb.jobs == {}
+    assert t.sent[-1] == {"op": "s_complete", "job": 5, "worker": "pc-test", "epoch": 2, "result": {"out_rel": "x"}}
+    hb.track(j)
+    assert sched.finish_job(hb, j, error=RuntimeError("render crashed"), log=lambda *_: None) == "queued"
+    assert t.sent[-1]["kind"] == "transient"
+    monkeypatch.setattr("engine.config.settings", lambda: {"scheduler": "shadow"})
+    assert sched.next_job(hb, items) == "fallback"                         # shadow: the claim files still decide
+
+    class Down(Transport):
+        def call(self, payload):
+            raise RuntimeError("ledger API 503")
+    monkeypatch.setattr("engine.config.settings", lambda: {"scheduler": "on"})
+    hb2 = sched.Heartbeat(sched.SchedClient(client=Down({})), "pc-test", "pc", [], log=lambda *_: None)
+    assert sched.next_job(hb2, items, log=lambda *_: None) == "fallback"   # degraded mode: claim files
+
+
 def test_client_sends_the_scheduler_ops():
     t = Transport({"jobs": [{"id": 7, "epoch": 3, "key": "a"}], "ok": 1, "added": True, "state": "queued",
                    "released": 2})

@@ -93,6 +93,45 @@ def _dash_buttons(kv, log=_log) -> int:
     return n
 
 
+def _make_and_hand_over(store, start: str, it: dict, log=_log) -> Path:
+    """Claim file (older paths still read it), make the video, save it to the outbox BEFORE uploading (a failed
+    upload never means a remake), then upload. Shared by the claim-file path and the scheduler path."""
+    from . import pc_outbox
+    store.put(media.TAG, f"claim-{it['id']}.json", json.dumps({"id": it["id"], "at": time.time()}).encode())
+    log(f"making {it.get('channel_name')} {it.get('kind')}")
+    item = make_one(start, it, log)
+    folder = Path(item["out_dir"])
+    try:
+        from ..training_data import _scripts
+        training = _scripts().get(item["id"])
+    except Exception as e:  # noqa: BLE001 - the video still goes up without its training record
+        log(f"training record: {type(e).__name__}: {e}")
+        training = None
+    pc_outbox.add(item["id"], folder, {
+        "id": item["id"], "start": start, "out_rel": media.rel_out(folder), "file": item.get("file"),
+        "topic": item.get("topic"), "angle": item.get("angle"), "made_at": time.time(),
+        "feeling": item.get("feeling"), "now_hook": item.get("now_hook"),
+        "planned_topic": item.get("planned_topic"), "training": training,
+        "clip_source": item.get("clip_source"), "clip_skipped": item.get("clip_skipped"),
+        "made_as": item.get("made_as")})
+    if pc_outbox.flush(store, log):
+        _wake_cloud(log)
+    return folder
+
+
+def _queue_sync(log=_log) -> dict | None:
+    """Phase 2 (scheduler shadow/on): enqueue the due items into the shared queue, cancel the ones made elsewhere."""
+    from . import sched
+    if sched.mode() == "off":
+        return None
+    client = sched.SchedClient()
+    if not client.available():
+        log("queue: the signed API is not set up here")
+        return None
+    due = [(s, it) for s, it in _due_to_make(None, set()) if it.get("kind") != "clip"]
+    return sched.sync_due(client, due, log=log)
+
+
 def claims(store) -> dict[str, float]:
     """item id -> claim time, for PC claims that are still fresh."""
     out = {}
@@ -558,6 +597,7 @@ def tick(log=_log, light: bool = False) -> None:
              ("live_stats", lambda: _live_due() and __import__("engine.stats_fetch", fromlist=["live"]).live(log=log)),
              ("plan", lambda: autopilot._ensure_plan(autopilot.default_brain, log)),
              ("replan", lambda: run_replans(log)),       # config/replan.yaml, each request once (19 Nov)
+             ("queue", lambda: _queue_sync(log)),         # Phase 2: the shared job queue mirrors what is due
              # 19 Nov: book pages from leftover free picture quota at night (API calls only, a few per tick)
              ("book_pages", lambda: log("book pages: " + __import__("engine.cloud.book_farm", fromlist=["x"])
                                         .quota_pages(store, log=log))),
@@ -826,27 +866,24 @@ def helper(once: bool = False, every_s: int = 300, log=_log, videos_only: bool =
             taken = set(claims(store)) | {r["id"] for r in pc_outbox.pending()}
             # clips stay in the cloud: their spare-clip pool lives in the cloud memory, which the PC only reads
             due = [(s, it) for s, it in _due_to_make(None, taken) if it["status"] != "making" and it.get("kind") != "clip"]
+            pick = "fallback"
+            if hb is not None:                         # Phase 2 'on' mode: the shared queue decides what this PC makes
+                from . import sched as _sched
+                pick = _sched.next_job(hb, {it["id"]: (s, it) for s, it in due}, log)
+            if pick is None:
+                raise _SkipClaim("the queue has nothing for this PC right now")
+            if pick != "fallback":
+                start, it, job = pick
+                try:
+                    folder = _make_and_hand_over(store, start, it, log)
+                except Exception as e:  # noqa: BLE001 - the job is failed with its epoch, then the helper goes on
+                    _sched.finish_job(hb, job, error=e, log=log)
+                    raise
+                _sched.finish_job(hb, job, {"out_rel": media.rel_out(folder), "item": it["id"]}, log=log)
+                continue
             if due:
                 start, it = due[0]
-                store.put(media.TAG, f"claim-{it['id']}.json", json.dumps({"id": it["id"], "at": time.time()}).encode())
-                log(f"making {it.get('channel_name')} {it.get('kind')}")
-                item = make_one(start, it, log)
-                folder = Path(item["out_dir"])
-                try:
-                    from ..training_data import _scripts
-                    training = _scripts().get(item["id"])
-                except Exception as e:  # noqa: BLE001 - the video still goes up without its training record
-                    log(f"training record: {type(e).__name__}: {e}")
-                    training = None
-                pc_outbox.add(item["id"], folder, {    # saved before the upload: a failed upload never means a remake
-                    "id": item["id"], "start": start, "out_rel": media.rel_out(folder), "file": item.get("file"),
-                    "topic": item.get("topic"), "angle": item.get("angle"), "made_at": time.time(),
-                    "feeling": item.get("feeling"), "now_hook": item.get("now_hook"),
-                    "planned_topic": item.get("planned_topic"), "training": training,
-                    "clip_source": item.get("clip_source"), "clip_skipped": item.get("clip_skipped"),
-                    "made_as": item.get("made_as")})
-                if pc_outbox.flush(store, log):
-                    _wake_cloud(log)
+                _make_and_hand_over(store, start, it, log)
                 continue                                   # straight to the next one while the PC is on
         except _SkipClaim as e:
             log(f"helper: no new work this round ({e})")

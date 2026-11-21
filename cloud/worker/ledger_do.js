@@ -74,6 +74,8 @@ export class LedgerDO extends DurableObject {
       case "s_fail": return s.fail(Number(b.job), String(b.worker || ""), Number(b.epoch), b.error || "", b.kind || "transient",
                                    b.retry_at || null);
       case "s_release": return s.release(String(b.worker || ""));
+      case "s_cancel": return s.cancel(String(b.key || ""));
+      case "s_list": return s.list(b.state || "queued", b.limit);
       case "s_stats": return s.stats();
       default: throw new Error("unknown scheduler op");
     }

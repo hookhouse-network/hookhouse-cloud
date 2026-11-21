@@ -110,6 +110,19 @@ const short = (key, deadlineIn, cls = 1, now) => ({ kind: "make", key, cls, dead
   check("stale fail is lost", s.fail(k.id, "pc2", k.epoch, "x").state === "lost");
 }
 
+// 6b. Cancel + list: the cloud keeps the queue in step with what is due (only queued jobs can be cancelled).
+{
+  const { s, clock } = fresh();
+  s.register({ id: "pc1", ...PC });
+  s.enqueue(short("x", 3 * 3600, 1, clock.t)); s.enqueue(short("y", 5 * 3600, 1, clock.t));
+  check("list shows both queued", s.list().jobs.map(j => j.key).join() === "x,y");
+  const j = s.claim("pc1").jobs[0];
+  check("a leased job cannot be cancelled", s.cancel("x").ok === false && j.key === "x");
+  check("a queued job can", s.cancel("y").ok === true && s.list().jobs.length === 0);
+  check("cancelled jobs are listed by state", s.list("cancelled").jobs[0].key === "y");
+  check("re-enqueue of a cancelled key stays idempotent", s.enqueue(short("y", 5 * 3600, 1, clock.t)).added === false);
+}
+
 // 7. Property test: 10,000 randomized runs, never two accepted completions of one job.
 {
   let seed = 987654321;

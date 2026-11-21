@@ -153,6 +153,17 @@ export function makeScheduler(q, run, clock = () => Date.now() / 1000, rng = Mat
       return { state };
     },
 
+    cancel(key) {                          // no longer needed (made another way, slot dropped): queued jobs only
+      const now = clock();
+      return { ok: run(`UPDATE sjobs SET state = 'cancelled', updated = ? WHERE key = ? AND state = 'queued'`,
+                       now, key) === 1 };
+    },
+
+    list(state = "queued", limit = 500) {
+      return { jobs: q(`SELECT id, kind, key, cls, deadline, state, epoch, owner, attempts FROM sjobs WHERE state = ?
+                        ORDER BY cls, deadline, id LIMIT ?`, String(state), Math.min(Number(limit) || 500, 2000)) };
+    },
+
     release(workerId) {                    // clean shutdown: the jobs go back at once (epoch moves on at next claim)
       const now = clock();
       const n = run(`UPDATE sjobs SET state = 'queued', owner = NULL, until = NULL, updated = ?
