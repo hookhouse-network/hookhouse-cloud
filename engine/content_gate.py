@@ -131,8 +131,12 @@ def base_problems(it: dict, ch: dict | None = None, meta: dict | None = None, qu
         p.append("fact-check failed: " + "; ".join(str(x) for x in (fc.get("problems") or [])[:2]))
     if r.get("made_for_kids") == "required" and not meta.get("made_for_kids"):
         p.append("kids video not marked made-for-kids")
-    if r.get("ai_disclosure") == "required" and not (meta.get("ai_label") or meta.get("yt_synthetic")) \
-            and not meta.get("clip") and ch.get("type") != "kids":
+    labelled = bool(meta.get("ai_label") or meta.get("yt_synthetic"))
+    need_ai = r.get("ai_disclosure")
+    if need_ai == "if_used":   # 21 Nov: code-drawn Brain Snack games (no AI voice/pictures) were blocked 22x
+        if (meta.get("ai_used") or meta.get("ai_voice") or meta.get("ai_pictures")) and not labelled:
+            p.append("AI disclosure (ai_label) not set although AI voice/pictures were used")
+    elif need_ai == "required" and not labelled and not meta.get("clip") and ch.get("type") != "kids":
         p.append("AI disclosure (ai_label) not set")
     from . import clip_gate
     if r.get("clip_gate") == "required" or clip_gate.is_clip(it, meta, ch):

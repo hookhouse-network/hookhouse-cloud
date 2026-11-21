@@ -111,6 +111,18 @@ def test_one_promo_per_week_capped_and_linked(promos):
     assert line.strip() == "🛒 2027 Habit Tracker & New Year Resolution Planner: https://payhip.com/b/X"
 
 
+def test_the_free_sample_leads_the_description_when_one_is_listed(promos):
+    """Plan 4.4b rule 5: every paid product's channel links a free sample (lead magnet), first."""
+    listed = json.loads((promos.parent / "listed.json").read_text())
+    listed["free_planner_2027"] = {"payhip": {"public": "https://payhip.com/b/FREE"}}
+    (promos.parent / "listed.json").write_text(json.dumps(listed))
+    pp.register("habit_tracker_2027")
+    line = pp.description_line({"product": "habit_tracker_2027"})
+    assert line.strip().splitlines()[0] == "🎁 Free sample: https://payhip.com/b/FREE"
+    assert line.strip().endswith("🛒 2027 Habit Tracker & New Year Resolution Planner: https://payhip.com/b/X")
+    assert pp.free_sample_for("free_planner_2027") is None and pp.free_sample_for("senior_sudoku") is None
+
+
 def test_the_description_carries_the_link(promos, tmp_path):
     from engine import publish
     pp.register("habit_tracker_2027")

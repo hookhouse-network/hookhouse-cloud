@@ -87,6 +87,26 @@ def test_kick_job_uploads_new_clips_once_per_hour(tmp_path, monkeypatch):
     assert len(st.put_names) == 1                                                   # never the same clip twice
 
 
+def test_a_clip_that_never_downloads_is_skipped_after_three_tries(tmp_path, monkeypatch):
+    """21 Nov: one Kick clip gave 'no file' every hour all night and was retried forever."""
+    _setup(tmp_path, monkeypatch, {"id": "dasgasd3m-x-ruckus-gta-6", "name": "Dasgasd3m", "kick": "dasgasd3m",
+                                   "game": "Grand Theft Auto VI", "footage_since": "2026-11-18",
+                                   "deadline": "2026-12-19", "status": "joined"})
+    now = time.mktime((2026, 11, 20, 2, 0, 0, 0, 0, -1))
+    tried = []
+
+    def lister(slug, game, max_age_s):
+        return [{"id": "clip_BROKEN", "url": "u", "title": "Gas price", "views": 900, "age_s": 3600, "seconds": 40}]
+
+    def downloader(clip, dest):
+        tried.append(clip["id"])
+        return None
+    st = Store()
+    for k in range(5):
+        cr_footage.kick_job(st, log=lambda m: None, lister=lister, downloader=downloader, now=now + k * 3700)
+    assert tried == ["clip_BROKEN"] * cr_footage.KICK_MAX_TRIES and not st.put_names
+
+
 def test_kick_job_waits_for_sign_in_and_stops_after_deadline(tmp_path, monkeypatch):
     _setup(tmp_path, monkeypatch, {"id": "c", "kick": "x", "deadline": "2026-11-01", "status": "joined"})
     monkeypatch.setattr(cr_footage, "KICK_ACCOUNT", tmp_path / "none.json")

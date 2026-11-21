@@ -255,7 +255,8 @@ def write_meta(channel: dict, spec: dict, info: dict, out_dir: Path) -> dict:
             "instagram_caption": f"{titles[0]}\n\n" + "\n".join(cta_for(fmt)) + "\n\n"
                                  + " ".join(channel.get("hashtags", [])),
             "duration_s": round(ffmpeg.duration(out_dir / "video.mp4"), 2), "made_for_kids": False,
-            "ai_label": bool(info.get("ai_voice")), "yt_synthetic": False, "spec": spec,
+            "ai_label": bool(info.get("ai_voice")), "ai_used": bool(info.get("ai_voice")),   # explicit for the gate
+            "yt_synthetic": False, "spec": spec,
             "fact_check": (spec.get("fact") or {}).get("_fact_check")}
     (out_dir / "upload.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
     return meta

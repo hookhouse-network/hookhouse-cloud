@@ -324,6 +324,7 @@ KICK_STATE = ROOT / "data" / "pc" / "kick_fetched.json"
 KICK_ACCOUNT = ROOT / "data" / "secrets" / "kick_account.json"
 KICK_EVERY_S = 60 * 60                    # new stream clips appear all day during a marathon
 KICK_PER_RUN = 3                          # per campaign per hour: enough clips, light on the PC
+KICK_MAX_TRIES = 3                        # a clip whose Download gives no file this often is skipped
 KICK_MIN_S = 30                           # owner 20 Nov: clips were too short; brief: setup + reaction + payoff
 ADULT = re.compile(r"(strip\s?club|stripper|nsfw|naked|nude|nudity|sex|boob|titt|porn|onlyfans|twerk|lap\s?dance|hooker|"
                    r"prostitut|18\+|thirst)", re.I)                     # brief: no explicit material; YouTube policy
@@ -451,7 +452,13 @@ def kick_job(store, log=print, lister=None, downloader=None, now=None) -> int:
                 log(f"Kick clip {clip['id']}: {type(e).__name__}: {e}")
                 f = None
             if not f:
-                log(f"Kick clip {clip['id']}: no file (Download needs the signed-in browser)")
+                fails = st.setdefault("failed", {})
+                fails[clip["id"]] = fails.get(clip["id"], 0) + 1
+                if fails[clip["id"]] >= KICK_MAX_TRIES:     # 21 Nov: one clip failed every hour all night
+                    fetched.add(clip["id"])                 # skipped from now on (never cut, never retried)
+                    log(f"Kick clip {clip['id']}: no file after {fails[clip['id']]} tries; skipped from now on")
+                else:
+                    log(f"Kick clip {clip['id']}: no file (try {fails[clip['id']]}/{KICK_MAX_TRIES})")
                 continue
             store.put(media.TAG, f"src-{c['id'][:30]}-kick-{clip['id'][-12:]}.mp4", f.read_bytes(), "video/mp4")
             fetched.add(clip["id"])

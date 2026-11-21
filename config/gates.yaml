@@ -14,7 +14,7 @@ defaults:
 
 content:                      # by channel type
   story:    {fact_check: required}
-  brainrot: {fact_check: if_present}
+  brainrot: {fact_check: if_present, ai_disclosure: if_used}   # 21 Nov: our own physics engine, no AI unless a voice is used
   kids:     {fact_check: off, made_for_kids: required, ai_disclosure: off}
   clips:    {fact_check: off, ai_disclosure: off, clip_gate: required}
 

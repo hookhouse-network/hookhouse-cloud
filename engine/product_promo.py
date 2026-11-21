@@ -99,4 +99,22 @@ def description_line(it: dict) -> str:
     if not url:
         return ""
     title = (_load().get(pid) or {}).get("title") or pid.replace("_", " ").title()
-    return f"\n\n🛒 {title}: {url}"
+    sample = free_sample_for(pid)
+    free = link(sample) if sample else ""
+    lead = f"\n\n🎁 Free sample: {free}" if free else ""          # 4.4b rule 5: the free sample first (lead magnet)
+    return f"{lead}\n\n🛒 {title}: {url}" if lead else f"\n\n🛒 {title}: {url}"
+
+
+# Products without their own free_<id> sample point to the closest one we have (bundles reuse their parts' samples).
+SAMPLE_FOR = {"planner_bundle_2027": "free_planner_2027", "habit_tracker_2027": "free_planner_2027",
+              "senior_puzzle_bundle": "free_seniors_word_search", "senior_sudoku": "free_seniors_word_search"}
+
+
+def free_sample_for(pid: str) -> str | None:
+    """The listed free sample that belongs to a paid product (free_<id>, else SAMPLE_FOR), or None."""
+    if pid.startswith("free_"):
+        return None
+    for cand in (f"free_{pid}", SAMPLE_FOR.get(pid)):
+        if cand and link(cand):
+            return cand
+    return None

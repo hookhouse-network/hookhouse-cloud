@@ -54,6 +54,19 @@ def test_each_record_problem_blocks(story, change, expect):
     assert any(expect in p for p in cg.verify(story["it"])), cg.verify(story["it"])
 
 
+def test_brain_snack_without_ai_needs_no_ai_label_but_with_ai_voice_it_does(story, monkeypatch):
+    """21 Nov: code-drawn Brain Snack games (no AI voice or pictures) were blocked 22x for 'AI disclosure not set'."""
+    snack = {"id": "brain_snack", "type": "brainrot"}
+    monkeypatch.setattr(cg, "_channel", lambda it: snack)
+    it = dict(story["it"], channel="brain_snack")
+    _meta(story, ai_label=False, fact_check=None, spec={"format": "spiral"})          # old meta: no ai_used field
+    assert not any("AI disclosure" in p for p in cg.verify(it)), cg.verify(it)
+    _meta(story, ai_label=False, ai_used=True, fact_check=None)                       # AI voice used, not labelled
+    assert any("AI disclosure" in p for p in cg.verify(it))
+    _meta(story, ai_label=True, ai_used=True, fact_check=None)
+    assert not any("AI disclosure" in p for p in cg.verify(it))
+
+
 def test_the_file_is_measured_not_trusted(story, monkeypatch):
     monkeypatch.setattr("engine.reach_gate.probe", lambda v: dict(GOOD_PROBE, w=1920, h=1080))
     assert any("vertical 9:16" in p for p in cg.verify(story["it"]))
