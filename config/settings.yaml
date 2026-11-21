@@ -7,6 +7,10 @@ timezone: Asia/Kolkata
 # row to the Worker's LedgerDO (SQLite stays authoritative). Cloud runner only. Set back to sqlite to switch it off.
 ledger_backend: dual
 
+# P3r (owner 21 Nov): picture-free formats rendered by HyperFrames on the PC (Brain Snack "colorsort" first).
+# Only machines with HyperFrames installed pick them; set false to switch them off everywhere.
+hyperframes_formats: true
+
 # Best posting times per audience (IST). US slots = US daytime/evening.
 posting_slots:
   US: ["22:30", "23:45", "05:00", "06:30"]

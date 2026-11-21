@@ -25,8 +25,21 @@ from . import audio as au
 from .encode import FrameWriter, mux
 
 HISTORY = ROOT / "data" / "snack_history.json"
-FORMATS = ["spiral", "multiply", "versus", "ladder", "readfast"]
+FORMATS = ["spiral", "multiply", "versus", "ladder", "readfast", "colorsort"]
 READY = {"spiral", "multiply", "versus", "ladder", "readfast"}
+PC_FORMATS = {"colorsort"}          # HyperFrames formats (P3r, S3): only where HyperFrames is installed (the PC)
+
+
+def ready_formats() -> set[str]:
+    """Formats this machine can make now. HyperFrames formats need the CLI (the PC) and the settings switch
+    `hyperframes_formats` (the off-switch); the cloud runner never picks them."""
+    try:
+        from ..config import settings
+        from ..media import hyperframes
+        on = settings().get("hyperframes_formats", True) and hyperframes.available()
+    except Exception:  # noqa: BLE001 - unknown = the classic formats only
+        on = False
+    return READY | (PC_FORMATS if on else set())
 MELODY_NAMES = {
     "mountain_king": "Grieg, In the Hall of the Mountain King (1875)",
     "ode_to_joy": "Beethoven, Ode to Joy (1824)",
@@ -90,8 +103,9 @@ def choose_format(history: list[dict], wanted: str | None = None, made: list[str
         return wanted
     recent = (made if made is not None else []) or [h.get("format") for h in history[-3:]]
     recent = recent[-3:]
-    options = [f for f in FORMATS if f in READY and f not in recent[-2:]]     # never in the last two
-    options = options or [f for f in FORMATS if f in READY and f not in recent[-1:]]
+    ready = ready_formats()
+    options = [f for f in FORMATS if f in ready and f not in recent[-2:]]     # never in the last two
+    options = options or [f for f in FORMATS if f in ready and f not in recent[-1:]]
     # 18 Nov (owner: "you are giving the topics but you haven't generated the content according to that topics"):
     # the planned topic was dropped whenever a physics format came up. But the physics formats are the network's
     # best performers (spiral 1,088 + 1,065 views, versus 802; next best channel 172), so they alternate: after a
@@ -125,6 +139,9 @@ def new_spec(fmt: str, history: list[dict], seed: int) -> dict:
         elif fmt == "ladder":
             from .ladder import CATEGORIES
             spec.update(category=rng.choice(list(CATEGORIES)))
+        elif fmt == "colorsort":
+            from .colorsort import LAYOUTS
+            spec.update(layout=rng.randrange(len(LAYOUTS)), hue_shift=round(rng.random(), 3))
         if _combo_key(spec) not in used:
             return spec
     return spec
@@ -179,6 +196,11 @@ def render_spec(spec: dict, out_dir: Path, brain=None, channel: dict | None = No
         with FrameWriter(silent, fps, (1080, 1920)) as w:
             info = readfast.render(spec, fact, w, fps, log=log)
         mix = readfast.soundtrack(info, spec)
+    elif fmt == "colorsort":                         # HyperFrames (P3r step 3): writes work/anim.mp4 itself
+        from . import colorsort
+        fps = 30
+        info = colorsort.render(spec, work, log=log)
+        mix = colorsort.soundtrack(info, spec)
     else:
         raise ValueError(f"Format '{fmt}' is not built yet")
     final = out_dir / "video.mp4"
@@ -218,6 +240,8 @@ def titles_for(spec: dict) -> list[str]:
     if fmt == "versus":
         a, b = spec["pair"].split("|")
         return [f"{a} vs {b}: who wins? 🔴🔵", f"{a} gets stronger every hit… 😳", f"{b} vs {a}, rematch time 🏆"]
+    if fmt == "colorsort":
+        return ["Wait for the last tile 😳", "Watch it sort itself into a rainbow 🌈", "The last swap is so satisfying 😌"]
     return TITLES.get(fmt, {}).get(spec.get("rule"), ["Satisfying physics 🧠"])
 
 
@@ -231,6 +255,10 @@ CTA = {
     "versus": ("Who were you rooting for, and why? 👇", "Send it to the friend who'd pick the other side 🔴🔵"),
     "spiral": ("Which try did you think would make it? 👇", "Send it to someone who needs 30 calm seconds 😌"),
     "multiply": ("Did you guess when it would fill up? 👇", "Send it to someone who needs 30 calm seconds 😌"),
+    "colorsort": ("Which colour did you watch the whole time? 👇", "Send it to someone who needs 15 calm seconds 😌"),
+}
+MADE_WITH = {   # the description's "how it was made" line (true per format)
+    "colorsort": "Drawn and animated from scratch in code, no AI. Every note is played by a swap.",
 }
 CTA_DEFAULT = ("Which rule should we try next? 👇", "Send it to someone who'd love this 🧠")
 
@@ -244,9 +272,11 @@ def write_meta(channel: dict, spec: dict, info: dict, out_dir: Path) -> dict:
     from .. import uniq
     titles = uniq.pick(channel["id"], titles_for(spec))       # 17 Nov: never the same title twice on a channel
     melody = MELODY_NAMES.get(spec.get("melody"), "")
+    made = MADE_WITH.get(fmt) or ("Simulated and rendered from scratch with our own physics engine. "
+                                  "Every note is played by a collision"
+                                  + (f" (melody: {melody}, public domain)." if melody else "."))
     desc = (f"{titles[0]}\n"                     # searchable first line (title words), then how it was made
-            "Simulated and rendered from scratch with our own physics engine. "
-            "Every note is played by a collision" + (f" (melody: {melody}, public domain)." if melody else ".")
+            + made
             + "\n\n" + "\n".join(cta_for(fmt))
             + (f"\n\n{channel['catchphrase']}" if channel.get("catchphrase") else "")
             + "\n\n" + " ".join(channel.get("hashtags", [])))
