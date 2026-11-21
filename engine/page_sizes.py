@@ -25,10 +25,10 @@ def a4_name(letter_pdf: str) -> str:
 
 def letter_to_a4(src: Path, dst: Path) -> Path:
     """Every Letter page -> an A4 page with the content scaled to the A4 width and centred vertically."""
-    from pypdf import PdfReader, PdfWriter, Transformation
+    from pypdf import PdfWriter, Transformation
     from pypdf.generic import RectangleObject
-    reader, writer = PdfReader(str(src)), PdfWriter()
-    for page in reader.pages:
+    writer = PdfWriter(clone_from=str(src))          # pypdf 7: pages must belong to the writer before transforming
+    for page in writer.pages:
         w, h = float(page.mediabox.width), float(page.mediabox.height)
         s = min(A4[0] / w, A4[1] / h)
         tx, ty = (A4[0] - w * s) / 2, (A4[1] - h * s) / 2
@@ -39,7 +39,6 @@ def letter_to_a4(src: Path, dst: Path) -> Path:
         page.trimbox = box
         page.bleedbox = box
         page.artbox = box
-        writer.add_page(page)
     dst.parent.mkdir(parents=True, exist_ok=True)
     tmp = dst.with_suffix(".part")
     with open(tmp, "wb") as fh:

@@ -104,6 +104,26 @@ def test_temporary_bar_moves_only_the_score_and_ends_by_itself(story, monkeypatc
     assert pg._cfg()["min_each"] == 8
 
 
+def test_peaks_only_finding_is_repaired_then_scored_again(story, monkeypatch):
+    """21 Nov: approved Brain Snack Shorts (made before the limiter fix) were blocked for 'peaks +0.2 dB'."""
+    monkeypatch.setattr(cg, "temporary_bar", lambda today=None: {})
+    state = {"fixed": False}
+
+    def scorecard(c, v, m, f):
+        if state["fixed"]:
+            return {"score": 100, "issues": []}
+        return {"score": 85, "issues": [("bad", "peaks +0.2 dB: distorts after upload")]}
+    monkeypatch.setattr("engine.quality.check_video", scorecard)
+
+    def fixer(video, log=print):
+        state["fixed"] = True
+        return True
+    monkeypatch.setattr("engine.quality.fix_peaks", fixer)
+    assert cg.verify(story["it"]) == [] and state["fixed"]
+    other = {"issues": [("bad", "peaks +1 dB"), ("bad", "10/10 shots are word cards")]}
+    assert not cg.repair_peaks(story["it"], other, fixer=fixer)           # other serious findings: no repair
+
+
 def test_quality_must_be_100_and_bad_findings_block(story, monkeypatch):
     monkeypatch.setattr(cg, "temporary_bar", lambda today=None: {})          # the strict rule itself
     monkeypatch.setattr("engine.quality.check_video",

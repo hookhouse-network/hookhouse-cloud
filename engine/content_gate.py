@@ -97,6 +97,28 @@ def quality_report(it: dict, ch: dict, meta: dict, led=None) -> dict:
     return led.run_stage(it["id"], stage, produce, validate=lambda a: isinstance(a, dict) and "score" in a)
 
 
+def repair_peaks(it: dict, q: dict, fixer=None) -> bool:
+    """21 Nov: approved Brain Snack Shorts made before the limiter fix were blocked for 'peaks +0.2 dB'. When audio
+    peaks are the ONLY serious finding, re-master just the audio (quality.fix_peaks: same loudness chain as new renders,
+    picture copied untouched) and let the gate score the repaired file. Returns True if the file was repaired."""
+    bad = [str(msg) for lv, msg in q.get("issues") or [] if lv == "bad"]
+    if not bad or not all(m.startswith("peaks") for m in bad):
+        return False
+    video = _video(it)
+    if not video.exists():
+        return False
+    try:
+        if fixer is None:
+            from .quality import fix_peaks as fixer
+        ok = bool(fixer(video, log=print))
+    except Exception as e:  # noqa: BLE001 - the gate still blocks the unrepaired file
+        print(f"content gate: peak repair failed ({type(e).__name__}: {e})")
+        return False
+    if ok:
+        print(f"content gate: audio peaks of {it.get('id')} re-mastered (picture untouched)")
+    return ok
+
+
 def _default_brain():
     from .autopilot import default_brain
     return default_brain()[0]
@@ -184,6 +206,10 @@ def base_problems(it: dict, ch: dict | None = None, meta: dict | None = None, qu
     if quality and not p:                      # only score a video that is otherwise valid (it costs a few seconds)
         try:
             q = quality_report(it, ch, meta)
+            if repair_peaks(it, q):                     # audio-only re-master, then score the repaired file
+                from .core import ledger
+                ledger.default().invalidate(it["id"], [f"quality:{version(it)}"])
+                q = quality_report(it, ch, meta)
             bad = [msg for lv, msg in q["issues"] if lv == "bad"]
             if bad:
                 p.append(f"{QUALITY}: " + "; ".join(bad))
