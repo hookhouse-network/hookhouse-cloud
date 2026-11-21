@@ -38,3 +38,17 @@ def test_pictures_use_schnells_four_steps(monkeypatch, tmp_path):
     assert visuals.flux_steps() == 8
     monkeypatch.setattr("engine.config.settings", lambda: {"flux_steps": "x"})
     assert visuals.flux_steps() == 4
+
+
+def test_a_picture_already_made_is_not_paid_for_again(monkeypatch, tmp_path):
+    """22 Nov: ai_image saved cf_<key>.jpg but never looked for it, so a retried or remade video spent the daily
+    neurons again on the same prompt."""
+    monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "a")
+    monkeypatch.setenv("CLOUDFLARE_API_TOKEN", "t")
+    monkeypatch.setattr(visuals, "CACHE", tmp_path)
+    monkeypatch.setattr(visuals.requests, "post", lambda *a, **k: (_ for _ in ()).throw(AssertionError("paid twice")))
+    from engine.ip_guard import scrub
+    _full, key = visuals.ai_prompt_key(scrub("a lighthouse")[0], "calm")      # the same key ai_image computes
+    (tmp_path / f"cf_{key}.jpg").write_bytes(b"\xff\xd8" + b"x" * 20_000)
+    v = visuals.ai_image("a lighthouse", "calm")
+    assert v is not None and v.path.name == f"cf_{key}.jpg"

@@ -455,6 +455,9 @@ def ai_image(prompt: str, style: str = "") -> Visual | None:
     batch = ROOT / "data" / "gpu_batch" / f"{key}.png"
     if batch.exists():
         return Visual(batch, "ai_flux_batch", "AI-generated image", "Own (FLUX.1-schnell, Apache 2.0)")
+    done = CACHE / f"cf_{key}.jpg"                     # 22 Nov: a retried/remade video asked again for pictures it
+    if done.exists() and done.stat().st_size > 10_000:  # already had (same prompt + style), spending the daily quota
+        return Visual(done, "ai_flux_cloudflare", "AI-generated image", "Own (FLUX.1-schnell, Apache 2.0)")
     acct, token = os.environ.get("CLOUDFLARE_ACCOUNT_ID"), os.environ.get("CLOUDFLARE_API_TOKEN")
     if not (acct and token):
         return None
