@@ -124,6 +124,28 @@ def test_peaks_only_finding_is_repaired_then_scored_again(story, monkeypatch):
     assert not cg.repair_peaks(story["it"], other, fixer=fixer)           # other serious findings: no repair
 
 
+def test_repeated_title_is_swapped_for_a_fresh_option(story):
+    """21 Nov: Brain Snack was held for 'title nearly repeats' although it had other title options."""
+    _meta(story, title="It starts faster every try 😭", title_options=["It starts faster every try 😭",
+                                                                        "It starts faster every try!",
+                                                                        "Can you spot the exact moment it flips?"])
+    probs = ['potential: title nearly repeats an earlier one ("it starts faster every try")']
+    past = ["It starts faster every try", "Which try reaches the center?", "It starts faster every try 😭"]
+    assert cg.repair_title(story["it"], {"id": "brain_snack"}, probs, past=past)
+    m = json.loads((story["out"] / "upload.json").read_text())
+    assert m["title"] == "Can you spot the exact moment it flips?"                 # the near-copy option is skipped
+    assert not cg.repair_title(story["it"], {"id": "brain_snack"}, ["potential: hook 5"], past=past)
+
+
+def test_fact_check_and_franchise_holds_are_remade_not_left_waiting():
+    """21 Nov: these sat in gate_held forever; the owner never saw a card and nothing was remade."""
+    assert cg.fixable_by_remake(["fact-check failed: He left behind his clip-on black tie. - Contradicted"])
+    assert cg.fixable_by_remake(["names a protected franchise/character: avengers, mcu"])
+    assert cg.fixable_by_remake(["quality: 8/12 shots are word cards", "fact-check failed: wrong year"])
+    assert not cg.fixable_by_remake(["no title"])                                   # record problems: not a remake
+    assert not cg.fixable_by_remake(["fact-check failed: the content gate could not run (x)"])
+
+
 def test_quality_must_be_100_and_bad_findings_block(story, monkeypatch):
     monkeypatch.setattr(cg, "temporary_bar", lambda today=None: {})          # the strict rule itself
     monkeypatch.setattr("engine.quality.check_video",

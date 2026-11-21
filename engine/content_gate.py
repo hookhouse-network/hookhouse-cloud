@@ -20,6 +20,7 @@ Layers (any problem blocks; missing data blocks):
      title/caption length, hashtag cap, file size."""
 from __future__ import annotations
 
+import json
 import re
 from functools import lru_cache
 from pathlib import Path
@@ -95,6 +96,42 @@ def quality_report(it: dict, ch: dict, meta: dict, led=None) -> dict:
         r = check_video(ch, _video(it), meta, fmt)
         return {"score": r["score"], "issues": [list(x) for x in r["issues"]]}
     return led.run_stage(it["id"], stage, produce, validate=lambda a: isinstance(a, dict) and "score" in a)
+
+
+def repair_title(it: dict, ch: dict, problems: list[str], past: list[str] | None = None) -> bool:
+    """21 Nov: Brain Snack Shorts were held for 'title nearly repeats an earlier one' although the maker had written
+    other title options. Swap in the first option that passes the same repeat test (potential_gate: difflib ratio vs
+    the channel's used titles and past topics). Returns True if upload.json got a new title."""
+    if not any("title nearly repeats" in str(x) for x in problems or []):
+        return False
+    path = Path(it.get("out_dir") or "") / "upload.json"
+    if not path.exists():
+        return False
+    import difflib
+    m = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        from .potential_gate import _cfg
+        ratio = float(_cfg()["title_repeat_ratio"])
+        if past is None:
+            from .uniq import used_titles
+            from .weekly import past_topics
+            past = sorted(used_titles(ch.get("id") or it.get("channel"))) + past_topics(ch.get("id") or it.get("channel"))
+    except Exception as e:  # noqa: BLE001 - the gate still blocks the repeated title
+        print(f"content gate: title repair could not read past titles ({type(e).__name__})")
+        return False
+    current = str(m.get("title") or "")
+
+    def fresh(t: str) -> bool:
+        low = t.lower()
+        return bool(t) and all(not o or str(o).lower() in (low, current.lower())
+                               or difflib.SequenceMatcher(None, low, str(o).lower()).ratio() < ratio for o in past)
+    for t in [str(x) for x in m.get("title_options") or []]:
+        if t and t != current and fresh(t):
+            m["title"], m["title_options"] = t, list(dict.fromkeys([t, current] + list(m.get("title_options") or [])))
+            path.write_text(json.dumps(m, indent=2, ensure_ascii=False), encoding="utf-8")
+            print(f"content gate: {it.get('id')} title '{current}' -> '{t}' (the old one repeated an earlier title)")
+            return True
+    return False
 
 
 def repair_peaks(it: dict, q: dict, fixer=None) -> bool:
@@ -222,7 +259,12 @@ def base_problems(it: dict, ch: dict | None = None, meta: dict | None = None, qu
     if quality and not p:
         try:
             from .potential_gate import problems as potential
-            p += potential(it, ch, meta, brain_fn=brain_fn)
+            pot = potential(it, ch, meta, brain_fn=brain_fn)
+            if repair_title(it, ch, pot):               # one of the maker's own other titles, then judge again
+                meta = dict(meta, title=json.loads((Path(it["out_dir"]) / "upload.json").read_text(
+                    encoding="utf-8"))["title"])
+                pot = potential(it, ch, meta, brain_fn=brain_fn)
+            p += pot
         except Exception as e:  # noqa: BLE001 - not judged = not passed
             p.append(f"potential: not judged yet (the judge could not run: {type(e).__name__}); it tries again")
     return list(dict.fromkeys(p))
@@ -296,8 +338,14 @@ def verify(it: dict, platform: str | None = None, quality: bool = True, _base: l
 def fixable_by_remake(problems: list[str]) -> bool:
     """Only quality/potential findings that a remake with the notes can fix (not "not judged yet" or a check that
     could not run: those clear by themselves on the next tick)."""
-    return bool(problems) and all(x.startswith((QUALITY, "potential")) and "not judged yet" not in x
+    return bool(problems) and all(x.startswith(REMAKE_FIXES) and "not judged yet" not in x
                                   and "could not run" not in x for x in problems)
+
+
+# 21 Nov: fact-check failures and franchise topics sat in gate_held forever (the owner never saw them, nothing was
+# remade). A remake fixes both: the writer gets the exact contradicted claim; weekly.make_item replaces a franchise
+# topic before making (and fails early if no clean topic comes).
+REMAKE_FIXES = (QUALITY, "potential", "fact-check failed", "names a protected franchise")
 
 
 def summary(problems: list[str]) -> str:
