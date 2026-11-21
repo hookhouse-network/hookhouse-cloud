@@ -41,6 +41,16 @@ def _no_real_clip_records(monkeypatch, tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def _no_real_puppets(monkeypatch, tmp_path):
+    """21 Nov: on a PC with DiceBear + a browser, kids Shorts pick human puppets; tests must not depend on the
+    machine's tools or write the real face cache. Tests that want puppets switch them on themselves."""
+    import engine.kids as kids
+    import engine.media.characters as characters
+    monkeypatch.setattr(kids, "puppets_on", lambda: False)
+    monkeypatch.setattr(characters, "CACHE", tmp_path / "characters_cache")
+
+
+@pytest.fixture(autouse=True)
 def _no_real_picture_quota(monkeypatch, tmp_path):
     """Tests never read or write today's real free-picture limits (a blocked day made the scheduler skip videos)."""
     import engine.storyboard as sbm

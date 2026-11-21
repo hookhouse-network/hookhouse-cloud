@@ -86,6 +86,70 @@ GUESTS = {"Kiki": ("#B9A7F2", "pointy", 400, "bf_isabella", 0),
 FRIENDS = ["Pip", "Mo", "Dee", "Kiki", "Hop", "Zip"]
 
 
+def _humans() -> dict:
+    """Human friends (owner 21 Nov: "instead of just shapes, we can introduce some humans"): puppets with DiceBear Toon
+    Head faces (CC BY 4.0, credited) on bodies our own code draws (engine/media/puppet.py); config/characters.yaml."""
+    try:
+        from .media import characters
+        # size 520 (21 Nov live render: at 430 Mia read as a background extra next to Bloop's 440 blob)
+        return {str(c["name"]): ("#" + str(c.get("colour") or "2563EB"), f"puppet:{cid}", int(c.get("size") or 520),
+                                 str(c.get("voice") or NARRATOR), 0)
+                for cid, c in (characters.bible().get("characters") or {}).items()}
+    except Exception as e:  # noqa: BLE001 - no character bible: the toon cast only (said, never silent)
+        print(f"kids: human friends unavailable ({type(e).__name__}: {e}); toon friends only")
+        return {}
+
+
+HUMANS = _humans()
+GUESTS.update(HUMANS)
+
+
+def puppets_on() -> bool:
+    """Human puppets need DiceBear + a browser on this machine (the PC) and the settings switch kids_puppets."""
+    try:
+        from .config import settings
+        from .media import characters
+        return bool(HUMANS) and settings().get("kids_puppets", True) and characters.available()
+    except Exception as e:  # noqa: BLE001 - puppets off, toon friends instead (said, never silent)
+        print(f"kids: puppets off ({type(e).__name__}: {e})")
+        return False
+
+
+def friends() -> list[str]:
+    """The Short's rotating friend: humans take every other slot where puppets can be made, else the toon friends."""
+    if not puppets_on():
+        return list(FRIENDS)
+    toons, humans = ["Pip", "Kiki", "Hop", "Zip", "Mo", "Dee"], list(HUMANS)
+    out = []
+    for i in range(max(len(toons), len(humans))):
+        out += ([humans[i]] if i < len(humans) else []) + ([toons[i]] if i < len(toons) else [])
+    return out
+
+
+def is_puppet(name: str) -> bool:
+    spec = {**_BASE_CAST, **GUESTS}.get(name)
+    return bool(spec) and str(spec[1]).startswith("puppet:")
+
+
+def puppet_action(cur: dict | None, name: str, kind: str, age: float, tt: float, count_until: float | None) -> str | None:
+    """What a puppet's arms do on this line: everyone waves/claps/cheers together; the speaker points while counting
+    and raises the brows on a question."""
+    if not cur:
+        return None
+    if kind == "wave":
+        return "wave"
+    if kind == "clap":
+        return "clap"
+    if kind in ("answer", "praise") and age < 1.2:
+        return "cheer"
+    if cur.get("who") == name:
+        if kind == "count" and count_until is not None and tt < count_until:
+            return "count"
+        if kind == "question":
+            return "question"
+    return None
+
+
 def use_layout(fmt: str, duo: tuple[str, str] | None = None) -> None:
     """Switch the drawing layout for this process (one render at a time). duo: only these two characters, bigger
     (the Short)."""
@@ -106,7 +170,8 @@ def duo_lines(lines: list[dict], seed: int) -> tuple[list[dict], tuple[str, str]
     """The Short's two characters: Bloop + a friend that changes from Short to Short (FRIENDS, incl. the guests);
     the others' lines go to the friend, and a name said in a line becomes the friend's, so the words match who is
     on screen (the counting stays exactly the same)."""
-    friend = FRIENDS[seed % len(FRIENDS)]
+    pool = friends()
+    friend = pool[seed % len(pool)]
     others = [n for n in _BASE_CAST if n not in ("Bloop", friend)]
     rx = re.compile(r"\b(" + "|".join(others) + r")\b")
     rx_all = re.compile(r"\b(" + "|".join(others + [friend]) + r")\b")
@@ -971,6 +1036,29 @@ def _duck(voice: np.ndarray) -> np.ndarray:
 
 # ---------- render ----------
 
+def make_cast(seed: int = 0) -> dict:
+    """The drawn cast for this layout: toon Mascots, and Puppets for the human friends (puppet:<id>)."""
+    cast = {}
+    for k, (name, (col, shape, sz, _v, _x)) in enumerate(CAST.items()):
+        if str(shape).startswith("puppet:"):
+            from .media.puppet import Puppet
+            cast[name] = Puppet(str(shape).split(":", 1)[1], size=sz, seed=seed)
+        else:
+            cast[name] = Mascot(size=sz, body=col, outline="#2E3A59", seed=k, shape=shape)
+    return cast
+
+
+def credits_line(names) -> str:
+    """CC BY 4.0 credit when a human friend (Toon Head face) is on screen."""
+    if not any(is_puppet(n) for n in names or ()):
+        return ""
+    try:
+        from .media import characters
+        return characters.credit()
+    except Exception:  # noqa: BLE001
+        return "Characters' faces: ToonHead by Johan Melin (CC BY 4.0), made with DiceBear."
+
+
 def render(episode: dict, out_dir: Path, seed: int = 0, log=print, speed: float = 1.0,
            tail: float = 2.5) -> dict:                  # Kids 2.0: natural voice speed (was 0.92), short loop ending
     work = out_dir / "work"
@@ -994,8 +1082,7 @@ def render(episode: dict, out_dir: Path, seed: int = 0, log=print, speed: float 
     slots = slot_xy(n, episode["scene"])
     slot_spr, obj, sparkle = _slot_sprite(SLOT_R, night), draw_object(episode["object"], OBJ), _sparkle_sprite()
     br = int(SLOT_R * 0.34)                                                 # digit badge radius
-    cast = {name: Mascot(size=sz, body=col, outline="#2E3A59", seed=k, shape=shape)
-            for k, (name, (col, shape, sz, _v, _x)) in enumerate(CAST.items())}
+    cast = make_cast(seed)
     shots = plan_shots(lines, total, slots)
     slots_on = next((ln["start"] for ln in lines if ln["section"] == "problem"), 3.0)
     if CW < CH:
@@ -1092,7 +1179,12 @@ def render(episode: dict, out_dir: Path, seed: int = 0, log=print, speed: float 
                 else:
                     look = 0.25 * math.sin(tt * 0.5 + x)
                 vis = shapes[name][min(fi, len(shapes[name]) - 1)] if shapes[name] else ""
-                spr = m.draw(tt, mouth=mo, hop=hop, look=look, viseme=vis)
+                if is_puppet(name):                        # human friend: arms wave / clap / point / cheer
+                    until = land[int(cur["n"])] + 0.3 if cur and kind == "count" else None
+                    spr = m.draw(tt, mouth=mo, hop=hop, look=look, viseme=vis,
+                                 action=puppet_action(cur, name, kind, age, tt, until))
+                else:
+                    spr = m.draw(tt, mouth=mo, hop=hop, look=look, viseme=vis)
                 blit(canvas, spr, x + dx, FEET_Y - sz * 0.40 - 30 * hop)
             frame = camera(canvas, shots, tt)
             if CW < CH:
@@ -1215,12 +1307,15 @@ def make(brain, channel: dict, topic: str | None = None, memory=None, log=print,
         adj = episode.get("adjective", "").title()
         title = (f"Count to {n} with Bloop & {duo[1]}! {adj} {objs.title()} #shorts" if short else
                  f"Counting to {n} with {adj} {objs.title()} | Bloop & Friends Nursery Rhymes & Kids Songs").replace("  ", " ")   # Cocomelon pattern: topic first, then the brand + what parents search
+        credit = credits_line(duo) if duo else ""            # CC BY 4.0: Toon Head faces on the human friends
         meta = {"channel": channel["id"], "format": "short" if short else "long", "title": title,
                 "title_options": [title],
                 "description": (f"{episode.get('description', '').strip()}\n\nLearning goal: counting from 1 to {n}, "
                                 "one object for each number.\n\nAn original Bloop & Friends story. Music: our own "
-                                "arrangement of a traditional public-domain melody. Characters, script and animation "
-                                "© Bloop & Friends. Character voices: AI voices reading our script."
+                                "arrangement of a traditional public-domain melody. "
+                                + (f"Script and animation © Bloop & Friends. {credit} " if credit else
+                                   "Characters, script and animation © Bloop & Friends. ")
+                                + "Character voices: AI voices reading our script."
                                 + (f"\n\n{channel['catchphrase']} 🎵" if channel.get("catchphrase") else "")),
                 "made_for_kids": True, "comments": False, "ai_label": False, "duration_s": round(info["total"], 1),
                 "hashtags": channel.get("hashtags", []), "written_by": episode.get("_written_by"),

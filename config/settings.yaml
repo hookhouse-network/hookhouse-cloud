@@ -11,6 +11,10 @@ ledger_backend: dual
 # Only machines with HyperFrames installed pick them; set false to switch them off everywhere.
 hyperframes_formats: true
 
+# P3r characters (owner 21 Nov: "introduce some humans"): human friends (config/characters.yaml) join the kids Shorts
+# where their faces can be made (DiceBear + browser, the PC). Set false for the toon friends only.
+kids_puppets: true
+
 # Best posting times per audience (IST). US slots = US daytime/evening.
 posting_slots:
   US: ["22:30", "23:45", "05:00", "06:30"]

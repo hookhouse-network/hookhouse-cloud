@@ -1,0 +1,53 @@
+# Original human friends for Bloop & Friends (plan P3r characters workstream; owner 21 Nov: "instead of just shapes,
+# we can introduce some humans, animals, real world stuff").
+# Faces: ToonHead by Johan Melin (CC BY 4.0), made with DiceBear (MIT code); licence read from the package metadata
+# and checked at every generation (engine/media/characters.py). Every option is FIXED so a character looks the same in
+# every video. Bodies, arms, legs and all motion are drawn by our own code (engine/media/puppet.py).
+# Colours are hex without '#'. Voices: Kokoro-82M (Apache-2.0); a voice missing on the PC downloads on first use.
+credit: "Characters' faces: ToonHead by Johan Melin (CC BY 4.0), made with DiceBear."
+
+characters:
+  mia:
+    name: Mia
+    style: toonHead
+    seed: Mia
+    voice: af_nicole
+    colour: "EC4899"                 # her colour in captions and props
+    legs: skin                       # a dress: bare legs
+    shoes: "7C3AED"
+    personality: "curious, asks 'why?', giggles when things go wrong, loves counting out loud"
+    options: {beardProbability: 0, hair: [bun], hairColor: [a55728], rearHairProbability: 100, rearHair: [longWavy],
+              skinColor: [c68e7a], clothes: [dress], clothesColor: [ec4899], eyes: [happy], eyebrows: [happy]}
+  leo:
+    name: Leo
+    style: toonHead
+    seed: Leo
+    voice: am_adam
+    colour: "2563EB"
+    legs: "545454"
+    shoes: "2E3A59"
+    personality: "bouncy and brave, always tries first, trips over his own feet (slapstick), big laugh"
+    options: {beardProbability: 0, hair: [spiky], hairColor: [d6b370], rearHairProbability: 0, skinColor: [f1c3a5],
+              clothes: [tShirt], clothesColor: [0b3286], eyes: [happy], eyebrows: [happy]}
+  zara:
+    name: Zara
+    style: toonHead
+    seed: Zara
+    voice: af_sky
+    colour: "EAB308"
+    legs: "147F3C"
+    shoes: "B11F1F"
+    personality: "clever and calm, notices the tiny detail everyone missed, sings the counting chant"
+    options: {beardProbability: 0, hair: [bun], hairColor: [2c1b18], rearHairProbability: 0, skinColor: [5c3829],
+              clothes: [shirt], clothesColor: [eab308], eyes: [happy], eyebrows: [happy]}
+  arjun:
+    name: Arjun
+    style: toonHead
+    seed: Arjun
+    voice: am_liam
+    colour: "B11F1F"
+    legs: "0B3286"
+    shoes: "2E3A59"
+    personality: "funny and a bit silly, makes up rhymes, counts on his fingers, loves snacks"
+    options: {beardProbability: 0, hair: [sideComed], hairColor: [2c1b18], rearHairProbability: 0, skinColor: [a36b4f],
+              clothes: [turtleNeck], clothesColor: [b11f1f], eyes: [happy], eyebrows: [happy]}
