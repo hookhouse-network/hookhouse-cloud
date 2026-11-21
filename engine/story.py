@@ -299,6 +299,58 @@ def _wiki_search(query: str, lang: str = "en") -> str | None:
         return None
 
 
+REF_RULE = ("REFERENCE NOTES (Wikipedia: the fact-check compares your claims with these articles). Every number, "
+            "date, name, place and order of events you state must match these notes. A detail that is not in them: "
+            "leave it out or say it in general words. Never invent quotes or exact figures.\n")
+REF_STOP = {"the", "and", "that", "this", "with", "from", "what", "when", "where", "which", "who", "why", "how",
+            "story", "true", "real", "mystery", "case", "inside", "secret", "truth", "about", "after", "before"}
+
+
+def reference_notes(topic: str, chars: int = 4000) -> dict:
+    """Grounded writing (22 Nov: five fact-check failures in one day; the writer wrote from memory and named its
+    sources only afterwards). The topic's top Wikipedia article, given to the writer BEFORE it writes, with the
+    rule that every specific detail must match it. An unrelated search hit (no topic word in its title or intro)
+    is dropped. {} parts empty when nothing fits: the writer then works as before."""
+    empty = {"text": "", "titles": [], "rule": ""}
+    q = re.sub(r"[^\w\s'-]", " ", topic or "").strip()
+    topic_list = _ref_words(q)
+    topic_words = set(topic_list)
+    if not topic_words:
+        return empty
+    title = _wiki_search(q)
+    if not title:
+        return empty
+    # 22 Nov trial on real topics: "The Fall of Daniel Jones (#2 overall pick)" found Robert Griffin III and
+    # "Dhoni's 2011 final" found the Dhoni biopic. The article must be ABOUT the topic's subject, both ways: one of
+    # the topic's first two words is in the title, the title's first word (the name) is in the topic, at least half
+    # the title's words are; "(American football)"-style qualifiers don't count; a film/novel/series article only
+    # counts when the topic is about one.
+    tw = _ref_words(re.sub(r"\s*\([^)]*\)", "", title))
+    if not tw or not any(w in tw for w in topic_list[:2]) or tw[0] not in topic_words \
+            or 2 * sum(w in topic_words for w in tw) < len(tw):
+        return empty
+    text = wikipedia_summaries([title], chars=chars, focus=q)
+    first = text[:200].lower()                      # the definition ("... is a 2016 ... film"); not split at ". ":
+    if not text or (REF_WORK.search(first) and not REF_WORK.search(q.lower())):     # "M.S. Dhoni" has one
+        return empty
+    return {"text": text[:chars], "titles": [title], "rule": REF_RULE + text[:chars]}
+
+
+REF_WORK = re.compile(r"\b(film|movie|television series|tv series|web series|novel|video game|album|song)\b")
+
+
+def _ref_words(s: str) -> list[str]:
+    return [w for w in re.findall(r"[a-z0-9]{4,}", s.lower().replace("'s", "").replace("’s", ""))
+            if w not in REF_STOP]
+
+
+def ground_sources(script: dict, titles: list[str]) -> dict:
+    """The reference articles lead the script's sources, so the fact-check reads the text the writer was given."""
+    if titles:
+        script["sources"] = list(dict.fromkeys(list(titles) + [str(s) for s in script.get("sources") or []]))[:6]
+    return script
+
+
 def _prompt_query(prompt: str) -> str:
     """A short search query from an AI image prompt: its first few concrete words."""
     words = [w for w in re.findall(r"[A-Za-z][A-Za-z\-]{2,}", prompt or "")
@@ -2286,10 +2338,19 @@ def make(brain, channel: dict, topic: str | None = None, fmt: str = "short", scr
         from . import patterns, series             # S8 A13 named series + A1 viral pattern library
         ser, pat = series.pick(channel["id"]), patterns.pick(channel["id"])
         extra = "\n".join(x for x in (series.rule(ser), patterns.rule(pat)) if x)
+        ref = {"titles": [], "rule": ""}
+        if channel.get("content_rules", {}).get("fact_check"):     # grounded writing: facts first, then words
+            try:
+                ref = reference_notes(topic or "", chars=8000 if fmt == "long" else 4000)
+            except Exception as e:  # noqa: BLE001 - the writer still works from its own knowledge
+                log(f"Script: reference notes skipped ({type(e).__name__})")
+            if ref["rule"]:
+                extra = "\n".join(x for x in (extra, ref["rule"]) if x)
         log(f"Script: writing '{topic}' for {channel['name']}" + (f" (series: {ser['name']})" if ser else "")
-            + (f" (structure: {pat['name']})" if pat else ""))
+            + (f" (structure: {pat['name']})" if pat else "")
+            + (f" (grounded on: {', '.join(ref['titles'])})" if ref["titles"] else ""))
         script = write_script(brain, channel, topic, fmt, memory, extra_rules=extra)
-        script = patterns.apply(series.apply(script, ser, fmt), pat)
+        script = ground_sources(patterns.apply(series.apply(script, ser, fmt), pat), ref["titles"])
         if fmt == "long":
             lw = _range((channel.get("spec") or {}).get("long_words", ""))
             script = expand_long(brain, script, log=log, minimum=lw[0] if lw else LONG_MIN_WORDS,
@@ -2300,7 +2361,7 @@ def make(brain, channel: dict, topic: str | None = None, fmt: str = "short", scr
             log(f"Never-topics in the script ({', '.join(flags)}); rewriting once without them")
             script = write_script(brain, channel, f"{topic}\nDo not touch these subjects at all: {', '.join(flags)}",
                                   fmt, memory, extra_rules=extra)
-            script = patterns.apply(series.apply(script, ser, fmt), pat)
+            script = ground_sources(patterns.apply(series.apply(script, ser, fmt), pat), ref["titles"])
             flags = script_flags(script)
         script["_policy_flags"] = flags
         if fmt == "short":
