@@ -719,6 +719,31 @@ class _SkipClaim(Exception):
     """This helper loop takes no new work (for example the disk is low); it waits and tries again."""
 
 
+def _code_version(root: Path | None = None) -> str:
+    """The commit this PC's code is on, read straight from .git ("" when unknown). 21 Nov: the helper is one long
+    process, so pushed fixes (e.g. the S10 humanize pass) never reached the PC maker until someone restarted it."""
+    git = (root or ROOT) / ".git"
+    try:
+        head = (git / "HEAD").read_text(encoding="utf-8").strip()
+        if not head.startswith("ref: "):
+            return head                                    # detached HEAD: the hash itself
+        ref = head[5:]
+        if (git / ref).exists():
+            return (git / ref).read_text(encoding="utf-8").strip()
+        for line in (git / "packed-refs").read_text(encoding="utf-8").splitlines():
+            if line.endswith(" " + ref):
+                return line.split()[0]
+    except OSError:
+        pass
+    return ""
+
+
+def _new_code(started: str, root: Path | None = None) -> bool:
+    """True when the code on disk moved to another commit since the helper started (checked between videos only)."""
+    now = _code_version(root)
+    return bool(started and now and now != started)
+
+
 def helper(once: bool = False, every_s: int = 300, log=_log, videos_only: bool = False) -> None:
     """The PC as helper: whenever it is on, make the next unclaimed videos (any length) and hand them to the cloud.
     videos_only (owner 19 Nov, option A: "start making videos now"): the PC only makes videos; posting, Telegram,
@@ -728,7 +753,11 @@ def helper(once: bool = False, every_s: int = 300, log=_log, videos_only: bool =
         return
     log("PC helper: making videos for the cloud (Ctrl+C to stop; the cloud keeps running without the PC)"
         + (" [videos only]" if videos_only else ""))
+    started = _code_version()
     while True:
+        if not once and _new_code(started):           # between videos only: never cuts a video short
+            log("helper: new code on this PC; stopping so the wrapper starts it again with the new code")
+            return                                    # scripts/pc_maker.cmd restarts it after a minute
         if videos_only:
             _ensure_chrome(log)
         try:
