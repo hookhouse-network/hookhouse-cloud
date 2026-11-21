@@ -64,6 +64,25 @@ def pick(channel_id: str, options: list[str], detail: str = "", used: set[str] |
     return options
 
 
+def freshest(channel_id: str, options: list[str], past: set[str] | None = None) -> list[str]:
+    """Options ordered by how different they are from every earlier title/topic of the channel, measured the way the
+    potential gate measures it (normalised text, difflib ratio; >= 0.85 = "title nearly repeats"). 21 Nov: every
+    Bloop long title came from one template and was held as a near-repeat."""
+    import difflib
+    if past is None:
+        past = set(used_titles(channel_id))
+        try:
+            from .weekly import past_topics
+            past |= {_norm(t) for t in past_topics(channel_id)}
+        except Exception as e:  # noqa: BLE001 - titles still checked against the used ones (said, never silent)
+            print(f"uniq: past topics unreadable for {channel_id} ({type(e).__name__}: {e})")
+
+    def worst(t: str) -> float:
+        n = _norm(t)
+        return max((difflib.SequenceMatcher(None, n, p).ratio() for p in past if p and p != n), default=0.0)
+    return sorted(options, key=worst)
+
+
 def _join(title: str, extra: str) -> str:
     """'Which try reaches the center? 😭' + 'Macy's balloons' -> 'Which try reaches the center? (Macy's balloons) 😭'"""
     m = re.match(r"^(.*?)(\s*[\U0001F300-\U0001FAFF☀-➿]+)?$", title.strip())

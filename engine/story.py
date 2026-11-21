@@ -386,6 +386,12 @@ LONG_RULES = """- Long video: put the searchable name, event or place in the FIR
 LONG_MIN_WORDS = 1700          # ~8.5+ min at the long-video voice speed (mid-rolls need 8:00)
 MAX_PACE_SPEED = 1.25          # pace calibration ceiling (was 1.12: slow channels could never reach their target)
 
+
+def pace_speed(speed: float, target_wpm: float, measured_wpm: float) -> float:
+    """The narration speed that brings a read from measured_wpm to target_wpm, within 0.9-MAX_PACE_SPEED. One clamp
+    for both pace passes (the second pass used to cap at 1.12 and undo the first)."""
+    return float(np.clip(speed * target_wpm / max(measured_wpm, 1), 0.9, MAX_PACE_SPEED))
+
 EXPAND_PROMPT = """This YouTube script has {n} words of narration; it needs about {target} words (research length).
 Add about {add} words this time (not more).
 Write ADDITIONAL beats with true, specific detail (scenes, context, what the records say, the people involved) to
@@ -888,6 +894,12 @@ GENERIC_SEARCH = re.compile(r"\b(portrait|poster|still|photo|photograph|picture|
                             r"document|sign|scene|view)\b", re.I)
 
 
+SPACE_WORDS = re.compile(r"\b(nasa|space|planet|planets|mars|martian|jupiter|saturn|venus|neptune|uranus|pluto|"
+                         r"moon|lunar|apollo|artemis|rocket|astronaut|cosmonaut|orbit|galaxy|nebula|comet|asteroid|"
+                         r"meteor|telescope|hubble|webb|space station|shuttle|satellite|eclipse|solar|"
+                         r"black hole|supernova|milky way)\b", re.I)          # not "star"/"sun": sports and weather
+
+
 def _photo_candidates(query: str) -> list:
     """Wikimedia + Pexels + Pixabay. Empty? Retry without generic words ("portrait", "poster"...: every word must match
     on Wikimedia), then accept smaller historical pictures (most pre-1950 photos are under 900 px wide)."""
@@ -898,6 +910,8 @@ def _photo_candidates(query: str) -> list:
         if re.search(r"\b(ancient|medieval|century|dynasty|empire|temple|museum|artifact|sculpture|painting|"
                      r"manuscript|pharaoh|samurai|roman|greek|mughal|maurya|vedic)\b", query, re.I):
             got += visuals.met_museum(query, download=False)  # public-domain museum objects for history scenes
+        if SPACE_WORDS.search(query):                       # 21 Nov: real NASA pictures for space beats (public domain)
+            got = visuals.nasa_images(query, download=False) + got
         short = re.sub(r"\s+", " ", GENERIC_SEARCH.sub(" ", query)).strip()
         if not got and short and short != query:
             got = visuals.wikimedia(short, download=False)
@@ -1671,7 +1685,7 @@ def render(channel: dict, script: dict, out_dir: Path, fmt: str = "short", log=p
         measured = n_words / max(secs, 0.1) * 60
         # 21 Nov: the 1.12 cap left Unsolved After Dark at 139 wpm against its research target of 180 (held at 71/100
         # "too slow: viewers swipe"); 1.25 reaches the target band without sounding rushed
-        new = float(np.clip(speed * target_wpm / max(measured, 1), 0.9, MAX_PACE_SPEED))
+        new = pace_speed(speed, target_wpm, measured)
         log(f"  pace: {measured:.0f} wpm at speed {speed:.2f} -> speed {new:.2f} for {target_wpm} wpm (research target)")
         speed = new
     for attempt in range(2):
@@ -1696,8 +1710,10 @@ def render(channel: dict, script: dict, out_dir: Path, fmt: str = "short", log=p
         real = words_all / max(0.15 + sum(durations) + 0.5, 0.1) * 60      # what the audit measures
         if abs(real / target_wpm - 1) <= 0.04:
             break
-        new = float(np.clip(speed * target_wpm / real, 0.9, 1.12))      # 2nd pass: whole read measured (the 8-beat
-        log(f"  pace check: whole read {real:.0f} wpm vs {target_wpm}; re-voicing at speed {new:.2f}")   # sample drifts)
+        # 2nd pass: the whole read measured (the 8-beat sample drifts). 21 Nov night: this pass still capped at 1.12, so
+        # the 1.25 allowance of the first pass was undone (log: "re-voicing at speed 1.12", video held at 139-148 wpm)
+        new = pace_speed(speed, target_wpm, real)
+        log(f"  pace check: whole read {real:.0f} wpm vs {target_wpm}; re-voicing at speed {new:.2f}")
         speed = new
     # real narrators breathe: a soft inhale at the end of the longer pauses (>= 0.25 s), 30 dB under the voice
     try:

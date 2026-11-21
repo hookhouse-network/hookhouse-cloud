@@ -75,6 +75,36 @@ def test_maker_spec_titles_and_description():
     assert "no AI" in maker.MADE_WITH["colorsort"] and "collision" not in maker.MADE_WITH["colorsort"]
 
 
+def test_every_format_describes_what_the_viewer_sees(tmp_path):
+    """21 Nov: the judge got "spiral spiral speed twinkle marimba" for our best format and scored hook 3/10."""
+    from engine import potential_gate as pg
+    from engine.snack import maker
+    cases = {
+        "spiral": ({"format": "spiral", "rule": "speed", "melody": "twinkle"}, {"total": 28.0, "attempts": 5,
+                                                                              "win_at": 24.2}),
+        "multiply": ({"format": "multiply", "shape": "heart"}, {"total": 30.0, "t_fill": 21.5, "balls": 512}),
+        "versus": ({"format": "versus", "pair": "Lava|Ice"}, {"total": 25.0, "winner": "Ice", "loser": "Lava",
+                                                              "ko_at": 19.0}),
+        "ladder": ({"format": "ladder", "category": "food", "quiz": {"questions": [{"q": "Which fruit is a berry?"}]}},
+                   {"total": 42.0}),
+        "readfast": ({"format": "readfast", "fact": {"fact": "Octopuses have three hearts."}}, {"total": 20, "words": 30}),
+        "colorsort": ({"format": "colorsort"}, {"total": 18.9, "tiles": 77, "swaps": 74, "t_done": 16.8}),
+    }
+    for fmt, (spec, info) in cases.items():
+        text = maker.describe(spec, info)
+        assert len(text) > 80 and "None" not in text, fmt
+    assert "5 times" in maker.describe(*cases["spiral"]) and "0:24" in maker.describe(*cases["spiral"])
+    assert "Ice knocks out Lava at 0:19" in maker.describe(*cases["versus"])
+    assert "77 colour tiles" in maker.describe(*cases["colorsort"]) and "0:16" in maker.describe(*cases["colorsort"])
+    (tmp_path / "script.json").write_text('{"title": "spiral", "shown": "A glowing ball drops", "spec": {}}',
+                                          encoding="utf-8")
+    assert pg.script_text({"out_dir": str(tmp_path), "file": "video.mp4"}, {}) == "A glowing ball drops"
+    page = pg._prompt({"name": "Brain Snack", "niche": "satisfying"}, {"topic": ""},
+                      {"title": "Wait for the last try", "hook_text": "Which try reaches the center?"}, "brainrot",
+                      ["hook"], "")
+    assert "HOOK / FIRST LINE: Which try reaches the center?" in page
+
+
 def test_render_spec_runs_the_format(tmp_path, monkeypatch):
     from engine.snack import maker
 

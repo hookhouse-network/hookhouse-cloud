@@ -29,6 +29,8 @@ from .media.shaping import pil_draw_text, pil_text_length
 from engine.core.http import HTTP
 
 OUT_W, OUT_H, FPS = 1080, 1920, 30
+CLIP_ROOM_TONE = 0.003           # room-tone floor in every clip: uniform noise, RMS ~-55 dBFS (silencedetect -60 dB)
+ROOM_TONE_AF = f"aeval=exprs='val(ch)+{CLIP_ROOM_TONE}*(random(0)*2-1)':c=same"
 BACKCHANNEL = {"yeah", "yes", "yep", "right", "mm", "mhm", "mm-hm", "uh-huh", "okay", "ok", "wow", "sure", "true",
                "exactly", "totally", "huh", "oh", "ah", "haha", "really"}
 CAPTION_FONT = "Poppins ExtraBold"
@@ -785,7 +787,10 @@ def render_clip_v3(video: Path, moment: dict, words: list, out_path: Path, style
         ln = b - a
         filt.append(f"[0:a]atrim=start={a - start:.3f}:end={b - start:.3f},asetpts=PTS-STARTPTS,"
                     f"afade=t=in:d=0.01,afade=t=out:st={max(0.0, ln - 0.012):.3f}:d=0.012[s{k}]")
-    filt.append("".join(f"[s{k}]" for k in range(len(segs))) + f"concat=n={len(segs)}:v=0:a=1,highpass=f=80[out]")
+    # 21 Nov: Kick streams carry stretches of digital silence (muted music, a quiet streamer) that the scorecard calls
+    # "dead silence: sounds broken"; a constant room-tone floor (~-55 dBFS RMS, far under speech) keeps it natural
+    filt.append("".join(f"[s{k}]" for k in range(len(segs))) + f"concat=n={len(segs)}:v=0:a=1,highpass=f=80,"
+                f"{ROOM_TONE_AF}[out]")
     cut = work / "audio_cut.wav"
     ffmpeg.run(["-i", str(raw), "-filter_complex", ";".join(filt), "-map", "[out]", str(cut)])
     from .snack.encode import _loudness

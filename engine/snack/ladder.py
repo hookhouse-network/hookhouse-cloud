@@ -1,4 +1,4 @@
-"""Format 4, "Brain Quiz Ladder": 10 questions that get harder, a 2.5 s countdown ring, a ding on the reveal
+"""Format 4, "Brain Quiz Ladder": 7 questions that get harder, a 2.5 s countdown ring, a ding on the reveal
 and a ladder that fills with the answers. Hook and closing line are voiced with word-by-word captions.
 Questions are written by the AI brain and double-checked by a second model; doubtful ones are dropped."""
 from __future__ import annotations
@@ -24,13 +24,14 @@ CATEGORIES = {
 }
 TIER = ["#FACC15"] * 3 + ["#22C55E"] * 3 + ["#EF4444"] * 3 + ["#D946EF"]
 
-QUIZ_PROMPT = """Write a 10-question quiz for the YouTube Shorts channel "Brain Snack" (teens and adults, United States).
+N_QUESTIONS = 7          # 21 Nov: 10 questions made a 60 s Short; the quality bar wants 8-45 s (watch-through)
+QUIZ_PROMPT = """Write a 7-question quiz for the YouTube Shorts channel "Brain Snack" (teens and adults, United States).
 Category: {category}. {topic_line}
-Difficulty rises: questions 1-3 easy, 4-6 medium, 7-9 hard, 10 very hard.
+Difficulty rises: questions 1-2 easy, 3-4 medium, 5-6 hard, 7 very hard.
 Rules: each question is at most 9 words; each answer is 1-3 words; every answer must be 100% true and the only
 correct answer (no trick questions, no opinions, nothing about living private people, no brands, no dates that
-change). Use simple words. Write 12 questions so weak ones can be dropped.
-Return JSON only: {{"hook": "max 7 words, e.g. Only 1% get all 10. Ready?", "questions": [{{"q": "...", "a": "...",
+change). Use simple words. Write 9 questions so weak ones can be dropped.
+Return JSON only: {{"hook": "max 7 words, e.g. Only 1% get all 7. Ready?", "questions": [{{"q": "...", "a": "...",
 "emoji": "one emoji that fits"}}], "title_options": ["3 short titles"], "hashtags": ["#quiz", "..."]}}"""
 
 CHECK_PROMPT = """Check this quiz. For each item, decide if the answer is definitely correct and the only reasonable
@@ -49,10 +50,10 @@ def write_quiz(brain, category: str, topic: str | None = None) -> dict:
         bad = {int(i) for i in verdict.get("bad", []) if str(i).isdigit() or isinstance(i, int)}
     except Exception:  # noqa: BLE001 - if the checker is down, keep the writer's list
         bad = set()
-    data["questions"] = [q for i, q in enumerate(qs) if i not in bad][:10]
+    data["questions"] = [q for i, q in enumerate(qs) if i not in bad][:N_QUESTIONS]
     data["_written_by"] = res.provider
     data["category"] = category
-    if len(data["questions"]) < 8:
+    if len(data["questions"]) < N_QUESTIONS - 1:
         raise RuntimeError("Not enough checked quiz questions")
     return data
 

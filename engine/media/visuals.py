@@ -265,6 +265,53 @@ def openverse(query: str, limit: int = 8, download: bool = False) -> list[Visual
     return out
 
 
+NASA_COPYRIGHT = re.compile(r"©|\(c\)|copyright|getty|reuters|associated press|\bap photo\b", re.I)
+
+
+def nasa_images(query: str, limit: int = 6, download: bool = False) -> list[Visual]:
+    """NASA Image and Video Library (images-api.nasa.gov, no key). NASA media are generally not copyrighted in the US
+    and may be used with the credit "NASA"; items that name a copyright holder (agency photos of third parties,
+    Getty/AP pictures) are skipped. Real missions, planets, rockets and astronauts for space stories (plan P3b:
+    real licensed media where real exists, instead of AI pictures or word cards)."""
+    if not query.strip():
+        return []
+    try:
+        items = (session().get("https://images-api.nasa.gov/search", params={
+            "q": query[:100], "media_type": "image", "page_size": max(5, limit * 2)}, timeout=30)
+            .json().get("collection", {}).get("items") or [])
+    except (requests.RequestException, ValueError):
+        return []
+    out = []
+    for it in items:
+        if len(out) >= limit:
+            break
+        d = (it.get("data") or [{}])[0]
+        nid = d.get("nasa_id")
+        blob = " ".join(str(d.get(k) or "") for k in ("description", "secondary_creator", "photographer", "title"))
+        if not nid or NASA_COPYRIGHT.search(blob):
+            continue
+        try:
+            hrefs = [x.get("href", "") for x in session().get(f"https://images-api.nasa.gov/asset/{nid}", timeout=30)
+                     .json().get("collection", {}).get("items") or []]
+        except (requests.RequestException, ValueError):
+            continue
+        url = next((h for size in ("~large.jpg", "~orig.jpg", "~medium.jpg") for h in hrefs if h.endswith(size)), "")
+        if not url:
+            continue
+        title = str(d.get("title") or query)
+        dest = CACHE / f"nasa_{re.sub(r'[^A-Za-z0-9_-]', '_', nid)[:80]}.jpg"
+        if download:
+            try:
+                _download(url.replace("http://", "https://"), dest)
+            except requests.RequestException:
+                continue
+        out.append(Visual(dest, "nasa", f"\"{title}\" (NASA{', ' + d['center'] if d.get('center') else ''})",
+                          "Public domain (NASA)", {"text": f"{title} {_strip_html(str(d.get('description') or ''))[:300]} "
+                                                           f"{' '.join(d.get('keywords') or [])}",
+                                                   "url": url.replace("http://", "https://")}))
+    return out
+
+
 def met_museum(query: str, limit: int = 4, download: bool = False) -> list[Visual]:
     """The Met Open Access (public-domain objects, CC0). History, art, ancient objects (master plan 5.10)."""
     if not query.strip():

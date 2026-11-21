@@ -109,6 +109,8 @@ def script_text(it: dict, meta: dict) -> str:
     if sj.exists():
         try:
             d = json.loads(sj.read_text(encoding="utf-8"))
+            if isinstance(d, dict) and str(d.get("shown") or "").strip():   # 21 Nov: the format's own "what you see"
+                return str(d["shown"])[:4000]
             parts: list[str] = []
 
             def walk(x):
@@ -199,7 +201,7 @@ def _prompt(ch: dict, it: dict, meta: dict, ctype: str, criteria: list[str], evi
         "rewatch and SEND videos to friends; YouTube does not monetise mass-produced content without its own insight.\n"
         f"CHANNEL: {ch.get('name', ch.get('id'))} ({ch.get('niche', '')}) for {aud}\n"
         f"TITLE: {str(meta.get('title') or '')[:150]}\n"
-        f"HOOK / FIRST LINE: {str(meta.get('hook') or '')[:200]}\n"
+        f"HOOK / FIRST LINE: {str(meta.get('hook') or meta.get('hook_text') or '')[:200]}\n"
         f"TOPIC: {str(it.get('topic') or '')[:150]}\n{evidence}\n"
         f"WHAT IS SAID / SHOWN:\n{script_text(it, meta)[:3500]}\n\n"
         f"CRITERIA:\n{rubric}\n\n"

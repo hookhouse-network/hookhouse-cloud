@@ -1360,11 +1360,22 @@ def make(brain, channel: dict, topic: str | None = None, memory=None, log=print,
         write_srt(script["lines"], out_dir / "captions.srt")
         n, objs = episode["count_to"], PLURAL.get(episode["object"], episode["object"] + "s")
         adj = episode.get("adjective", "").title()
-        title = (f"Count to {n} with Bloop & {duo[1]}! {adj} {objs.title()} #shorts" if short else
-                 f"Counting to {n} with {adj} {objs.title()} | Bloop & Friends Nursery Rhymes & Kids Songs").replace("  ", " ")   # Cocomelon pattern: topic first, then the brand + what parents search
+        o = objs.title()
+        if short:
+            options = [f"Count to {n} with Bloop & {duo[1]}! {adj} {o} #shorts",
+                       f"{adj} {o}! Can You Count to {n} with {duo[1]}? #shorts",
+                       f"How Many {o}? Count with Bloop & {duo[1]} #shorts"]
+        else:                                    # Cocomelon pattern: topic first, then the brand + what parents search
+            options = [f"Counting to {n} with {adj} {o} | Bloop & Friends Nursery Rhymes & Kids Songs",
+                       f"How Many {adj} {o}? Count 1 to {n} with Bloop | Kids Songs for Toddlers",
+                       f"{adj} {o} Counting Song (1 to {n}) | Bloop & Friends Learning Videos",
+                       f"Let's Count {n} {o} in the {str(episode.get('scene', 'park')).title()}! | Bloop & Friends"]
+        from . import uniq                       # 21 Nov: one fixed template was held as "title nearly repeats"
+        titles = [t.replace("  ", " ") for t in uniq.freshest(channel["id"], options)]
+        title = titles[0]
         credit = credits_line(duo or tuple(CAST))            # CC BY 4.0: Toon Head faces on the human friends
         meta = {"channel": channel["id"], "format": "short" if short else "long", "title": title,
-                "title_options": [title],
+                "title_options": titles,                     # the gate's repair_title can switch to another one
                 "description": (f"{episode.get('description', '').strip()}\n\nLearning goal: counting from 1 to {n}, "
                                 "one object for each number.\n\nAn original Bloop & Friends story. Music: our own "
                                 "arrangement of a traditional public-domain melody. "
