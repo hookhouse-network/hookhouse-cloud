@@ -138,6 +138,15 @@ def test_rows_written_before_dual_mode_are_backfilled_once(tmp_path, monkeypatch
     assert d1.pending(conn) == 1
 
 
+def test_tests_can_never_reach_the_production_store():
+    """21 Nov: a test without the fake transport wrote to the real LedgerDO. conftest removes the URL and key."""
+    import os
+    assert not os.environ.get("HH_API_URL") and not os.environ.get("HH_API_KEY")
+    assert not d1.Client().configured()
+    real_looking = d1.Client(url="https://hookhouse-bot.example.workers.dev", key="k" * 40)   # even if .env reloads
+    assert not real_looking.configured()
+
+
 def test_signature_matches_the_worker_format():
     # worker: hmacHex(HH_API_KEY, `${ts}.${body}`) -> lowercase hex SHA-256 HMAC
     import hashlib

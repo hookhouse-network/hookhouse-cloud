@@ -100,6 +100,8 @@ class Client:
         self.transport, self.clock = transport, clock
 
     def configured(self) -> bool:
+        if not self.transport and os.environ.get("PYTEST_CURRENT_TEST"):
+            return False                            # 21 Nov: a test once wrote to the production store; never again
         return bool(self.transport or (self.url and len(self.key) >= 24))
 
     def call(self, payload: dict) -> dict:
