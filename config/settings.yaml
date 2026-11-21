@@ -10,6 +10,9 @@ ledger_backend: dual
 # a day) for the LedgerDO. kv = as before; dual = write both, read KV; do = the DO first. Move together with the
 # Worker's TELE_STORE var (cloud/worker/wrangler.toml).
 tele_store: dual
+# Phase 2 scheduler (cloud/worker/scheduler.js in the LedgerDO): off | shadow (workers heartbeat and build the 7-day
+# presence history; the PC still claims through the old claim files) | on (claims come from the shared queue).
+scheduler: shadow
 
 # P3r (owner 21 Nov): picture-free formats rendered by HyperFrames on the PC (Brain Snack "colorsort" first).
 # Only machines with HyperFrames installed pick them; set false to switch them off everywhere.

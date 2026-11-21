@@ -754,9 +754,15 @@ def helper(once: bool = False, every_s: int = 300, log=_log, videos_only: bool =
     log("PC helper: making videos for the cloud (Ctrl+C to stop; the cloud keeps running without the PC)"
         + (" [videos only]" if videos_only else ""))
     started = _code_version()
+    hb = None
+    if not once:                                      # Phase 2: presence history + (later) claims from the scheduler
+        from .sched import start_pc_heartbeat
+        hb = start_pc_heartbeat(log)
     while True:
         if not once and _new_code(started):           # between videos only: never cuts a video short
             log("helper: new code on this PC; stopping so the wrapper starts it again with the new code")
+            if hb:
+                hb.stop()
             return                                    # scripts/pc_maker.cmd restarts it after a minute
         if videos_only:
             _ensure_chrome(log)

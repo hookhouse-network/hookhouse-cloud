@@ -4,6 +4,7 @@
 // committed row here as a row image keyed by its primary key (idempotent upserts and deletes). The nightly diff
 // compares both sides; reads move here only after a clean comparison. Tables = engine/core/ledger.py SCHEMA + kv.
 import { DurableObject } from "cloudflare:workers";
+import { SCHED_SCHEMA, makeScheduler } from "./scheduler.js";   // Phase 2: one job queue for every worker
 
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY, at REAL NOT NULL, type TEXT NOT NULL,
@@ -55,7 +56,27 @@ export class LedgerDO extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
     this.sql = ctx.storage.sql;
-    ctx.blockConcurrencyWhile(async () => { for (const s of SCHEMA) this.sql.exec(s); });
+    ctx.blockConcurrencyWhile(async () => { for (const s of [...SCHEMA, ...SCHED_SCHEMA]) this.sql.exec(s); });
+    // changes() and not rowsWritten: the latter also counts index rows, and "exactly one job changed" must be exact
+    this.sched = makeScheduler((s, ...a) => this.sql.exec(s, ...a).toArray(),
+                               (s, ...a) => { this.sql.exec(s, ...a); return this.sql.exec("SELECT changes() AS n").one().n; });
+  }
+
+  // Phase 2 scheduler ops (all synchronous: one request never interleaves with another inside the object)
+  schedOp(b) {
+    const s = this.sched;
+    switch (b.op) {
+      case "s_register": return s.register(b.worker || {});
+      case "s_enqueue": return s.enqueue(b.job || {});
+      case "s_claim": return s.claim(String(b.worker || ""), { limit: b.limit, lease_s: b.lease_s });
+      case "s_heartbeat": return s.heartbeat(Number(b.job), String(b.worker || ""), Number(b.epoch), b.lease_s || undefined);
+      case "s_complete": return s.complete(Number(b.job), String(b.worker || ""), Number(b.epoch), b.result || {});
+      case "s_fail": return s.fail(Number(b.job), String(b.worker || ""), Number(b.epoch), b.error || "", b.kind || "transient",
+                                   b.retry_at || null);
+      case "s_release": return s.release(String(b.worker || ""));
+      case "s_stats": return s.stats();
+      default: throw new Error("unknown scheduler op");
+    }
   }
 
   apply(changes) {
@@ -134,6 +155,7 @@ export class LedgerDO extends DurableObject {
       if (b.op === "stats") return Response.json(this.stats());
       if (b.op === "rows") return Response.json({ rows: this.rows(b.table, b.after, b.limit) });
       if (["tget", "tput", "tdel", "tlist"].includes(b.op)) return Response.json(this.tele(b));
+      if (String(b.op || "").startsWith("s_")) return Response.json(this.schedOp(b));
       return Response.json({ error: "unknown op" }, { status: 400 });
     } catch (e) {
       return Response.json({ error: String(e && e.message || e) }, { status: 400 });
