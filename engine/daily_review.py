@@ -286,6 +286,12 @@ def run(brain=None, memory=None, log=print, now: float | None = None, send=None,
                        + (f", {len(rep['good'])} good, {len(rep['bad'])} weak" if (rep['good'] or rep['bad']) else "")
                        + (f", {len(rep['failures'])} failed uploads" if rep["failures"] else ""))
     heal.from_publish_log(now - 86400)
+    scorecard_text = ""
+    try:                                   # S6 (owner 21 Nov): one measured change per channel per day, or a reason
+        from . import scorecard
+        scorecard_text = scorecard.summary(scorecard.run_all(sorted(chans), now=now, log=log))
+    except Exception as e:  # noqa: BLE001 - the review still goes out (said, never silent)
+        log(f"daily review: scorecard failed ({type(e).__name__}: {e})")
     REVIEWS.mkdir(parents=True, exist_ok=True)
     whole = [f"# Daily review {day}", ""] + [f"- {s}" for s in summary] + [""]
     for (platform, cid), rep in reports.items():
@@ -297,7 +303,7 @@ def run(brain=None, memory=None, log=print, now: float | None = None, send=None,
     tops = [f"• {s}" for s in summary[:14]] or ["• No public videos in the last week yet."]
     imp = heal.open_items("improve")
     hi = heal.open_items("high")
-    send("📊 End-of-day review\n" + "\n".join(tops) +
+    send("📊 End-of-day review\n" + "\n".join(tops) + (f"\n\n{scorecard_text}" if scorecard_text else "") +
          (f"\n\n🛠 {len(hi)} code fix(es) waiting: tell Claude 'Heal and Improve the system'" if hi else "") +
          (f"\n💡 {len(imp)} improvement(s) queued for the next 'Heal and Improve'" if imp else "") +
          "\nFull reports: data/reviews (cloud memory) and /review in Telegram.")

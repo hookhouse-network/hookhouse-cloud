@@ -189,6 +189,13 @@ def writer_rules(cid: str, db: Path | None = None, hook: str | None = None) -> s
     if hook in HOOK_TYPES:
         lines.append(f"HOOK TYPE for this video: {hook} = {HOOK_TYPES[hook]}. Set \"hook_type\": \"{hook}\".")
     lines += [f"OUR NUMBERS: {said}. SO: {do}" for said, do in _findings(s)]
+    try:                                   # S6: this channel's running experiment + the rules its numbers proved
+        from .scorecard import writer_rule
+        extra = writer_rule(cid)
+        if extra:
+            lines.append(extra)
+    except Exception as e:  # noqa: BLE001 - the script is still written with the other rules (said, never silent)
+        print(f"content_tuning: scorecard rules unavailable for {cid} ({type(e).__name__}: {e})")
     return "\n".join(lines)
 
 

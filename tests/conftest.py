@@ -41,6 +41,15 @@ def _no_real_clip_records(monkeypatch, tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def _no_real_experiments(monkeypatch, tmp_path):
+    """21 Nov: the daily review now starts/ends per-channel experiments (engine/scorecard.py); tests never touch the
+    real experiment state or the real analytics."""
+    import engine.scorecard as sc
+    monkeypatch.setattr(sc, "STATE", tmp_path / "experiments_test.json")
+    monkeypatch.setattr(sc, "DB", tmp_path / "analytics_scorecard_test.db")
+
+
+@pytest.fixture(autouse=True)
 def _no_real_puppets(monkeypatch, tmp_path):
     """21 Nov: on a PC with DiceBear + a browser, kids Shorts pick human puppets; tests must not depend on the
     machine's tools or write the real face cache. Tests that want puppets switch them on themselves."""
