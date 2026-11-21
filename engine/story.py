@@ -1660,7 +1660,7 @@ def render(channel: dict, script: dict, out_dir: Path, fmt: str = "short", log=p
         from .media import parler_voice
         if parler_voice.available():
             try:
-                parler_raw = parler_voice.batch(beats, work, channel, log)
+                parler_raw = parler_voice.batch(beats, work, channel, log, fmt=fmt)   # P2: time-capped
                 speed = float(voice.get("parler_speed", 1.0))
             except Exception as e:  # noqa: BLE001 - never lose a video over the voice
                 log(f"  Indic Parler-TTS unavailable ({str(e)[:160]}); using Kokoro")

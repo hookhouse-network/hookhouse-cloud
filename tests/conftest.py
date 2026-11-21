@@ -49,6 +49,8 @@ def _no_real_experiments(monkeypatch, tmp_path):
     monkeypatch.setattr(sc, "STATE", tmp_path / "experiments_test.json")
     monkeypatch.setattr(sc, "DB", tmp_path / "analytics_scorecard_test.db")
     monkeypatch.setattr(series, "STATE", tmp_path / "series_rotation_test.json")
+    import engine.media.parler_voice as pv
+    monkeypatch.setattr(pv, "RATE_FILE", tmp_path / "parler_rate_test.json")
 
 
 @pytest.fixture(autouse=True)
