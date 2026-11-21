@@ -131,6 +131,22 @@ def test_chorus_lines_with_any_friend_never_crash():
         kids.use_layout("long")
 
 
+def test_the_kids_writer_gets_the_channels_experiment(monkeypatch):
+    """S6 (owner 21 Nov: daily improvement 'applies to all the channels'): the kids story prompt carries the running
+    experiment of Bloop & Friends, like the story channels' writer rules."""
+    from engine import scorecard
+    monkeypatch.setattr(scorecard, "_load", lambda: {"bloop_and_friends": {
+        "active": {"signal": "hook", "rule": scorecard.RULES["hook"]}, "kept": []}})
+    seen = {}
+
+    class Brain:
+        def ask_json(self, task, prompt, temperature=0.7):
+            seen["prompt"] = prompt
+            raise RuntimeError("stop after the prompt")              # the template story is used, that's fine
+    kids.plan_episode(Brain(), seed=4, max_n=5)
+    assert "THIS WEEK'S EXPERIMENT (hook" in seen["prompt"]
+
+
 def test_kid_voices_are_lifted(monkeypatch, tmp_path):
     pitch = kids.kid_pitch()
     assert pitch and all(1.5 <= s <= 4 for s in pitch.values())            # a child, never a chipmunk

@@ -591,7 +591,8 @@ def _redo_if_blocked(start: str, it: dict, result: str, log=print) -> bool:
     marker = "🛑 blocked: "
     if marker not in str(result):
         return False
-    probs = [x.strip() for x in str(result).split(marker, 1)[1].split("; ") if x.strip()]
+    from .content_gate import split_problems
+    probs = split_problems(str(result).split(marker, 1)[1])     # one quality finding keeps its sub-issues
     try:
         from .content_gate import fixable_by_remake, rules_for
         limit = int(rules_for(_channel(it["channel"])).get("auto_redo_max", 2))
@@ -606,6 +607,35 @@ def _redo_if_blocked(start: str, it: dict, result: str, log=print) -> bool:
     from .core import ledger
     ledger.event("gate.redo", item=it["id"], channel=it.get("channel") or "", data={"problems": probs, "approved": True})
     return True
+
+
+def _rescue_stuck(log=print) -> int:
+    """21 Nov: videos every platform blocked BEFORE the settle fix sit 'approved' and settled for ever (no retry, no
+    remake: e.g. a Stream Clips clip held for 'dead silence' at 06:04). Their last block from the publish log goes
+    through the same redo check once; a block a remake cannot fix leaves them as they are."""
+    from . import publish
+    settled = _load().get("posted", {})
+    stuck = [(s, it) for s, it in items(7, 1) if it.get("status") == "approved" and not it.get("youtube_id")
+             and settled.get(it["id"]) is not None and float(settled[it["id"]]) >= float(it.get("made_at") or 0)]
+    if not stuck:
+        return 0
+    want = {it["id"]: float(it.get("made_at") or 0) for _s, it in stuck}
+    last: dict[str, str] = {}
+    try:
+        for line in Path(publish.LOG).read_text(encoding="utf-8").splitlines():
+            if '"BLOCKED by the content gate"' not in line:
+                continue
+            r = json.loads(line)
+            iid = r.get("item_id")
+            if iid in want and float(r.get("at") or 0) >= want[iid]:
+                last[iid] = str((r.get("result") or {}).get("error") or "")
+    except (OSError, ValueError) as e:
+        log(f"rescue stuck: publish log unreadable ({e})")
+        return 0
+    n = sum(1 for s, it in stuck if last.get(it["id"]) and _redo_if_blocked(s, it, last[it["id"]], log))
+    if n:
+        log(f"rescue stuck: {n} approved video(s) that every platform blocked are being remade")
+    return n
 
 
 def _unique_title(it: dict) -> None:
@@ -879,6 +909,10 @@ def _post_due(log, allow=None) -> None:
     steps to some videos (the Studio's "Upload now" on the PC)."""
     from . import publish_queue
     from .telegram_bot import notify
+    try:
+        _rescue_stuck(log)                                 # 21 Nov: settled-but-blocked videos get their remake
+    except Exception as e:  # noqa: BLE001 - posting goes on (said, never silent)
+        log(f"rescue stuck: {type(e).__name__}: {e}")
     now, s = _now(), _load()
     for start, it in items(3, 1):
         done_at = s.get("posted", {}).get(it["id"])

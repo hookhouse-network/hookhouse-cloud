@@ -338,6 +338,25 @@ def verify(it: dict, platform: str | None = None, quality: bool = True, _base: l
     return list(dict.fromkeys(p))
 
 
+PROBLEM_START = re.compile(
+    r"^(no title|touches a never-topic|text touches|names a protected|never-topic check|franchise check|fact-check|"
+    r"kids video|AI disclosure|clip|campaign|video |no sound|long video|Short must|quality|potential|not allowed|"
+    r"channel |the content gate|title |reach|preflight)", re.I)
+
+
+def split_problems(text: str) -> list[str]:
+    """A gate result string back into its problems. '; ' also separates the sub-issues INSIDE one quality finding
+    ("quality: score 86/100: dead silence ...; no captions file"), so a part that does not start like a problem
+    belongs to the one before it. 21 Nov: the split made the quality finding look unfixable -> no remake, stuck."""
+    out: list[str] = []
+    for part in [p.strip() for p in str(text).split("; ") if p.strip()]:
+        if out and not PROBLEM_START.match(part):
+            out[-1] += "; " + part
+        else:
+            out.append(part)
+    return out
+
+
 def fixable_by_remake(problems: list[str]) -> bool:
     """Only quality/potential findings that a remake with the notes can fix (not "not judged yet" or a check that
     could not run: those clear by themselves on the next tick)."""

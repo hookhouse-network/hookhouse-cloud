@@ -114,7 +114,7 @@ Return ONLY JSON:
   "hook_type": "the hook type you used (outcome_first|curiosity_gap|contrarian|stakes_number|direct_question|countdown)",
   "summary": "2 lines. Line 1 = one self-contained factual sentence AI search can quote: the search phrase, the key person or place and the year (what happened, never the ending). Line 2 = the open question the video answers.",
   "search_phrase": "2-5 words people would search",
-  "instagram_caption": "first line = the search phrase in a hook question, then 1-2 lines",
+  "instagram_caption": "first line = the search phrase in a hook question, then 1-2 lines of real value, last line = one specific question viewers can answer in a word or by picking a side (caption formula, S8 A5/A24)",
   "alt_text": "one plain sentence describing the video for Instagram alt text, with the search phrase",
   "pinned_comment": "one honest question about the story that invites opinions (no 'like and subscribe')",
   "hashtags": ["3-5 specific hashtags (topic, place, person), not generic ones like #viral"],

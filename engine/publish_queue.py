@@ -246,6 +246,11 @@ def _settle(start, it, acts, new_done, dead, waits, led, log, notify) -> None:
                    f"{MAX_ATTEMPTS} tries ({dead[0][1][:120]}). It is in the heal list.")
         return
     if not pending:                                          # nothing went out anywhere and nothing is left to try
+        # 21 Nov: a video every platform's gate blocked was settled here and never remade (stuck 'approved' for
+        # ever). A block a remake can fix sends it back to 'redo' (the remake posts as a new version).
+        blocked = [why for _p, why in dead if "🛑 blocked:" in str(why)]
+        if blocked and not it.get("youtube_id") and autopilot._redo_if_blocked(start, it, blocked[0], log):
+            return
         autopilot._update_state(lambda st: st.setdefault("posted", {}).__setitem__(item_id, time.time()))
         reasons = [f"{p.title()}: {why[:120]}" for p, why in dead]
         notify(f"ℹ️ Nothing posted for {it['channel_name']}: {it.get('topic') or ''}" +

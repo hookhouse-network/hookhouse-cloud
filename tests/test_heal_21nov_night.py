@@ -121,6 +121,73 @@ def test_a_clip_never_borrows_another_clips_captions(tmp_path):
     assert pg.srt_text(tmp_path, "video")[0] == "Story words"                 # a folder-wide file still works
 
 
+STUCK = ("🛑 blocked: quality: score 86/100 (needs 100): dead silence at 3.1s (8 gap(s)): sounds broken, keep room "
+         "tone; no captions file (search and sound-off viewers)")
+
+
+def test_one_quality_finding_keeps_its_sub_issues():
+    """The Stream Clips clip was never remade: '; ' inside the quality finding made it look unfixable."""
+    from engine.content_gate import fixable_by_remake, split_problems
+    probs = split_problems(STUCK.split("🛑 blocked: ", 1)[1])
+    assert len(probs) == 1 and probs[0].startswith("quality:") and "no captions file" in probs[0]
+    assert fixable_by_remake(probs)
+    two = split_problems("names a protected franchise/character: avengers; quality: score 80/100: dull; dark")
+    assert [p.split(":")[0] for p in two] == ["names a protected franchise/character", "quality"]
+    assert not fixable_by_remake(split_problems("AI disclosure (ai_label) not set; quality: score 80/100"))
+
+
+def test_an_all_blocked_video_is_remade_not_settled(monkeypatch):
+    from engine import autopilot, publish_queue
+    calls, settled = [], []
+    monkeypatch.setattr(publish_queue, "queued", lambda *a, **k: [])
+    monkeypatch.setattr(autopilot, "_redo_if_blocked", lambda s, it, why, log: calls.append(why) or True)
+    monkeypatch.setattr(autopilot, "_update_state", lambda fn: settled.append(1))
+    it = {"id": "1121_0500_stream_clips_short", "channel": "stream_clips", "status": "approved",
+          "channel_name": "Stream Clips"}
+    publish_queue._settle("s", it, [], [], [("youtube", STUCK)], [], None, lambda *_: None, lambda *_: None)
+    assert calls == [STUCK] and settled == []                                  # remade, not dead-ended
+
+
+def test_already_stuck_videos_are_rescued_once(monkeypatch, tmp_path):
+    import json
+
+    from engine import autopilot, publish
+    it = {"id": "1121_0500_stream_clips_short", "channel": "stream_clips", "status": "approved", "made_at": 100.0}
+    monkeypatch.setattr(autopilot, "items", lambda *a: [("s", it)])
+    monkeypatch.setattr(autopilot, "_load", lambda: {"posted": {it["id"]: 200.0}})
+    log = tmp_path / "publish_log.jsonl"
+    log.write_text(json.dumps({"item_id": it["id"], "what": "BLOCKED by the content gate", "at": 150.0,
+                               "result": {"error": STUCK}}) + "\n", encoding="utf-8")
+    monkeypatch.setattr(publish, "LOG", log)
+    calls = []
+    monkeypatch.setattr(autopilot, "_redo_if_blocked", lambda s, x, why, log: calls.append((x["id"], why)) or True)
+    assert autopilot._rescue_stuck(log=lambda *_: None) == 1 and calls == [(it["id"], STUCK)]
+    it["youtube_id"] = "abc"                                                   # posted somewhere: never touched
+    calls.clear()
+    assert autopilot._rescue_stuck(log=lambda *_: None) == 0 and calls == []
+
+
+def test_shot_rhythm_house_rule(tmp_path):
+    """S9 Herk Edit Kit house rule: a story Short changes picture every 2-4 s; one shot held > 7 s is flagged."""
+    from engine import quality
+    from engine.media import ffmpeg
+
+    def clip(name, colours):
+        args, parts = [], []
+        for i, (c, d) in enumerate(colours):
+            args += ["-f", "lavfi", "-i", f"color={c}:s=320x568:d={d}:r=30"]
+            parts.append(f"[{i}:v]")
+        out = tmp_path / name
+        ffmpeg.run([*args, "-filter_complex", "".join(parts) + f"concat=n={len(colours)}:v=1[v]", "-map", "[v]",
+                    "-pix_fmt", "yuv420p", str(out)])
+        return out
+    slow = clip("slow.mp4", [("red", 10), ("blue", 2)])
+    fast = clip("fast.mp4", [("red", 2), ("blue", 2), ("green", 2), ("yellow", 2), ("white", 2), ("purple", 2)])
+    assert quality.rhythm_issues(slow, 12.0, "short") and "10 s" in quality.rhythm_issues(slow, 12.0, "short")[0][1]
+    assert quality.rhythm_issues(fast, 12.0, "short") == []
+    assert quality.rhythm_issues(slow, 12.0, "long") == []                    # Shorts only
+
+
 def test_quiz_fits_the_short_length():
     """Brain Snack quiz: 10 questions = 60 s; the scorecard wants 8-45 s."""
     from engine.snack import ladder

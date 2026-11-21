@@ -420,8 +420,16 @@ def plan_episode(brain, seed: int, lesson: str | None = None, max_n: int = 10) -
                  or rng.choice(XMAS_SITUATIONS if obj in XMAS_OBJECTS else SITUATIONS))
     objs = PLURAL.get(obj, obj + "s")
     try:
-        story, res = brain.ask_json("writer", STORY_PROMPT.format(situation=situation, setting=scene, n=n, obj=obj,
-                                                                  objs=objs), temperature=0.7)
+        prompt = STORY_PROMPT.format(situation=situation, setting=scene, n=n, obj=obj, objs=objs)
+        try:                               # S6: the channel's running experiment + the rules its numbers proved
+            from .scorecard import writer_rule
+            extra = writer_rule("bloop_and_friends")
+        except Exception as e:  # noqa: BLE001 - the story is still written (said, never silent)
+            print(f"kids: experiment rule unavailable ({type(e).__name__}: {e})")
+            extra = ""
+        if extra:
+            prompt += "\n" + extra
+        story, res = brain.ask_json("writer", prompt, temperature=0.7)
         writer = res.provider
     except Exception:                                       # no writer today: a safe template, still correct
         story = json.loads(json.dumps(FALLBACK).replace("{obj}", obj).replace("{objs}", objs))

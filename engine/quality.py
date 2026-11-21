@@ -176,6 +176,38 @@ def seo_issues(ch: dict, sc: dict, meta: dict, fmt: str) -> list[tuple[str, str]
     return out
 
 
+SHOT_MAX_S = 7.0           # Herk Edit Kit house rule (MIT, S9): a Short changes picture every 2-4 s; > 7 s = static
+
+
+def cut_times(video: Path, threshold: float = 0.3) -> list[float]:
+    """Times (s) where the picture cuts to a new shot (ffmpeg scene detection)."""
+    from .media import ffmpeg
+    try:
+        r = subprocess.run([ffmpeg.ffmpeg_bin(), "-hide_banner", "-nostats", "-i", str(video), "-an", "-vf",
+                            f"select='gt(scene,{threshold})',showinfo", "-f", "null", "-"],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
+    except subprocess.TimeoutExpired:
+        return []
+    return [float(x) for x in re.findall(r"pts_time:([\d.]+)", r.stderr)]
+
+
+def longest_shot(video: Path, dur: float) -> float:
+    # 0.2: our story Shorts cross-fade between beats; at 0.3 a real 64 s Short (13 beats) showed a false 13.5 s
+    # "static" opening, at 0.2 its longest gap was 5.6 s (calibrated 21 Nov on the D. B. Cooper Short)
+    cuts = [0.0] + [t for t in cut_times(video, threshold=0.2) if 0 < t < dur] + [dur]
+    return round(max((b - a for a, b in zip(cuts, cuts[1:])), default=dur), 1)
+
+
+def rhythm_issues(video: Path, dur: float, fmt: str) -> list[tuple[str, str]]:
+    """Shot rhythm for Shorts (S9 Herk rules): one shot held too long reads as a slideshow and loses the swipe."""
+    if fmt != "short" or dur <= SHOT_MAX_S:
+        return []
+    longest = longest_shot(video, dur)
+    if longest > SHOT_MAX_S:
+        return [("warn", f"one shot lasts {longest:.0f} s: change the picture every 2-4 s (house rule)")]
+    return []
+
+
 def story_issues(d: Path) -> list[tuple[str, str]]:
     """Owner 15 Nov 2026: a video must SHOW what is said, not words on cards. Reads shots.json (per beat)."""
     try:
@@ -274,6 +306,8 @@ def check_video(ch: dict, video: Path, meta: dict, fmt: str) -> dict:
         except ValueError:
             pass
     issues += story_issues(d)
+    if ch.get("type") == "story":                          # S9 Herk house rule (Brain Snack games are one-shot)
+        issues += rhythm_issues(video, dur, fmt)
     if (d / "upload.json").exists() and ch.get("type") == "story":
         from .dashboard import video_checks
         v = video_checks(ch, d, meta, fmt)
