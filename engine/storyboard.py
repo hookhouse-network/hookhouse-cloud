@@ -79,6 +79,10 @@ def _rules(channel: dict) -> str:
         out.append(RULES["no_faces"])
     if channel["id"] == "itihaas_ke_raaz":
         out.append(RULES["myth"])
+    from .style_cards import visual_text            # S8 A16: one consistent look per channel (not random stock)
+    look = visual_text(channel["id"])
+    if look:
+        out.append(look)
     return "\n".join(out)
 
 

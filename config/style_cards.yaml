@@ -1,0 +1,64 @@
+# Channel style cards v2 (plan P3r creativity, standard S8 A3 style card + A16 visual style + A17 humour card).
+# The script writer reads the angle, voice, pillars and humour lines; the storyboard reads the visual line.
+# Keep each line concrete (what to do), never adjectives alone. Edit freely.
+
+unsolved_after_dark:
+  angle: "the one detail investigators could not explain, told as if the viewer is reading the case file for the first time"
+  voice: "calm, low and close, like telling a story at night; short sentences; never sensational, never mocking a victim"
+  pillars: ["cold cases", "strange disappearances", "dark history places", "unexplained events"]
+  visual: "dim, moody real places and archive photos, cold blue-green tones, slow pushes in, no gore, no faces of real victims as AI art"
+  humour: "none at the expense of victims; at most one dry, understated line about how strange the facts are"
+clutch_tales:
+  angle: "the human pressure behind one moment: what the player knew, felt and risked in those seconds"
+  voice: "warm, rising, sports-movie narrator; numbers spoken clearly (score, seconds, stakes)"
+  pillars: ["buzzer-beaters and last seconds", "comebacks", "underdog wins", "rivalries"]
+  visual: "stadium atmosphere, scoreboards and clocks, crowd reactions, real archive moments where licensed; no team logos as AI art"
+  humour: "light banter about the odds or a rival's reaction, never about injuries"
+ending_decoded:
+  angle: "prove the meaning with what is actually on screen: one clue, one callback, one line of dialogue"
+  voice: "curious friend who just rewatched it; confident but shows the evidence; no spoilers in the first line beyond the hook"
+  pillars: ["endings explained", "hidden details", "director's choices", "fan theories that hold up"]
+  visual: "cinema seats, film reels, symbolic objects from the story, original silhouettes; never studio frames, logos or actors' faces"
+  humour: "playful about how many people missed the clue; never mocking the film or its fans"
+money_cheat_codes:
+  angle: "the rule behind the money, with one real number and one thing the viewer can do this week"
+  voice: "plain-spoken older sibling: simple words, short sentences, no jargon without a one-line meaning; never a guru, never advice"
+  pillars: ["money rules people learn too late", "how companies and apps make money", "AI tools and the business behind them", "everyday costs explained"]
+  visual: "clean charts and numbers that move, real products and places, coins and receipts; no luxury flexing, no fake wealth"
+  humour: "dry jokes about everyday money habits; never about poverty"
+itihaas_ke_raaz:
+  angle: "itihaas ya pauranik katha ka woh pehlu jo log nahi jaante, saboot aur srot ke saath"
+  voice: "bhavuk lekin sachcha: dheemi shuruaat nahi, pehli line mein raaz; aasaan Hindi, natak nahi"
+  pillars: ["pauranik kathaon ke ankahe pehlu", "mandir aur kilon ke raaz", "rajaon aur yoddhaon ki sachchi kahaniyan", "khoye hue shahar"]
+  visual: "asli mandir, kile aur sangrahalay ki vastuen, garam sunehri roshni, purani paandulipiyan; devi-devtaon ka apmaan kabhi nahi"
+  humour: "halki si muskaan wali baat, dharm ya aastha ka mazaak kabhi nahi"
+cricket_ke_kisse:
+  angle: "ek over, ek ball, ek faisla: us pal ka dabav aur uske peeche ki kahani"
+  voice: "commentator jaisa josh, lekin saaf aur seedha; score aur balls saaf bolna"
+  pillars: ["aakhri over ke kisse", "underdog jeet", "rikaard aur unke peeche ki kahani", "dressing room ke anjaane kisse"]
+  visual: "stadium, scoreboard, crowd, cricket ki cheezen; asli khiladiyon ke chehre AI se nahi"
+  humour: "halki chhed-chhaad rivalry par, khiladiyon ki beizzati kabhi nahi"
+picture_abhi_baaki_hai:
+  angle: "film ke peeche ka sachcha kissa: paisa, faisle aur kismat"
+  voice: "dosti bhari baat-cheet, filmi andaaz lekin facts pakke"
+  pillars: ["box office ka sach", "shooting ke kisse", "kirdaar aur casting ke raaz", "hit-flop ki asli wajah"]
+  visual: "cinema hall, film reel, clapboard, poster jaisi original designs; asli film frames ya actors ke chehre nahi"
+  humour: "filmi dialogue jaisa chhota sa punch, kisi star ka mazaak nahi"
+cosmos_unboxed:
+  angle: "make the scale feel real: compare every huge number to something the viewer knows"
+  voice: "awed but precise science communicator; every claim sourced; wonder without exaggeration"
+  pillars: ["space mysteries", "real missions", "planets and moons", "how big the universe really is"]
+  visual: "real NASA and observatory imagery first, accurate scale, deep blacks and natural colours; no fake planets passed off as real"
+  humour: "gentle jokes about how small Earth problems look from space"
+deep_blue_files:
+  angle: "the deep is a real place with real rules: pressure, darkness, cold; every story shows one of them"
+  voice: "hushed and curious, like a submarine log; precise depths and dates"
+  pillars: ["deep-sea creatures", "shipwrecks", "ocean mysteries and sounds", "expeditions"]
+  visual: "dark blue gradients, real deep-sea footage and archive wreck photos, particles in torchlight; no monster fakes"
+  humour: "light wonder at how strange sea creatures look, never cruel"
+wild_instinct:
+  angle: "one real survival trick per video, shown in the moment it matters"
+  voice: "documentary narrator with warmth; facts about the animal, never cruelty for drama"
+  pillars: ["survival", "animal superpowers", "migrations", "predator and prey"]
+  visual: "real animal photos and footage first (licensed), natural light, close-ups of the trick; no gore"
+  humour: "affectionate jokes about animal behaviour that looks human"

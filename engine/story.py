@@ -658,6 +658,13 @@ def _tuning_rules(cid: str, fmt: str = "short") -> str:
         return ""
 
 
+def _style_card(cid: str) -> str:
+    """S8 A3/A17: the channel's angle, voice, pillars and humour for the writer ("" when it has no card)."""
+    from .style_cards import writer_text
+    text = writer_text(cid)
+    return text + "\n" if text else ""
+
+
 def write_script(brain, channel: dict, topic: str, fmt: str = "short", memory=None, extra_rules: str = "") -> dict:
     f = dict(FORMATS[fmt])
     if fmt == "short" and (channel.get("spec") or {}).get("short_words"):
@@ -687,6 +694,7 @@ def write_script(brain, channel: dict, topic: str, fmt: str = "short", memory=No
                     if fmt == "long" else ""),
         rules=json.dumps(channel.get("content_rules", {})) + "\n" + (channel.get("writer_rules") or "") + "\n"
         + _tuning_rules(channel["id"], fmt) + "\n" + (extra_rules + "\n" if extra_rules else "")
+        + _style_card(channel["id"])
         + never_rules_text() + (
             "" if visuals.ai_image_available() else
             "\nAI images are switched OFF right now: never use visual \"ai\". Use photo, footage or text, and give "
