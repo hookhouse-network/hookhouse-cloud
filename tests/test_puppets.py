@@ -99,6 +99,69 @@ def test_kids_friends_and_actions(monkeypatch):
     assert "CC BY 4.0" in kids.credits_line(("Bloop", "Mia")) and kids.credits_line(("Bloop", "Pip")) == ""
 
 
+def test_long_episodes_get_two_rotating_human_friends():
+    lines = [{"who": "Mo", "say": "Hi Dee! Hi Pip!", "kind": "story", "section": "intro"},
+             {"who": "Dee", "say": "Mo, look at the moon.", "kind": "story", "section": "intro"},
+             {"who": "Bloop", "say": "Momo the moose!", "kind": "story", "section": "intro"}]
+    out, swap = kids.human_cast_lines(lines, seed=1)
+    a, b = swap["Mo"], swap["Dee"]
+    assert a != b and {a, b} <= set(kids.HUMANS)
+    assert out[0] == dict(lines[0], who=a, say=f"Hi {b}! Hi Pip!") and out[1]["say"] == f"{a}, look at the moon."
+    assert out[2]["say"] == "Momo the moose!"                              # only whole names change
+    assert kids.human_cast_lines(lines, seed=2)[1] != swap                  # rotates from episode to episode
+    kids.use_layout("long", swap=swap)
+    try:
+        cast = dict(kids.CAST)
+    finally:
+        kids.use_layout("long")
+    assert set(cast) == {"Bloop", "Pip", a, b} and cast[a][1] == f"puppet:{a.lower()}"
+    assert cast[a][4] == kids.LAYOUTS["long"]["CAST_X"]["Mo"] and cast[b][4] == kids.LAYOUTS["long"]["CAST_X"]["Dee"]
+    assert set(kids.CAST) == {"Bloop", "Pip", "Mo", "Dee"}                 # the base cast is back afterwards
+    assert "CC BY 4.0" in kids.credits_line(tuple(cast))
+
+
+def test_chorus_lines_with_any_friend_never_crash():
+    kids.use_layout("short", duo=("Bloop", "Mia"))
+    try:
+        part = np.ones(100, np.float32)
+        lines = [{"start": 0.0, "_parts": {"Bloop": part, "Mia": part}}]
+        tracks = kids.voice_tracks(lines, 1.0)
+        assert tracks["Mia"].max() > 0
+    finally:
+        kids.use_layout("long")
+
+
+def test_kid_voices_are_lifted(monkeypatch, tmp_path):
+    pitch = kids.kid_pitch()
+    assert pitch and all(1.5 <= s <= 4 for s in pitch.values())            # a child, never a chipmunk
+    assert not any(v.startswith("am_") for v in pitch)                     # boys: a lifted female voice
+    calls = []
+
+    def fake_synth(text, path, voice, lang, speed=1.0, trim=True):
+        import soundfile as sf
+        sf.write(str(path), np.zeros(2400, np.float32) + 0.01, 24000)
+    monkeypatch.setattr(kids, "synthesize", fake_synth)
+    monkeypatch.setattr(kids, "pitch_up", lambda src, st: calls.append((src.name, st)) or src)
+    v = kids.Voices(tmp_path, 1.0, pitch={"af_nicole": 3.0})
+    v.say("Hi Bloop!", "af_nicole")
+    v.say("Hi Mia!", "af_bella")                                          # Bloop: natural voice
+    assert calls == [("v_000.wav", 3.0)]
+
+
+def test_pitch_up_keeps_the_length(tmp_path):
+    import soundfile as sf
+    sr = 24000
+    t = np.arange(sr) / sr
+    sf.write(str(tmp_path / "a.wav"), (0.3 * np.sin(2 * np.pi * 180 * t)).astype(np.float32), sr)
+    out = kids.pitch_up(tmp_path / "a.wav", 3.0)
+    b, sr2 = sf.read(str(out), dtype="float32")
+    assert sr2 == sr and abs(len(b) - sr) < sr * 0.03
+    spec = np.abs(np.fft.rfft(b * np.hanning(len(b))))
+    peak = np.argmax(spec) * sr2 / len(b)
+    assert 205 < peak < 222                                               # 180 Hz * 2^(3/12) = 214 Hz
+    assert kids.pitch_up(tmp_path / "a.wav", 0) == tmp_path / "a.wav"
+
+
 def test_duo_with_a_human_friend(monkeypatch, tmp_path):
     monkeypatch.setattr(kids, "puppets_on", lambda: True)
     lines = [{"who": "Bloop", "say": "Hi Pip and Mo!", "kind": "story", "section": "intro"},

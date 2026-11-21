@@ -12,6 +12,7 @@ characters:
     style: toonHead
     seed: Mia
     voice: af_nicole
+    pitch: 3                         # semitones up: a child's voice (S10)
     colour: "EC4899"                 # her colour in captions and props
     legs: skin                       # a dress: bare legs
     shoes: "7C3AED"
@@ -22,7 +23,8 @@ characters:
     name: Leo
     style: toonHead
     seed: Leo
-    voice: am_adam
+    voice: af_river                  # boys are voiced by a lifted female voice (animation practice)
+    pitch: 2
     colour: "2563EB"
     legs: "545454"
     shoes: "2E3A59"
@@ -34,6 +36,7 @@ characters:
     style: toonHead
     seed: Zara
     voice: af_sky
+    pitch: 3
     colour: "EAB308"
     legs: "147F3C"
     shoes: "B11F1F"
@@ -44,7 +47,8 @@ characters:
     name: Arjun
     style: toonHead
     seed: Arjun
-    voice: am_liam
+    voice: af_aoede
+    pitch: 2
     colour: "B11F1F"
     legs: "0B3286"
     shoes: "2E3A59"

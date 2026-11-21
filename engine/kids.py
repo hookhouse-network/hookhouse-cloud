@@ -150,7 +150,7 @@ def puppet_action(cur: dict | None, name: str, kind: str, age: float, tt: float,
     return None
 
 
-def use_layout(fmt: str, duo: tuple[str, str] | None = None) -> None:
+def use_layout(fmt: str, duo: tuple[str, str] | None = None, swap: dict[str, str] | None = None) -> None:
     """Switch the drawing layout for this process (one render at a time). duo: only these two characters, bigger
     (the Short)."""
     lay = LAYOUTS[fmt]
@@ -164,6 +164,23 @@ def use_layout(fmt: str, duo: tuple[str, str] | None = None) -> None:
         return
     g["CAST"] = {name: (col, shape, int(size * lay["CAST_SCALE"]), voice, lay["CAST_X"][name])
                  for name, (col, shape, size, voice, _x) in _BASE_CAST.items()}
+    if swap:                                  # long episodes: human friends stand where the swapped toons stood
+        g["CAST"] = {swap.get(name, name): ((*HUMANS[swap[name]][:2], int(HUMANS[swap[name]][2] * lay["CAST_SCALE"]),
+                                              HUMANS[swap[name]][3], spec[4]) if name in swap else spec)
+                     for name, spec in g["CAST"].items()}
+
+
+def human_cast_lines(lines: list[dict], seed: int) -> tuple[list[dict], dict[str, str]]:
+    """Long episodes (owner 21 Nov: "introduce some humans"): Mo and Dee hand their parts to two human friends that
+    rotate from episode to episode; their names in every line follow, so the words match who is on screen."""
+    humans = list(HUMANS)
+    if len(humans) < 2:
+        return lines, {}
+    swap = {"Mo": humans[seed % len(humans)], "Dee": humans[(seed + 1) % len(humans)]}
+    rx = re.compile(r"\b(Mo|Dee)\b")
+    out = [dict(ln, who=swap.get(ln["who"], ln["who"]), say=rx.sub(lambda m: swap[m.group(1)], ln["say"]))
+           for ln in lines]
+    return out, swap
 
 
 def duo_lines(lines: list[dict], seed: int) -> tuple[list[dict], tuple[str, str]]:
@@ -416,11 +433,38 @@ def plan_episode(brain, seed: int, lesson: str | None = None, max_n: int = 10) -
 
 # ---------- voices ----------
 
-class Voices:
-    """Kokoro voice per character (cached, levelled to the same loudness, 48 kHz)."""
+def kid_pitch() -> dict[str, float]:
+    """voice id -> semitones up for the human friends (S10, 21 Nov: Kokoro's adult voices made 5-year-olds sound like
+    grown-ups); config/characters.yaml `pitch`, default +2."""
+    try:
+        from .media import characters
+        return {str(c.get("voice")): float(c.get("pitch", 2.0))
+                for c in (characters.bible().get("characters") or {}).values() if c.get("voice")}
+    except Exception as e:  # noqa: BLE001 - no bible: natural voices (said, never silent)
+        print(f"kids: kid voices unchanged ({type(e).__name__}: {e})")
+        return {}
 
-    def __init__(self, work: Path, speed: float = 0.92):
+
+def pitch_up(src: Path, semitones: float) -> Path:
+    """A younger-sounding copy of a voice line: resample up (pitch + speed), then slow back to the same length.
+    ffmpeg asetrate + atempo (no extra library); formants rise a little too, which reads as a child's voice."""
+    import soundfile as _sf
+    from .media import ffmpeg as ff
+    if not semitones:
+        return src
+    sr = _sf.info(str(src)).samplerate
+    f = 2 ** (semitones / 12)
+    dst = src.with_name(src.stem + "_kid.wav")
+    ff.run(["-i", str(src), "-af", f"asetrate={int(sr * f)},aresample={sr},atempo={1 / f:.5f}", str(dst)])
+    return dst
+
+
+class Voices:
+    """Kokoro voice per character (cached, levelled to the same loudness, 48 kHz); human friends a little higher."""
+
+    def __init__(self, work: Path, speed: float = 0.92, pitch: dict[str, float] | None = None):
         self.work, self.speed, self.cache, self.bad = work, speed, {}, set()
+        self.pitch = kid_pitch() if pitch is None else pitch
 
     def say(self, text: str, voice: str) -> np.ndarray:
         key = (text, voice)
@@ -433,6 +477,11 @@ class Voices:
         except Exception:                                   # voice not available: use the narrator's
             self.bad.add(voice)
             synthesize(text, path, NARRATOR, "en", speed=self.speed, trim=True)
+        if voice not in self.bad and self.pitch.get(voice):
+            try:
+                path = pitch_up(path, self.pitch[voice])
+            except Exception as e:  # noqa: BLE001 - the natural voice still works (said, never silent)
+                print(f"kids: pitch lift skipped for {voice} ({type(e).__name__}: {e})")
         a, sr = sf.read(path, dtype="float32")
         a = a.mean(axis=1) if a.ndim > 1 else a
         g = gcd(au.SR, sr)
@@ -469,7 +518,8 @@ def voice_tracks(lines: list[dict], total: float) -> dict[str, np.ndarray]:
     for ln in lines:
         chorus = len(ln["_parts"]) > 1
         for who, clip in ln["_parts"].items():
-            au.place(tracks[who], clip * (0.5 if chorus else 1.0), ln["start"] + (offsets[who] if chorus else 0.0))
+            au.place(tracks[who], clip * (0.5 if chorus else 1.0),
+                     ln["start"] + (offsets.get(who, 0.022) if chorus else 0.0))     # guests + humans: no KeyError
     return {k: v[: int(total * au.SR)] for k, v in tracks.items()}
 
 
@@ -1292,6 +1342,11 @@ def make(brain, channel: dict, topic: str | None = None, memory=None, log=print,
             episode["lines"], duo = duo_lines(short_lines(episode["lines"]), seed)
             use_layout("short", duo=duo)
             episode["friend"] = duo[1]
+        elif puppets_on():                                   # long episode: two human friends join Bloop and Pip
+            episode["lines"], swap = human_cast_lines(episode["lines"], seed)
+            if swap:
+                use_layout("long", swap=swap)
+                episode["friends"] = sorted(swap.values())
         check = qa(episode["lines"], episode["count_to"], rounds_needed=1 if short else 3)
         if not check["counts_ok"]:
             raise RuntimeError(f"Kids QA failed: {check}")
@@ -1307,7 +1362,7 @@ def make(brain, channel: dict, topic: str | None = None, memory=None, log=print,
         adj = episode.get("adjective", "").title()
         title = (f"Count to {n} with Bloop & {duo[1]}! {adj} {objs.title()} #shorts" if short else
                  f"Counting to {n} with {adj} {objs.title()} | Bloop & Friends Nursery Rhymes & Kids Songs").replace("  ", " ")   # Cocomelon pattern: topic first, then the brand + what parents search
-        credit = credits_line(duo) if duo else ""            # CC BY 4.0: Toon Head faces on the human friends
+        credit = credits_line(duo or tuple(CAST))            # CC BY 4.0: Toon Head faces on the human friends
         meta = {"channel": channel["id"], "format": "short" if short else "long", "title": title,
                 "title_options": [title],
                 "description": (f"{episode.get('description', '').strip()}\n\nLearning goal: counting from 1 to {n}, "
