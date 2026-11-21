@@ -53,6 +53,18 @@ _NAMES = [
     "indiana jones", "jack sparrow", "godzilla", "jurassic park", "jack torrance", "hannibal lecter",
     "freddy krueger", "jason voorhees", "pennywise the clown", "chucky doll", "ghostface", "overlook hotel",
     "wednesday addams",
+    # Anime studios and shows (owner 21 Nov: long story series in a hand-painted anime look, P3s). The LOOK is
+    # described with style words (hand-painted anime, watercolour backgrounds, soft light); a studio's name, its
+    # director's name or its films/characters never go into a title, tag, description or picture prompt.
+    "(?:studio )?ghibli(?:[- ]?(?:style|styled|esque|fied|like|inspired|art|anime))?", "hayao miyazaki",
+    "miyazaki[- ](?:style|styled|inspired|film|films|movie|movies|anime)", "(?:in )?the style of miyazaki",
+    "totoro", "my neighbou?r totoro", "princess mononoke", "howl'?s moving castle", "kiki'?s delivery service",
+    "ponyo", "nausica[aä] of the valley", "porco rosso", "arrietty", "the boy and the heron",
+    "grave of the fireflies", "chihiro ogino", "makoto shinkai", "kimi no na wa", "kimetsu no yaiba",
+    "demon slayer anime", "tanjiro kamado", "naruto uzumaki", "naruto shippuden", "naruto anime", "dragon ball(?: z)?",
+    "attack on titan", "sailor moon", "jujutsu kaisen", "my hero academia", "one piece anime", "monkey d\\.? luffy",
+    # NOT listed on purpose: Naruto (a Japanese city and its whirlpools), "demon slayer" (Durga in Hindu myth),
+    # Son Goku / Sun Wukong (Journey to the West, public domain), Laputa (Gulliver's Travels), "castle in the sky"
 ]
 _RX = re.compile(r"(?<![\w-])(" + "|".join(_NAMES) + r")(?![\w-])", re.I)
 

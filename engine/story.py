@@ -19,6 +19,7 @@ import soundfile as sf
 
 from .policy import never_rules_text, topic_flags
 from .config import ROOT
+from .humanize import humanize_script, script_tells
 from .media import compose, ffmpeg, footage, sfx, stickers, visuals
 from .media.captions import BigText, HookStyle, Label, build_ass
 from .media.fonts import FONTS_DIR, caption_font, ensure_fonts, title_font
@@ -33,7 +34,12 @@ FORMATS = {
 }
 
 WRITER_SYSTEM = ("You are the head writer of a top faceless YouTube channel. You can make ANY topic gripping, "
-                 "even boring ones, using true facts only. You never invent facts, names, dates or numbers.")
+                 "even boring ones, using true facts only. You never invent facts, names, dates or numbers. "
+                 # S10 (owner 21 Nov): viewers must never feel "this is AI"
+                 "You write like a person telling a friend: plain spoken words, concrete details, sentences of "
+                 "different lengths, an opinion or a joke where it fits. Never use AI stock phrases: delve, "
+                 "tapestry, testament, pivotal, crucial, realm, 'buckle up', 'little did they know', 'imagine a "
+                 "world', 'not just X but Y', 'let that sink in', 'stay tuned', 'unveiling', 'the untold story'.")
 
 WRITER_PROMPT = """Channel: "{channel}" ({niche}). Audience: {audience}. Narration language: {language_name}.
 Topic: {topic}
@@ -2268,6 +2274,7 @@ def make(brain, channel: dict, topic: str | None = None, fmt: str = "short", scr
         if fmt == "short":
             script = fit_length(brain, channel, script, log)
         script = phrase_early(brain, script, log)      # before the fact-check, so the new wording is checked too
+        script = humanize_script(brain, script, log)   # S10: AI-sounding lines restated plainly, then fact-checked
         if channel.get("content_rules", {}).get("fact_check"):
             script = check_and_fix(brain, channel, script, topic, fmt, memory, log)
     else:
@@ -2276,6 +2283,11 @@ def make(brain, channel: dict, topic: str | None = None, fmt: str = "short", scr
                 from .brain import Brain
                 brain = Brain()
             script = fit_length(brain, channel, script, log)
+        if script_tells(script):                    # saved/remade script: same S10 pass (the fact-check below re-runs)
+            if brain is None:
+                from .brain import Brain
+                brain = Brain()
+            script = humanize_script(brain, script, log)
     if not fresh and channel.get("content_rules", {}).get("fact_check") and not (script.get("_fact_check") or {}).get("ok"):
         log("Fact-check: re-checking the saved script")       # old result may be stale
         if brain is None:

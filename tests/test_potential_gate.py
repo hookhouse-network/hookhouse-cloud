@@ -34,7 +34,7 @@ class Brain:
         return {"scores": self.scores, "fixes": ["open on the empty streets"], "summary": "ok"}, None
 
 
-ALL9 = {c: 9 for c in pg.DEFAULT_RUBRICS["story"]}
+ALL9 = {c: 9 for c in pg.DEFAULT_RUBRICS["story"] + [pg.HUMAN]}     # 21 Nov: + the S10 human_feel score
 
 
 def test_deterministic_hook_originality_and_ad_safety(vid):
@@ -76,9 +76,11 @@ def test_not_judged_is_never_a_pass(vid, monkeypatch, brain, expect):
 
 
 def test_kids_and_clips_use_their_own_rubric(vid):
-    b = Brain({c: 10 for c in pg.DEFAULT_RUBRICS["kids"]})
+    b = Brain({c: 10 for c in pg.DEFAULT_RUBRICS["kids"] + [pg.HUMAN]})
     v = pg.judge(vid["it"], dict(CH, type="kids"), vid["meta"], b)
-    assert set(v["scores"]) == set(pg.DEFAULT_RUBRICS["kids"]) and "children aged 2-5" in b.calls[0][1]
+    assert set(v["scores"]) == set(pg.DEFAULT_RUBRICS["kids"] + [pg.HUMAN]) and "children aged 2-5" in b.calls[0][1]
+    with pytest.raises(ValueError, match="skipped 'human_feel'"):     # S10 score missing = not judged
+        pg.judge(vid["it"], dict(CH, type="kids"), vid["meta"], Brain({c: 10 for c in pg.DEFAULT_RUBRICS["kids"]}))
     b = Brain({c: 10 for c in pg.DEFAULT_RUBRICS["clips"]})
     assert set(pg.judge(dict(vid["it"], kind="clip"), CH, vid["meta"], b)["scores"]) == set(pg.DEFAULT_RUBRICS["clips"])
 

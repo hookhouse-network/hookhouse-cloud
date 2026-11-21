@@ -58,7 +58,13 @@ CRITERIA_HELP = {
     "self_contained": "the moment makes sense without the full video",
     "caption_hook": "the on-screen hook/caption makes a stranger stop and watch",
     "brief_fit": "fits the campaign brief's spirit and audience",
+    # S10 (owner 21 Nov: "the content ... is so obvious for the viewer that this is ai, we need more human like")
+    "human_feel": "the words and shots read like a skilled human creator made them: specific concrete details, "
+                  "natural spoken phrasing, varied rhythm, real humour or opinion; NOT obvious AI (stock phrases like "
+                  "'delve', 'buckle up', 'little did they know', 'not just X but Y', same-shaped sentences, a "
+                  "template look, word cards instead of real pictures)",
 }
+HUMAN = "human_feel"            # judged with its own bar (ai_tell.min_human): only obviously-AI videos are remade
 
 
 def _cfg() -> dict:
@@ -66,6 +72,7 @@ def _cfg() -> dict:
     c = dict({"min_each": 9, "hook_start_max_s": 0.6, "clip_hook_start_max_s": 1.0, "title_repeat_ratio": 0.85},
              **((config().get("potential") or {})))
     c.setdefault("rubrics", {})
+    c["ai_tell"] = dict({"enabled": True, "min_human": 6, "max_text_density": 4.0}, **(c.get("ai_tell") or {}))
     from .content_gate import temporary_bar                      # owner 21 Nov: 8/10 for 7 days, then 9 again
     t = temporary_bar()
     if t.get("min_each") is not None:
@@ -160,7 +167,22 @@ def deterministic(it: dict, ch: dict, meta: dict, past_titles: list[str] | None 
     bad = sorted({m.group(0).lower() for m in AD_UNFRIENDLY.finditer(text)})
     if bad:
         p.append(f"{PREFIX}: not advertiser-friendly ({', '.join(bad[:5])}): limited or no ads = no earning")
+    ai = cfg["ai_tell"]
+    if ai.get("enabled"):                 # S10: obviously AI-written words; a clip's speech is the creator's own
+        from .humanize import tell_density, tells
+        ours = " ".join([title, str(meta.get("description") or "")] + ([] if ctype == "clips" else [said]))
+        found = tells(ours)
+        if len(found) >= 2 and tell_density(ours) >= float(ai.get("max_text_density", 4.0)):
+            words = ", ".join(f'"{m}"' for m in list(dict.fromkeys(t["match"].lower() for t in found))[:4])
+            p.append(f"{PREFIX}: reads like AI-written text ({words}): say it plainly like a person would")
     return p
+
+
+def _criteria(cfg: dict, ctype: str) -> list[str]:
+    crit = list(cfg["rubrics"].get(ctype) or DEFAULT_RUBRICS[ctype])
+    if cfg["ai_tell"].get("enabled") and ctype != "clips" and HUMAN not in crit:
+        crit.append(HUMAN)
+    return crit
 
 
 def _prompt(ch: dict, it: dict, meta: dict, ctype: str, criteria: list[str], evidence: str) -> str:
@@ -189,7 +211,7 @@ def judge(it: dict, ch: dict, meta: dict, brain, evidence: str = "") -> dict:
     """{scores, fixes, summary, criteria}. Raises when the answer is missing or incomplete (= not judged)."""
     cfg = _cfg()
     ctype = _ctype(ch, meta, it)
-    criteria = list(cfg["rubrics"].get(ctype) or DEFAULT_RUBRICS[ctype])
+    criteria = _criteria(cfg, ctype)
     data, _res = brain.ask_json("checker", _prompt(ch, it, meta, ctype, criteria, evidence), temperature=0.0)
     scores = (data or {}).get("scores") if isinstance(data, dict) else None
     if not isinstance(scores, dict):
@@ -241,10 +263,16 @@ def problems(it: dict, ch: dict, meta: dict, brain_fn=None, led=None) -> list[st
             return [f"{PREFIX}: not judged yet ({type(e).__name__}: {str(e)[:80]}); it tries again"]
     else:
         verdict = cp["artifact"]
-    need = float(_cfg()["min_each"])
-    low = {c: s for c, s in (verdict.get("scores") or {}).items() if s < need}
-    if not low:
-        return []
-    scores = ", ".join(f"{c} {s:g}" for c, s in sorted(low.items(), key=lambda x: x[1]))
+    cfg = _cfg()
+    need, human = float(cfg["min_each"]), float(cfg["ai_tell"].get("min_human", 6))
+    scores_all = dict(verdict.get("scores") or {})
+    h = scores_all.pop(HUMAN, None)                   # older verdicts have no human_feel: nothing to hold
+    low = {c: s for c, s in scores_all.items() if s < need}
     fixes = "; ".join(verdict.get("fixes") or [])
-    return [f"{PREFIX}: below {need:g}/10 on {scores}. Fix: {fixes}"[:700]]
+    out = []
+    if low:
+        scores = ", ".join(f"{c} {s:g}" for c, s in sorted(low.items(), key=lambda x: x[1]))
+        out.append(f"{PREFIX}: below {need:g}/10 on {scores}. Fix: {fixes}"[:700])
+    if cfg["ai_tell"].get("enabled") and h is not None and h < human:
+        out.append(f"{PREFIX}: looks/sounds obviously AI-made ({HUMAN} {h:g}, needs {human:g}). Fix: {fixes}"[:700])
+    return out

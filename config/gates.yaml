@@ -38,6 +38,10 @@ potential:                    # engine/potential_gate.py: the "viral + earning" 
   clip_hook_start_max_s: 1.0
   title_repeat_ratio: 0.85    # a title this similar to an earlier one of the channel = not original
   rubrics: {}                 # override per content type, e.g. story: [hook, retention, emotion, ...]
+  ai_tell:                    # S10 human-made feel (owner 21 Nov: "so obvious for the viewer that this is ai")
+    enabled: true             # off-switch for both checks below
+    min_human: 6              # the judge's human_feel score (story, Brain Snack, kids); below = obviously AI -> remade
+    max_text_density: 4.0     # engine/humanize.py AI-writing tells, weighted per 100 words (needs >= 2 tells)
 
 auto_approve:                 # engine/auto_approve.py (owner 20 Nov: "yes you can consider auto-approval")
   enabled: true
