@@ -48,6 +48,7 @@ def test_deterministic_hook_originality_and_ad_safety(vid):
 
 
 def test_every_criterion_must_reach_nine(vid, monkeypatch):
+    monkeypatch.setattr("engine.content_gate.temporary_bar", lambda today=None: {})   # the strict rule itself
     monkeypatch.setattr(pg, "deterministic", lambda *a, **k: [])
     monkeypatch.setattr(tp, "proof", lambda topic, ch, **k: {"tier": "hot", "best_per_day": 90000, "top": []})
     b = Brain(dict(ALL9))

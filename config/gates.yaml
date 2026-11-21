@@ -26,6 +26,12 @@ platforms:
   dailymotion: {max_s: 3600}
   telegram:    {max_mb: 48}
 
+temporary_bar:                # owner 21 Nov ("Temporary 85 bar"): 0 of 53 posts went out in 24 h under 100/100.
+  until: "2026-11-28"         # last day it applies (IST); then the strict bars below come back by themselves
+  min_quality: 85             # quality score; 'bad' issues still block, only small craft warnings may remain
+  min_each: 8                 # potential rubric per criterion (9 normally)
+  # policy, copyright/franchise, fact-check, kids-safety, AI-label and clip/campaign checks are NOT relaxed
+
 potential:                    # engine/potential_gate.py: the "viral + earning" half of 100/100
   min_each: 9                 # every rubric criterion 9+/10 (9 = top 5 % of the niche this month)
   hook_start_max_s: 0.6       # narration/caption must start within 0.6 s (viewed vs swiped away)

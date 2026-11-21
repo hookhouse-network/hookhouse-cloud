@@ -78,7 +78,34 @@ def test_the_file_is_measured_not_trusted(story, monkeypatch):
     assert any("missing" in p for p in cg.verify(story["it"]))
 
 
+def test_temporary_bar_moves_only_the_score_and_ends_by_itself(story, monkeypatch):
+    """Owner 21 Nov ("Temporary 85 bar", 7 days): 85+ with only warnings may post; 'bad' findings and every
+    policy check still block; after `until` the strict 100 is back without any code change."""
+    monkeypatch.setattr(cg, "config", lambda: {"defaults": {"min_quality": 100}, "content": {}, "channels": {},
+                                               "temporary_bar": {"until": "2026-11-28", "min_quality": 85,
+                                                                 "min_each": 8}})
+    assert cg.temporary_bar("2026-11-28")["min_quality"] == 85 and cg.temporary_bar("2026-11-29") == {}
+    monkeypatch.setattr(cg, "temporary_bar", lambda today=None: {"min_quality": 85, "min_each": 8})
+    assert cg.rules_for({"type": "story"})["min_quality"] == 85
+    monkeypatch.setattr(cg, "config", lambda: {"defaults": {"min_quality": 100, "ai_disclosure": "required"},
+                                               "content": {"story": {"fact_check": "required"}}, "channels": {}})
+    monkeypatch.setattr("engine.quality.check_video",
+                        lambda c, v, m, f: {"score": 86, "issues": [("warn", "Short is 49 s (best 8-45 s)")]})
+    assert cg.verify(story["it"]) == []                                       # 86 with a small warning posts
+    story["it"]["made_at"] = 6.0
+    monkeypatch.setattr("engine.quality.check_video",
+                        lambda c, v, m, f: {"score": 90, "issues": [("bad", "peaks +1 dB")]})
+    assert any("peaks" in p for p in cg.verify(story["it"]))                  # a 'bad' finding still blocks
+    story["it"]["made_at"] = 7.0
+    monkeypatch.setattr("engine.quality.check_video", lambda c, v, m, f: {"score": 100, "issues": []})
+    _meta(story, ai_label=False)
+    assert any("AI disclosure" in p for p in cg.verify(story["it"]))          # policy checks are not relaxed
+    from engine import potential_gate as pg
+    assert pg._cfg()["min_each"] == 8
+
+
 def test_quality_must_be_100_and_bad_findings_block(story, monkeypatch):
+    monkeypatch.setattr(cg, "temporary_bar", lambda today=None: {})          # the strict rule itself
     monkeypatch.setattr("engine.quality.check_video",
                         lambda c, v, m, f: {"score": 93, "issues": [("warn", "ends on black")]})
     probs = cg.verify(story["it"])

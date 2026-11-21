@@ -47,7 +47,23 @@ def rules_for(ch: dict, it: dict | None = None) -> dict:
     r = dict(c.get("defaults") or {})
     r.update((c.get("content") or {}).get(kind, {}) or {})
     r.update((c.get("channels") or {}).get(ch.get("id") or "", {}) or {})
+    t = temporary_bar()
+    if t.get("min_quality") is not None:
+        r["min_quality"] = min(float(r.get("min_quality", 100)), float(t["min_quality"]))
     return r
+
+
+def temporary_bar(today: str | None = None) -> dict:
+    """Owner 21 Nov: a time-boxed lower bar while the makers are fixed (config/gates.yaml temporary_bar). Only the
+    quality score and the potential rubric move; every policy/safety check stays. {} once `until` has passed."""
+    t = config().get("temporary_bar") or {}
+    if not t.get("until"):
+        return {}
+    if today is None:
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        today = datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()
+    return dict(t) if today <= str(t["until"]) else {}
 
 
 def platform_rules(platform: str) -> dict:

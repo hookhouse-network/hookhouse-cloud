@@ -66,6 +66,10 @@ def _cfg() -> dict:
     c = dict({"min_each": 9, "hook_start_max_s": 0.6, "clip_hook_start_max_s": 1.0, "title_repeat_ratio": 0.85},
              **((config().get("potential") or {})))
     c.setdefault("rubrics", {})
+    from .content_gate import temporary_bar                      # owner 21 Nov: 8/10 for 7 days, then 9 again
+    t = temporary_bar()
+    if t.get("min_each") is not None:
+        c["min_each"] = min(int(c["min_each"]), int(t["min_each"]))
     return c
 
 
