@@ -165,6 +165,28 @@ def verify(pid: str, store: str = "payhip", folder: Path | None = None, listed: 
     return list(dict.fromkeys(p))
 
 
+CHECKS = ["record", "file", "A4 twin", "focus (page cap)", "listing text", "policy (franchise names, never-topics)",
+          "price band", "store cover", "no duplicate title", "AI art"]
+
+
+def report(pid: str, store: str, problems: list[str], folder: Path | None = None) -> Path | None:
+    """Phase 6 acceptance: every listing decision keeps its gate report next to the product (gate_<store>.json:
+    when, which checks ran, passed or the problems) and in a history line (gate_history.jsonl). Only into a product
+    folder that exists (never creates one)."""
+    import time
+    from .core.atomic import write_json
+    d = folder or PROD / pid
+    if not d.is_dir():
+        return None
+    rec = {"at": time.strftime("%Y-%m-%d %H:%M:%S"), "pid": pid, "store": store, "passed": not problems,
+           "problems": list(problems), "checks": CHECKS}
+    out = d / f"gate_{store}.json"
+    write_json(out, rec)
+    with (d / "gate_history.jsonl").open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    return out
+
+
 def hold(pid: str, store: str, problems: list[str]) -> None:
     """Remember why a product waits (Studio / Telegram 'Anything broken?')."""
     try:

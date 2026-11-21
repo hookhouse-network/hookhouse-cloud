@@ -62,3 +62,19 @@ def test_the_pdf_links_jump_to_the_right_pages(tmp_path):
     assert sorted(home) == sorted([1] + list(range(3, 15)) + list(range(3, 15)))   # tabs + 12 month blocks
     assert sorted(targets(20)) == [1] + list(range(3, 15))                    # notes page: HOME + 12 months
     assert not (tmp_path / "_digital_raw.pdf").exists()
+
+
+def test_habit_tracker_tabs_open_each_months_tracker(tmp_path):
+    assert dp.tab_target(1, dp.HABIT_HOME, dp.HABIT_MONTH0, dp.HABIT_STEP) == 2          # January tracker
+    assert dp.tab_target(12, dp.HABIT_HOME, dp.HABIT_MONTH0, dp.HABIT_STEP) == 24        # December tracker
+    assert dp.tab_for_page(3, dp.HABIT_HOME, dp.HABIT_MONTH0, dp.HABIT_STEP) == 1        # January review lights JAN
+    assert dp.tab_for_page(26, dp.HABIT_HOME, dp.HABIT_MONTH0, dp.HABIT_STEP) is None    # notes: no month
+    assert dp.tab_for_page(4) == 2 and dp.tab_for_page(15) is None and dp.tab_for_page(2) is None   # planner: FEB;
+    # weekly and goals pages light no tab
+    out = dp.make_habit(out_dir=tmp_path, log=lambda *_: None)
+    r = PdfReader(str(out))
+    assert len(r.pages) == 28
+    index = {p.indirect_reference.idnum: i for i, p in enumerate(r.pages)}
+    links = [index.get((a.get_object().get("/Dest") or [None])[0].idnum) for a in r.pages[5].get("/Annots") or []]
+    assert sorted(links) == [1] + list(range(2, 26, 2))                                 # HOME + 12 trackers
+    assert not r.pages[0].get("/Annots")                                               # the cover stays clean

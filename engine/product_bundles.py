@@ -42,8 +42,16 @@ BUNDLES = {
 
 
 BUILT = ("title", "price_usd", "price_inr", "channel", "description", "tags", "files", "pages", "stores", "bundle_of")
-DIGITAL_BONUS = (" Bonus: the planner's hyperlinked digital version for GoodNotes, Notability or any PDF app (tap a "
-                 "month tab to jump there).")
+
+
+def digital_bonus(files: list[str]) -> str:
+    """' Bonus: hyperlinked digital versions of the planner and habit tracker ...' from the parts' digital files."""
+    import re
+    kinds = [re.sub(r"^\d{4}_|_Digital_.*$", "", f).replace("_", " ").lower() for f in files if "_Digital_" in f]
+    if not kinds:
+        return ""
+    return (f" Bonus: hyperlinked digital version{'s' if len(kinds) > 1 else ''} of the {' and '.join(kinds)} for "
+            "GoodNotes, Notability or any PDF app (tap a month tab to jump there).")
 
 
 def compress_pdf(src: Path, dst: Path, dpi: int = 300) -> Path:
@@ -86,8 +94,7 @@ def make(bid: str, log=print) -> Path:
     info = {k: v for k, v in old.items() if k not in BUILT}       # fields added later (page_sizes ...) stay
     info.update({k: spec[k] for k in ("title", "price_usd", "price_inr", "channel", "description", "tags")})
     info.update(files=files, pages=pages, stores=["Payhip", "Gumroad"], bundle_of=spec["parts"])
-    if any("_Digital_" in f for f in files):                       # P6: a part's digital bonus comes along
-        info["description"] = info["description"].rstrip() + DIGITAL_BONUS
+    info["description"] = info["description"].rstrip() + digital_bonus(files)   # P6: parts' digital bonus files
     pj.write_text(json.dumps(info, indent=1, ensure_ascii=False), encoding="utf-8")
     first = PROD / spec["parts"][0] / "cover.jpg"
     if first.exists():

@@ -78,6 +78,25 @@ def test_listing_is_refused_without_the_gate(monkeypatch):
     assert sp._gate_ok("x", "payhip", [], lambda m: None) is False                  # a crashing gate holds
 
 
+def test_every_gate_decision_keeps_a_report(tmp_path, monkeypatch):
+    import json as _json
+    from engine import store_publish as sp
+    d = tmp_path / "habit_tracker_2027"
+    d.mkdir()
+    monkeypatch.setattr(pg, "PROD", tmp_path)
+    monkeypatch.setattr(pg, "hold", lambda *a, **k: None)
+    monkeypatch.setattr(pg, "verify", lambda pid, store="payhip", **k: ["no tags"])
+    assert sp._gate_ok("habit_tracker_2027", "payhip", [], lambda m: None) is False
+    monkeypatch.setattr(pg, "verify", lambda pid, store="payhip", **k: [])
+    monkeypatch.setattr("engine.product_promo.register", lambda pid: None)
+    assert sp._gate_ok("habit_tracker_2027", "payhip", [], lambda m: None) is True
+    rec = _json.loads((d / "gate_payhip.json").read_text(encoding="utf-8"))
+    assert rec["passed"] is True and rec["problems"] == [] and "price band" in rec["checks"]
+    hist = [_json.loads(x) for x in (d / "gate_history.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert [h["passed"] for h in hist] == [False, True] and hist[0]["problems"] == ["no tags"]
+    assert pg.report("no_such_product", "payhip", []) is None and not (tmp_path / "no_such_product").exists()
+
+
 # ---------------------------------------------------------------- promo Shorts
 @pytest.fixture
 def promos(tmp_path, monkeypatch, prod):

@@ -27,7 +27,12 @@ def test_rebuild_keeps_later_fields_and_adds_the_digital_bonus(tmp_path, monkeyp
     info = json.loads((out / "product.json").read_text(encoding="utf-8"))
     assert info["page_sizes"] == ["US Letter", "A4"] and info["pages"] == 35
     assert info["files"] == ["P.pdf", "P_A4.pdf", "P_Digital_GoodNotes_Hyperlinked.pdf", "H.pdf", "H_A4.pdf"]
-    assert info["description"] == "Two planners." + pb.DIGITAL_BONUS
+    assert info["description"] == "Two planners." + pb.digital_bonus(info["files"])
+    assert " digital version of the p for GoodNotes" in info["description"]
+    two = pb.digital_bonus(["2027_Planner_Digital_GoodNotes_Hyperlinked.pdf", "x.pdf",
+                            "2027_Habit_Tracker_Digital_GoodNotes_Hyperlinked.pdf"])
+    assert "digital versions of the planner and habit tracker for GoodNotes" in two
+    assert pb.digital_bonus(["a.pdf"]) == ""
     assert (out / "P_Digital_GoodNotes_Hyperlinked.pdf").exists()
     again = json.loads((pb.make("b", log=lambda *_: None) / "product.json").read_text(encoding="utf-8"))
     assert again["description"].count("Bonus:") == 1                 # rebuilt from the spec: never doubled

@@ -279,10 +279,9 @@ def reflection(month_name: str) -> Image.Image:
     return img
 
 
-def habit_tracker(log=print) -> Path:
-    """2027 Habit Tracker & Resolution Planner (research 17 Nov: habit trackers peak Dec-Feb with New Year
-    resolutions; built from the planner's own page designs, no AI art)."""
-    HABIT_OUT.mkdir(parents=True, exist_ok=True)
+def habit_pages() -> list[Image.Image]:
+    """Title, goals, then habit tracker + review for each month, two notes pages (the printable and the
+    hyperlinked digital version use the same pages: engine/digital_planner.py)."""
     months = list(calendar.month_name)[1:]
     title, d = _page(f"{YEAR} HABIT TRACKER", "& New Year resolution planner")
     for txt, sz, y in (("Small steps. Every day.", 110, 0.40), ("12 monthly habit trackers", 70, 0.52),
@@ -292,7 +291,14 @@ def habit_tracker(log=print) -> Path:
     pages = [title, goals()]
     for m in months:
         pages += [habits(m), reflection(m)]
-    pages += [notes(), notes()]
+    return pages + [notes(), notes()]
+
+
+def habit_tracker(log=print) -> Path:
+    """2027 Habit Tracker & Resolution Planner (research 17 Nov: habit trackers peak Dec-Feb with New Year
+    resolutions; built from the planner's own page designs, no AI art)."""
+    HABIT_OUT.mkdir(parents=True, exist_ok=True)
+    pages = habit_pages()
     pdf = HABIT_OUT / f"{YEAR}_Habit_Tracker_Printable.pdf"
     pages[0].save(pdf, save_all=True, append_images=pages[1:], resolution=300)
     pages[0].save(HABIT_OUT / "cover.jpg", quality=92)

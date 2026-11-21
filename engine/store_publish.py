@@ -97,6 +97,7 @@ def _gate_ok(pid: str, store: str, out: list, log) -> bool:
         probs = [f"product gate could not run ({type(e).__name__}: {str(e)[:80]})"]
     try:
         product_gate.hold(pid, store, probs)
+        product_gate.report(pid, store, probs)               # Phase 6: every listing's gate report is kept
     except OSError as e:
         log(f"product gate record: {e}")
     if probs:
