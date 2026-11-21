@@ -437,6 +437,16 @@ def gpu_jobs_from_script(script: dict, style: str = "") -> list[dict]:
     return jobs
 
 
+def flux_steps() -> int:
+    """Diffusion steps per Cloudflare FLUX.1-schnell picture (settings flux_steps, 1-8, default 4). Each step costs
+    9.6 of the 10,000 free daily neurons; schnell is distilled for 1-4 steps, so 8 nearly halved the pictures/day."""
+    from ..config import settings
+    try:
+        return max(1, min(8, int(settings().get("flux_steps", 4))))
+    except (TypeError, ValueError):
+        return 4
+
+
 def ai_image(prompt: str, style: str = "") -> Visual | None:
     """AI image: first look in the weekly GPU batch folder, then Cloudflare's free FLUX."""
     from ..ip_guard import scrub                    # 20 Nov: never draw a copyrighted character (strike risk)
@@ -454,7 +464,7 @@ def ai_image(prompt: str, style: str = "") -> Visual | None:
     try:
         r = requests.post(
             f"https://api.cloudflare.com/client/v4/accounts/{acct}/ai/run/@cf/black-forest-labs/flux-1-schnell",
-            headers={"Authorization": f"Bearer {token}"}, json={"prompt": full, "steps": 8}, timeout=120)
+            headers={"Authorization": f"Bearer {token}"}, json={"prompt": full, "steps": flux_steps()}, timeout=120)
         data = r.json()
         img_b64 = (data.get("result") or {}).get("image")
     except (requests.RequestException, ValueError):
