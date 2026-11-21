@@ -96,6 +96,13 @@ def test_every_format_describes_what_the_viewer_sees(tmp_path):
     assert "5 times" in maker.describe(*cases["spiral"]) and "0:24" in maker.describe(*cases["spiral"])
     assert "Ice knocks out Lava at 0:19" in maker.describe(*cases["versus"])
     assert "77 colour tiles" in maker.describe(*cases["colorsort"]) and "0:16" in maker.describe(*cases["colorsort"])
+    # 22 Nov: every format says what the viewer meets at 0:00 (the judge scored the quiz/readfast hooks blind)
+    assert all(maker.describe(*c).startswith("0:00") for c in cases.values())
+    assert 'dares you: "Only 1% get all 1. Ready?"' in maker.describe(*cases["ladder"])
+    quiz_hook = ({**cases["ladder"][0], "quiz": {"hook": "Can you climb all 7?", "questions": [{"q": "x"}]}},
+                 cases["ladder"][1])
+    assert '"Can you climb all 7?"' in maker.describe(*quiz_hook)
+    assert "READ IT IF YOU CAN" in maker.describe(*cases["readfast"])
     (tmp_path / "script.json").write_text('{"title": "spiral", "shown": "A glowing ball drops", "spec": {}}',
                                           encoding="utf-8")
     assert pg.script_text({"out_dir": str(tmp_path), "file": "video.mp4"}, {}) == "A glowing ball drops"

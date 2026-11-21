@@ -297,16 +297,22 @@ def describe(spec: dict, info: dict) -> str:
         return (f"0:00 {a} vs {b}: two spinning fighters battle in an arena, each with a health bar; every hit makes "
                 f"the hitter stronger. {info.get('winner', a)} knocks out {info.get('loser', b)} at "
                 f"{_mmss(info.get('ko_at'))}.{tune} {total:.0f} s.")
+    # 22 Nov: the ladder and readfast lines never said what the viewer meets at 0:00 (the other formats all start
+    # with it), so the judge scored their hook 4-6 without knowing a voiced dare / a big title opens them.
     if fmt == "ladder":
-        qs = (spec.get("quiz") or {}).get("questions") or []
+        quiz = spec.get("quiz") or {}
+        qs = quiz.get("questions") or []
+        hook = str(quiz.get("hook") or f"Only 1% get all {len(qs)}. Ready?")    # what ladder.render says and shows
         first = f" First question: \"{qs[0].get('q')}\"" if qs else ""
-        return (f"A {len(qs) or 'multi'}-question quiz ladder about {spec.get('category', 'mixed topics')}: each "
+        return (f"0:00 A voice dares you: \"{hook}\" (the words pop up one by one). Then a "
+                f"{len(qs) or 'multi'}-question quiz ladder about {spec.get('category', 'mixed topics')}: each "
                 f"question appears with a countdown, a voice reads it, the answer is revealed and the ladder climbs a "
-                f"step.{first} {total:.0f} s.")
+                f"step.{first} Ends asking you to comment your score. {total:.0f} s.")
     if fmt == "readfast":
         fact = str((spec.get("fact") or {}).get("fact") or "").strip()
-        return (f"A surprising fact flashes one word at a time, faster and faster ({info.get('words', 'many')} words), "
-                f"daring you to keep reading; a ball bounces on every word." + (f" The fact: {fact}" if fact else ""))
+        return (f"0:00 \"READ IT IF YOU CAN\" fills the screen in big yellow letters. Then a surprising fact flashes "
+                f"one word at a time, faster and faster ({info.get('words', 'many')} words), daring you to keep "
+                f"reading; a glowing ball bounces on every word." + (f" The fact: {fact}" if fact else ""))
     if fmt == "colorsort":
         return (f"0:00 A shuffled grid of {info.get('tiles')} colour tiles sorts itself into a rainbow, one swap at a "
                 f"time ({info.get('swaps')} swaps), each swap a pluck that climbs higher; the last three swaps slow "
