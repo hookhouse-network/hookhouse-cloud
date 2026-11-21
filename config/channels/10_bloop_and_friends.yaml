@@ -12,7 +12,7 @@ earns_from: [youtube_ads]
 made_for_kids: true          # must be ticked on every upload (US COPPA law + YouTube rules)
 schedule: {shorts_per_week: 2, long_per_week: 1}   # research: 1 episode a week + 2-3 Short cut-downs
                                                   # (Shorts are trailers for under-5s, not the main product)
-voice: {engine: kokoro, id: af_heart, speed: 0.82, backup: {engine: kokoro, id: af_bella}}   # child-directed pace: ~145 wpm while speaking (was 166)
+voice: {engine: kokoro, id: af_heart, speed: 1.0, backup: {engine: kokoro, id: af_bella}}   # Kids 2.0 (owner 21 Nov: "too static, stalling, boring"): natural lively pace (was 0.82)
 style:
   palette: ["#4FC3F7", "#FFF176", "#F48FB1"]
   caption_color: "#FFFFFF"

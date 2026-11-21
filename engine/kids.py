@@ -153,8 +153,11 @@ SITUATIONS = ["getting ready for a party", "a picnic", "getting ready for bed", 
               "cheering up a friend", "a treasure hunt", "a sunny morning", "a surprise for a friend",
               "tidying up after play", "putting on a little show"]
 NUM = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
-GAPS = {"story": 0.55, "wave": 0.6, "count": 2.2, "together": 1.8, "clap": 1.5, "question": 3.2, "answer": 1.3,
-        "callout": 2.4, "praise": 0.7}
+# Kids 2.0 (owner 21 Nov: "too static, stalling, idle ... boring"): the waits were long silent holds. Shorter, still
+# Dora-style (ask -> pause -> answer), and the picture keeps moving during every pause.
+GAPS = {"story": 0.4, "wave": 0.45, "count": 1.4, "together": 1.2, "clap": 1.0, "question": 1.8, "answer": 0.9,
+        "callout": 1.5, "praise": 0.5}
+FIRST_WORD_S = 0.3        # potential gate: speech within 0.6 s (it started after 2 s of music, so every video was held)
 # Talking WITH the child (owner, 13 Nov: "like someone is talking through you to make you engage and helping...
 # motherly vibes and comfort"; research: Ms Rachel's speech-therapy techniques = repetition, pausing for the child,
 # parentese, short simple language). A callout asks the child to say or do something, waits, then praises.
@@ -166,24 +169,30 @@ OBJECT_COLOUR = {"apple": "red", "star": "yellow", "balloon": "purple", "duck": 
 BANNED = re.compile(r"subscrib|\bcomment|\btap\b|\bclick|\bbell\b|\blink\b|like (this|the|our) video|hit (the )?like",
                     re.I)
 
-STORY_PROMPT = """Write the story parts of a calm, kind episode of "Bloop & Friends", a Made-for-Kids show for ages 2-5.
-Characters (our own): Bloop (blue water-drop, curious), Pip (small yellow, cheerful), Mo (tall green, gentle),
-Dee (coral, round ears, helpful). An off-screen narrator talks to the child like a loving mother or favourite
-teacher: warm, calm, comforting; she is happy the child is here, invites them to help the friends, and is proud of
-them at the end. The friends talk TO the child too ("Can you help me?", "You're so good at this!").
+STORY_PROMPT = """Write the story parts of a FUNNY, lively episode of "Bloop & Friends", a Made-for-Kids show for ages 2-5.
+(Owner 21 Nov: the old episodes were "too static, stalling, idle, unfunny, uncatchy, boring". Make kids giggle.)
+Characters (our own): Bloop (blue water-drop, curious, a bit clumsy: says "Oopsie-doodle!" when things go wrong),
+Pip (small yellow, bouncy, loves to sing), Mo (tall green, gentle, slow and surprised), Dee (coral, round ears, clever
+helper). An off-screen narrator talks to the child like a playful favourite teacher: excited, warm, asks the child to
+help ("Can you help? Point to it!"), cheers when they do. The friends talk TO the child too.
 Situation: {situation}. Setting: {setting}. Learning target: counting from 1 to {n}.
-The small problem: there are {n} empty round spots, and each spot needs one {obj}. The friends want to know
-if they have enough {objs}. The counting itself is added automatically, so do NOT write any counting lines.
-Rules: 3-9 simple words per line, warm and positive, gentle parentese. No scary, sad or violent moments, no
-brands, no famous songs. Never ask the child to like, subscribe, comment or tap anything.
+The problem: there are {n} empty round spots and each needs one {obj}; the {objs} keep rolling, bouncing or hiding
+in silly ways, so the friends must count to know if they have enough. The counting itself is added automatically,
+so do NOT write any counting lines.
+What makes it fun (use all of these): the VERY FIRST line is a surprise or a silly mishap that grabs attention at
+once (no slow hello first); gentle slapstick (slipping, bonking softly, a {obj} bouncing off Mo's head); a running gag
+that comes back 2-3 times; one short catchy chant everyone repeats ("{objs}, {objs}, one by one!"); a funny surprise
+twist before the happy ending. Quick back-and-forth between characters.
+Rules: 3-8 simple words per line, happy and kind, never mean. No scary, sad or violent moments, no brands, no famous
+songs or characters. Never ask the child to like, subscribe, comment or tap anything.
 Return JSON only:
-{{"adjective": "one gentle adjective for the {objs}, e.g. shiny",
-"intro": [3-5 lines: the narrator greets the child lovingly ("Hello, my little friend! I'm so happy you're here."),
-  then the friends say hello to the child],
-"problem": [4-6 lines: the situation, the {n} empty spots, "do we have enough?", "let's count!"],
-"after_count": [2-4 lines: a happy reaction, every spot has one {obj}],
-"ending": [3-5 lines: the happy ending of the situation and the lesson (counting helps us know how many)],
-"goodbye": [2-3 calm, cosy goodbye lines (the narrator: proud of the child, "see you soon")],
+{{"adjective": "one fun adjective for the {objs}, e.g. bouncy",
+"intro": [2-3 lines: line 1 is the surprise/mishap (e.g. Bloop: "Oopsie-doodle! The {objs} are bouncing away!"),
+  then a quick excited hello to the child],
+"problem": [4-6 lines: the {objs} misbehave, the {n} empty spots, "do we have enough?", the chant, "let's count!"],
+"after_count": [2-4 lines: a big happy cheer, the running gag comes back, every spot has one {obj}],
+"ending": [3-4 lines: the funny twist, then the happy ending and the lesson (counting tells us how many)],
+"goodbye": [1-2 short, upbeat lines with the chant or catchphrase (the narrator: proud of the child)],
 "description": "2 plain sentences for parents about what the child learns"}}
 Every line is {{"who": "Bloop|Pip|Mo|Dee|narrator", "say": "..."}}."""
 
@@ -368,9 +377,9 @@ class Voices:
         return a
 
 
-def build_timeline(lines: list[dict], voices: Voices, tail: float = 5.0) -> float:
+def build_timeline(lines: list[dict], voices: Voices, tail: float = 2.5) -> float:
     """Adds start/end/hold (s) and the voice clips to every line. Returns the total length."""
-    t, prev = 2.0, None                                      # 2 s of music before the first word
+    t, prev = FIRST_WORD_S, None                             # the hook is spoken at once (was 2 s of music first)
     for ln in lines:
         if ln["who"] == "all":                               # everyone says it together (a little chorus)
             parts = {name: voices.say(ln["say"], spec[3]) for name, spec in CAST.items()}
@@ -962,8 +971,8 @@ def _duck(voice: np.ndarray) -> np.ndarray:
 
 # ---------- render ----------
 
-def render(episode: dict, out_dir: Path, seed: int = 0, log=print, speed: float = 0.92,
-           tail: float = 5.0) -> dict:
+def render(episode: dict, out_dir: Path, seed: int = 0, log=print, speed: float = 1.0,
+           tail: float = 2.5) -> dict:                  # Kids 2.0: natural voice speed (was 0.92), short loop ending
     work = out_dir / "work"
     work.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(seed)
@@ -1196,8 +1205,8 @@ def make(brain, channel: dict, topic: str | None = None, memory=None, log=print,
             raise RuntimeError(f"Kids QA failed: {check}")
         out_dir = ROOT / "output" / channel["id"] / (time.strftime("%Y%m%d_%H%M%S") + ("_short" if short else ""))
         out_dir.mkdir(parents=True, exist_ok=True)
-        info = render(episode, out_dir, seed=seed, log=log, tail=3.8 if short else 5.0,   # room for the sung jingle
-                      speed=float((channel.get("voice") or {}).get("speed", 0.92)))
+        info = render(episode, out_dir, seed=seed, log=log, tail=3.0 if short else 3.5,   # just the sung jingle
+                      speed=float((channel.get("voice") or {}).get("speed", 1.0)))
         script = {k: v for k, v in episode.items()}
         script["lines"] = [{k: v for k, v in ln.items() if not k.startswith("_")} for ln in episode["lines"]]
         (out_dir / "script.json").write_text(json.dumps(script, indent=2, ensure_ascii=False), encoding="utf-8")

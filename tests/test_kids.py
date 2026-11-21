@@ -109,3 +109,18 @@ def test_christmas_season_brings_christmas_counting_topics(monkeypatch):
     assert all(any(o in t["topic"] for o in ("present", "ornament", "bell", "snowmen", "stocking", "candy cane")) for t in tops)
     monkeypatch.setattr(K, "christmas_season", lambda when=None: False)
     assert not any("snowmen" in t["topic"] or "present" in t["topic"] for t in K.plan_topics(4, 5))
+
+
+def test_kids_2_hook_is_spoken_at_once_and_no_long_silent_holds():
+    """Owner 21 Nov: Bloop was 'too static, stalling, idle'; every video was held for 'speech starts at 2.0s'."""
+    from engine.snack import audio as au
+
+    class FakeVoices:
+        def say(self, text, voice):
+            return np.zeros(int(au.SR * 1.0), dtype=np.float32)
+    lines = [{"who": "Bloop", "say": "Uh-oh! My balloon!", "kind": "story", "section": "intro"},
+             {"who": "narrator", "say": "How many balloons?", "kind": "question", "section": "count"},
+             {"who": "all", "say": "One!", "kind": "count", "section": "count"}]
+    K.build_timeline(lines, FakeVoices(), tail=2.5)
+    assert lines[0]["start"] <= 0.6
+    assert max(K.GAPS.values()) <= 2.0
