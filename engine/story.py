@@ -265,11 +265,32 @@ def wikipedia_summaries(titles: list[str], lang: str = "en", limit: int = 6, cha
                                      "redirects": 1, "titles": t})
             pages = r.json().get("query", {}).get("pages", {})
             text = next(iter(pages.values()), {}).get("extract", "") if pages else ""
+            if not text:                                # 21 Nov: "Dwarka (mythology)" is no exact title, so a whole
+                hit = _wiki_search(t, lang)              # Hindi video had "no sources"; Wikipedia's search finds it
+                if hit and hit != t:
+                    r = visuals._get(f"https://{lang}.wikipedia.org/w/api.php", timeout=30,
+                                     params={"action": "query", "format": "json", "prop": "extracts",
+                                             "explaintext": 1, "redirects": 1, "titles": hit})
+                    pages = r.json().get("query", {}).get("pages", {})
+                    text = next(iter(pages.values()), {}).get("extract", "") if pages else ""
+                    t = hit
             if text:
                 out.append(f"[{t}] {_relevant(text, focus, chars)}")
         except (requests.RequestException, ValueError):
             continue
     return "\n\n".join(out)
+
+
+def _wiki_search(query: str, lang: str = "en") -> str | None:
+    """The title of Wikipedia's top search hit for `query`, or None."""
+    try:
+        r = visuals._get(f"https://{lang}.wikipedia.org/w/api.php", timeout=30,
+                         params={"action": "query", "format": "json", "list": "search", "srsearch": query,
+                                 "srlimit": 1})
+        hits = r.json().get("query", {}).get("search", [])
+        return hits[0]["title"] if hits else None
+    except (requests.RequestException, ValueError, KeyError, IndexError):
+        return None
 
 
 def _prompt_query(prompt: str) -> str:
@@ -357,6 +378,7 @@ LONG_RULES = """- Long video: put the searchable name, event or place in the FIR
 - End with the channel's signature sign-off line (brand recall), exactly: "{catchphrase}"."""
 
 LONG_MIN_WORDS = 1700          # ~8.5+ min at the long-video voice speed (mid-rolls need 8:00)
+MAX_PACE_SPEED = 1.25          # pace calibration ceiling (was 1.12: slow channels could never reach their target)
 
 EXPAND_PROMPT = """This YouTube script has {n} words of narration; it needs about {target} words (research length).
 Add about {add} words this time (not more).
@@ -1637,7 +1659,9 @@ def render(channel: dict, script: dict, out_dir: Path, fmt: str = "short", log=p
         n_words = sum(len(b["narration"].split()) for b in sample)
         secs += pz["base"] * len(sample) + 0.04 * len(sample)   # the real read adds a pause after every beat
         measured = n_words / max(secs, 0.1) * 60
-        new = float(np.clip(speed * target_wpm / max(measured, 1), 0.9, 1.12))    # never rushed or dragged
+        # 21 Nov: the 1.12 cap left Unsolved After Dark at 139 wpm against its research target of 180 (held at 71/100
+        # "too slow: viewers swipe"); 1.25 reaches the target band without sounding rushed
+        new = float(np.clip(speed * target_wpm / max(measured, 1), 0.9, MAX_PACE_SPEED))
         log(f"  pace: {measured:.0f} wpm at speed {speed:.2f} -> speed {new:.2f} for {target_wpm} wpm (research target)")
         speed = new
     for attempt in range(2):
