@@ -584,6 +584,30 @@ def _schedule_youtube(start: str, it: dict) -> str:
     return "upload failed: " + str((up.result or {}).get("error") if up else "unknown")
 
 
+def _redo_if_blocked(start: str, it: dict, result: str, log=print) -> bool:
+    """21 Nov: approved videos whose upload the content gate blocks (franchise topic, weak potential, fact-check) were
+    retried every tick forever; only not-yet-approved videos were remade. A block that a remake can fix sends the
+    approved video back to 'redo' with the findings (same auto_redo_max as the approval path)."""
+    marker = "🛑 blocked: "
+    if marker not in str(result):
+        return False
+    probs = [x.strip() for x in str(result).split(marker, 1)[1].split("; ") if x.strip()]
+    try:
+        from .content_gate import fixable_by_remake, rules_for
+        limit = int(rules_for(_channel(it["channel"])).get("auto_redo_max", 2))
+    except Exception as e:  # noqa: BLE001 - keep retrying the upload as before
+        log(f"{it['id']}: redo check skipped ({type(e).__name__})")
+        return False
+    if not fixable_by_remake(probs) or int(it.get("gate_redos") or 0) >= limit:
+        return False
+    note = "; ".join(probs)[:900]
+    update_item(start, it["id"], status="redo", gate_note=note, gate_redos=int(it.get("gate_redos") or 0) + 1)
+    log(f"Approved {it['id']} blocked at upload: remaking ({int(it.get('gate_redos') or 0) + 1}/{limit}): {note[:160]}")
+    from .core import ledger
+    ledger.event("gate.redo", item=it["id"], channel=it.get("channel") or "", data={"problems": probs, "approved": True})
+    return True
+
+
 def _unique_title(it: dict) -> None:
     """Last check before any upload: the title was never used on this channel (owner 17 Nov: "be careful about
     duplicates"). An unused option from title_options, else the title plus a short distinguishing detail."""
@@ -911,7 +935,9 @@ def _missed(log) -> None:
             try:
                 it = _with_local_media(start, it)
                 if not preflight(it):
-                    log(f"{it['id']}: {_schedule_youtube(start, it)}")
+                    res = _schedule_youtube(start, it)
+                    log(f"{it['id']}: {res}")
+                    _redo_if_blocked(start, it, res, log)
             except Exception as e:  # noqa: BLE001 - the posting step still uploads it at its slot
                 log(f"{it['id']}: late YouTube scheduling failed ({str(e)[:120]})")
     for start, it in items(2, 0):
