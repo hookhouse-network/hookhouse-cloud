@@ -2328,7 +2328,8 @@ def make_thumbnails(channel: dict, script: dict, out_dir: Path) -> list[Path]:
     thumb = script.get("thumbnail", {}) or {}
     images, ai_first = [], []
     if thumb.get("subject_prompt"):                 # AI subject made just for the thumbnail
-        v = visuals.ai_image(thumb["subject_prompt"], channel.get("style", {}).get("mood", ""))
+        v = visuals.ai_image(thumb["subject_prompt"], channel.get("style", {}).get("mood", ""),
+                             local=False)           # 22 Nov: a soft 512 px PC picture costs 2 CPU minutes; photos instead
         if v:
             ai_first = [v.path]
     rest = [p for p in rank_heroes(script) if p not in ai_first]  # photos only: no cards, charts or documents

@@ -158,3 +158,17 @@ def test_a_scene_redraws_a_local_picture_only_once(monkeypatch, tmp_path):
     monkeypatch.setattr(sb, "draw", lambda p, s, z, variant=0: fake_draw(p, s, z, variant, src="cloudflare"))
     sb.scene({"_prompt": "x", "narration": "n", "see": "s"}, "", (1080, 1920), log=lambda *a: None)
     assert len(calls) == 3
+
+
+def test_thumbnails_never_draw_on_the_pc(monkeypatch, tmp_path):
+    """22 Nov: the first local video drew its 13th picture for the thumbnail (2 CPU minutes for a soft 512 px subject)."""
+    from engine import story
+    asked = []
+    monkeypatch.setattr(story.visuals, "ai_image", lambda prompt, style="", local=True: asked.append(local) or None)
+    monkeypatch.setattr(story, "rank_heroes", lambda script: [])
+    try:
+        story.make_thumbnails({"style": {"mood": "awe", "renderer": "v2"}}, {"thumbnail": {"subject_prompt": "x"}},
+                              tmp_path)
+    except Exception:  # noqa: BLE001 - only the picture request matters here, not the thumbnail renderer
+        pass
+    assert asked == [False]
