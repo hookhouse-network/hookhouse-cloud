@@ -27,6 +27,13 @@ kids_puppets: true
 # 58 neurons (~173 pictures/day) vs 8 steps = 96 (~104/day). 22 Nov: story videos ran out of pictures every day.
 flux_steps: 4
 
+# Local pictures on the PC when the cloud ones are used up (owner 20 Nov: "SD1.5-family models only as a fallback,
+# idle + plugged in, low priority, capped, benchmarked first"; engine/media/local_sd.py). 22 Nov: Cloudflare retired
+# its two unbilled picture models on 20 Nov. DreamShaper 8 LCM (CreativeML OpenRAIL-M) via stable-diffusion.cpp on
+# the CPU: ~2 minutes a picture at below-normal priority (benchmark in local_sd.py). A video starts on them only
+# after idle_min minutes without keyboard/mouse; max_day pictures a day (~2 h of CPU). enabled: false switches it off.
+local_pictures: {enabled: true, max_day: 60, idle_min: 3, threads: 6, steps: 4, timeout_s: 600}
+
 # Best posting times per audience (IST). US slots = US daytime/evening.
 posting_slots:
   US: ["22:30", "23:45", "05:00", "06:30"]

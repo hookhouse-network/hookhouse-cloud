@@ -72,6 +72,9 @@ def _no_real_picture_quota(monkeypatch, tmp_path):
     monkeypatch.setattr(sbm, "QUOTA", tmp_path / "image_quota_test.json")
     monkeypatch.setattr(sbm, "QUOTA_PC", tmp_path / "image_quota_pc_test.json")
     monkeypatch.setenv("HF_TOKEN", "test")
+    import engine.media.local_sd as lsd                 # 22 Nov: never the PC's own picture model or its daily count
+    monkeypatch.setattr(lsd, "MODEL", tmp_path / "no_local_model.safetensors")
+    monkeypatch.setattr(lsd, "COUNT", tmp_path / "local_sd_count_test.json")
 
 
 @pytest.fixture(autouse=True)

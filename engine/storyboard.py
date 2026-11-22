@@ -227,7 +227,7 @@ def _probe() -> bool:
             q[f"ok:{s}"] = now
     _write(path, q)
     print("AI pictures: Cloudflare draws again (test call passed)" if ok else
-          "AI pictures: Cloudflare still says the free allowance is used up; next test in an hour")
+          "AI pictures: Cloudflare still says the free allowance is used up; next test in an hour", flush=True)
     return ok
 
 
@@ -236,27 +236,54 @@ class NoPictures(RuntimeError):
 
 
 def images_blocked() -> bool:
-    """True when neither free picture source can draw today (Cloudflare blocked and HF blocked or no token)."""
+    """True when no picture source can draw now: the free cloud ones are used up (or have no key) and the PC can't
+    draw locally (22 Nov: engine/media/local_sd.py, PC only, idle + plugged in, capped)."""
     cf = bool(os.environ.get("CLOUDFLARE_ACCOUNT_ID") and os.environ.get("CLOUDFLARE_API_TOKEN")) and _open("cloudflare")
     hf = bool(os.environ.get("HF_TOKEN")) and _open("hf")
     po = bool(os.environ.get("POLLINATIONS_KEY")) and _open("pollinations")
-    return not (cf or hf or po)
+    if cf or hf or po:
+        return False
+    from .media import local_sd
+    return not local_sd.available()
+
+
+def _local(prompt: str, seed: int, size: tuple[int, int]) -> bytes | None:
+    from .media import local_sd
+    return local_sd.draw(prompt, seed, size)
+
+
+LOCAL_TRIES = 2          # draws per scene when they come from the PC (each ~2 CPU minutes; cloud pictures: 3)
 
 
 def reset_at() -> float:
-    """When the first blocked source opens again (epoch seconds): its reset, or its next test call (Cloudflare)."""
-    q = _quota()
+    """When the first blocked source opens again (epoch seconds): its reset, or its next test call (Cloudflare).
+    Only blocks still running count: an old, expired mark (a retired model's) used to pull this into the past."""
+    q, now = _quota(), time.time()
     return min([min(float(v), float(q.get(f"probe:{k}", v))) if k in CF_SOURCES else float(v)
-                for k, v in q.items() if ":" not in k] or [time.time()])
+                for k, v in q.items() if ":" not in k and float(v) > now] or [now])
 
 
-# Cloudflare picture models, best first. FLUX-schnell (Apache 2.0) is the look we tuned for; the two Stable Diffusion
-# models (CreativeML OpenRAIL: commercial use allowed) take over when FLUX's share of the free allocation is gone
-# (17 Nov: tested, they still answered). Each model is blocked for the day separately.
-CF_MODELS = [("flux", "@cf/black-forest-labs/flux-1-schnell"),
-             ("sdxl", "@cf/bytedance/stable-diffusion-xl-lightning"),
-             ("dreamshaper", "@cf/lykon/dreamshaper-8-lcm")]
+# Cloudflare picture models, best first. FLUX-schnell (Apache 2.0) is the look we tuned for. 22 Nov: the two Stable
+# Diffusion backups (SDXL-Lightning, DreamShaper-8-LCM) were unbilled (0 neurons) and drew whenever FLUX's 10,000 free
+# daily neurons were gone, but Cloudflare RETIRED both on 20 Nov (HTTP 410, code 5028 'Model has been deprecated'), the
+# day our posting stopped; every call since failed quietly. Every model left in the catalog costs neurons from the
+# same allocation (FLUX-schnell at 4 steps ~58 a picture is the cheapest), so FLUX is the only Cloudflare model now.
+# The names cf_sdxl/cf_dreamshaper stay in CF_SOURCES for old quota files.
+CF_MODELS = [("flux", "@cf/black-forest-labs/flux-1-schnell")]
 DAILY_GONE = re.compile(r"4006|daily free allocation|neurons", re.I)
+RETIRED = re.compile(r"5028|deprecated", re.I)
+
+
+def _retired(model: str, status: int, errs: str) -> None:
+    """A Cloudflare model answered 'deprecated' (410/5028): say it loudly and queue a code fix. 20 Nov the two backup
+    models were retired and nothing noticed for two days."""
+    msg = f"Cloudflare retired the picture model {model} (HTTP {status}: {errs[:160]}); pick another in CF_MODELS"
+    print(f"AI pictures: {msg}")
+    try:
+        from . import heal
+        heal.report("pictures", msg)
+    except Exception as e:  # noqa: BLE001 - the heal queue never stops a picture
+        print(f"heal queue: {type(e).__name__}: {e}")
 
 
 def _cloudflare(prompt: str, seed: int, size: tuple[int, int] = (1080, 1920)) -> bytes | None:
@@ -270,7 +297,7 @@ def _cloudflare(prompt: str, seed: int, size: tuple[int, int] = (1080, 1920)) ->
             gone += 1
             continue
         # FLUX's schema allows only prompt + steps (no seed, no size): 4 steps is schnell's design and halves the
-        # neurons per picture. The SD models take a size and a seed.
+        # neurons per picture. Other models take a size and a seed.
         body = {"prompt": prompt[:2048], "steps": 4} if short == "flux" else \
             {"prompt": prompt[:2048], "width": w, "height": h, "seed": seed % 2_000_000_000}
         for attempt in range(3):
@@ -287,6 +314,11 @@ def _cloudflare(prompt: str, seed: int, size: tuple[int, int] = (1080, 1920)) ->
                 break
             errs = str(j.get("errors"))
             if DAILY_GONE.search(errs):                # the real daily limit: this model is done until 00:00 UTC
+                _block(f"cf_{short}")
+                gone += 1
+                break
+            if r.status_code == 410 or RETIRED.search(errs):
+                _retired(model, r.status_code, errs)   # skipped for the day; the heal queue asks for a code fix
                 _block(f"cf_{short}")
                 gone += 1
                 break
@@ -360,7 +392,8 @@ def draw(prompt: str, seed: int, size: tuple[int, int], variant: int = 0) -> tup
     if dest.exists():
         return dest, "cache"
     for name, fn in (("cloudflare", lambda: _cloudflare(prompt, seed, size)),
-                     ("pollinations", lambda: _pollinations(prompt, seed, size)), ("hf", lambda: _hf(prompt, seed, size))):
+                     ("pollinations", lambda: _pollinations(prompt, seed, size)), ("hf", lambda: _hf(prompt, seed, size)),
+                     ("local_sd", lambda: _local(prompt, seed, size))):       # last: the PC's own, slow and capped
         data = fn()
         if data:
             from PIL import Image
@@ -425,6 +458,8 @@ def scene(beat: dict, era: str, size: tuple[int, int], log=print, i: int = 0, tr
         if best is None or verdict["score"] > best[1]["score"]:
             best = (path, verdict, src)
         if verdict["ok"]:
+            break
+        if src == "local_sd" and t + 1 >= LOCAL_TRIES:   # 22 Nov: ~2 CPU minutes a local picture: keep the best
             break
         why = "text in picture" if verdict["text"] else (verdict["wrong"] or f"score {verdict['score']}")
         log(f"  beat {i + 1}: redraw ({why})")

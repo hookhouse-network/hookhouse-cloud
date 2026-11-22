@@ -127,8 +127,9 @@ def _videos(now: float) -> dict[str, str]:
     try:
         if storyboard.images_blocked():
             reset = time.strftime("%H:%M", time.localtime(storyboard.reset_at()))
-            out["pictures"] = (f"Today's free AI pictures are used up. Story videos wait until {reset}; Brain Snack, "
-                               "kids and clip videos keep going. Nothing to do.")
+            out["pictures"] = (f"Today's free cloud pictures are used up (next try {reset}). While the PC is on and "
+                               "idle it draws story pictures itself (about 2 minutes each, capped per day); Brain "
+                               "Snack, kids and clip videos keep going. Nothing to do.")
     except Exception:  # noqa: BLE001
         pass
     made = [float(it.get("made_at") or 0) for it in items if it.get("made_at")]

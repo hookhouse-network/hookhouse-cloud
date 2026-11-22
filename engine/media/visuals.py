@@ -447,8 +447,23 @@ def flux_steps() -> int:
         return 4
 
 
-def ai_image(prompt: str, style: str = "") -> Visual | None:
-    """AI image: first look in the weekly GPU batch folder, then Cloudflare's free FLUX."""
+def _local_image(full: str, key: str) -> Visual | None:
+    """22 Nov: Cloudflare's free pictures are used up -> the PC's own SD1.5 picture (local_sd: PC only, capped)."""
+    from . import local_sd
+    done = CACHE / f"sd_{key}.jpg"
+    if not (done.exists() and done.stat().st_size > 10_000):
+        data = local_sd.draw(full, int(key[:8], 16), (1080, 1920))
+        if not data:
+            return None
+        import io
+        done.parent.mkdir(parents=True, exist_ok=True)
+        Image.open(io.BytesIO(data)).convert("RGB").save(done, quality=93)
+    return Visual(done, local_sd.SOURCE, "AI-generated image", local_sd.CREDIT)
+
+
+def ai_image(prompt: str, style: str = "", local: bool = True) -> Visual | None:
+    """AI image: first look in the weekly GPU batch folder, then Cloudflare's free FLUX, then (local=True) the PC's
+    own SD1.5 picture when FLUX's free allowance is used up."""
     from ..ip_guard import scrub                    # 20 Nov: never draw a copyrighted character (strike risk)
     prompt, _ = scrub(prompt)
     full, key = ai_prompt_key(prompt, style)
@@ -458,12 +473,12 @@ def ai_image(prompt: str, style: str = "") -> Visual | None:
     done = CACHE / f"cf_{key}.jpg"                     # 22 Nov: a retried/remade video asked again for pictures it
     if done.exists() and done.stat().st_size > 10_000:  # already had (same prompt + style), spending the daily quota
         return Visual(done, "ai_flux_cloudflare", "AI-generated image", "Own (FLUX.1-schnell, Apache 2.0)")
+    if local and (CACHE / f"sd_{key}.jpg").exists():   # drawn on the PC for this very prompt before: no new call
+        return _local_image(full, key)
     acct, token = os.environ.get("CLOUDFLARE_ACCOUNT_ID"), os.environ.get("CLOUDFLARE_API_TOKEN")
-    if not (acct and token):
-        return None
     from .. import storyboard
-    if not storyboard._open("cloudflare"):            # used up today: don't spend a call per scene
-        return None
+    if not (acct and token) or not storyboard._open("cloudflare"):   # used up today: no call per scene
+        return _local_image(full, key) if local else None
     try:
         r = requests.post(
             f"https://api.cloudflare.com/client/v4/accounts/{acct}/ai/run/@cf/black-forest-labs/flux-1-schnell",
@@ -472,7 +487,12 @@ def ai_image(prompt: str, style: str = "") -> Visual | None:
         img_b64 = (data.get("result") or {}).get("image")
     except (requests.RequestException, ValueError):
         return None
-    if r.status_code == 429 or any(e.get("code") == 4006 for e in data.get("errors") or [] if isinstance(e, dict)):
+    codes = [e.get("code") for e in data.get("errors") or [] if isinstance(e, dict)]
+    if r.status_code == 410 or 5028 in codes:          # 22 Nov: a retired model fails loudly, not once per scene
+        storyboard._retired("@cf/black-forest-labs/flux-1-schnell", r.status_code, str(data.get("errors")))
+        storyboard._block("cloudflare")
+        return None
+    if r.status_code == 429 or 4006 in codes:
         # 21 Nov: "used up your daily free allocation of 10,000 neurons" was swallowed, so the NoPictures rule never
         # fired and story videos were made with word cards (then held). Mark it; the video waits for the reset.
         storyboard._block("cloudflare")
