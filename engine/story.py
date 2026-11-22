@@ -1212,7 +1212,10 @@ def find_beat_visual(beat: dict, seconds: float, palette: list[str], work: Path,
     orientation = "portrait" if size[1] > size[0] else "landscape"
 
     def try_ai():
-        v = visuals.ai_image(beat.get("ai_prompt") or f"{query}, {beat.get('narration', '')[:120]}", mood)
+        # 22 Nov: local=False: when the cloud pictures are used up, the beat's PC picture is drawn once, by the scene
+        # drawer below (best of two, eyes-checked); drawing here as well cost a 3rd local picture (Cosmos beat 9)
+        v = visuals.ai_image(beat.get("ai_prompt") or f"{query}, {beat.get('narration', '')[:120]}", mood,
+                             local=False)
         return {"kind": "image", "path": v.path, "frame": "full", "credit": v.credit, "source": v.source} if v else None
 
     def try_footage(min_score=0.80):

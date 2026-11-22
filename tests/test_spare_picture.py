@@ -13,7 +13,7 @@ def finder(monkeypatch, tmp_path):
     pic = tmp_path / "cf_x.jpg"
     pic.write_bytes(b"x" * 20_000)
     verdicts = []
-    monkeypatch.setattr(visuals, "ai_image", lambda prompt, style="": visuals.Visual(
+    monkeypatch.setattr(visuals, "ai_image", lambda prompt, style="", local=True: visuals.Visual(
         pic, "ai_flux_cloudflare", "AI-generated image", "Own (FLUX.1-schnell, Apache 2.0)"))
     monkeypatch.setattr(story, "_photo_candidates", lambda q: [])
     monkeypatch.setattr(story, "_cached", lambda kind, query, fn: [])

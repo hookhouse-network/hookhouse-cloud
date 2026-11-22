@@ -172,3 +172,13 @@ def test_thumbnails_never_draw_on_the_pc(monkeypatch, tmp_path):
     except Exception:  # noqa: BLE001 - only the picture request matters here, not the thumbnail renderer
         pass
     assert asked == [False]
+
+
+def test_a_beat_draws_its_pc_picture_only_in_the_scene_drawer():
+    """22 Nov (Cosmos beat 9): the beat's AI-image source drew a local picture, the eyes check turned it down, then
+    the scene drawer drew two more. The source loop now asks the cloud models only; the scene drawer draws locally."""
+    import inspect
+    from engine import story
+    src = inspect.getsource(story)
+    i = src.index("def try_ai():")
+    assert "local=False" in src[i:i + 600]
