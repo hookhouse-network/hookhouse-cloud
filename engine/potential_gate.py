@@ -235,6 +235,36 @@ def judge(it: dict, ch: dict, meta: dict, brain, evidence: str = "") -> dict:
     return {"scores": clean, "fixes": fixes, "summary": str(data.get("summary") or "")[:300], "criteria": criteria}
 
 
+def judge_script(script: dict, ch: dict, topic: str, brain) -> dict:
+    """P3 (22 Nov): the gate's own rubric on the SCRIPT, before voice, pictures and render. Since the strict judge
+    went live (20-21 Nov) no video passed it (story Shorts 5-7 of 10 against 8 on every point), and each rejected
+    story Short had already cost ~12 pictures and ~35 minutes. Same prompt and bar as the video gate; the script's
+    narration stands in for the captions. {scores, fixes, summary, criteria, low: {criterion: score}, need}. Raises
+    like judge() when the answer is unusable."""
+    from .config import ROOT
+    beats = script.get("beats") or []
+    said = " ".join(str(b.get("narration") or "") for b in beats if isinstance(b, dict)).strip()
+    meta = {"title": str(script.get("title") or ""), "description": said or str(script.get("script") or ""),
+            "hook": str((beats[0] or {}).get("narration") or "") if beats and isinstance(beats[0], dict) else ""}
+    it = {"id": "script", "topic": topic, "out_dir": str(ROOT / "data" / "tmp" / "script_judge_no_folder")}
+    evidence = ""
+    if topic:
+        try:
+            from .topic_proof import evidence_text, proof
+            evidence = evidence_text(proof(str(topic), ch))
+        except Exception as e:  # noqa: BLE001 - the judge works without it, as in problems()
+            evidence = f"demand: unknown ({type(e).__name__})"
+    v = judge(it, ch, meta, brain, evidence)
+    cfg = _cfg()
+    need, human = float(cfg["min_each"]), float(cfg["ai_tell"].get("min_human", 6))
+    scores = dict(v["scores"])
+    h = scores.pop(HUMAN, None)
+    low = {c: s for c, s in scores.items() if s < need}
+    if cfg["ai_tell"].get("enabled") and h is not None and h < human:
+        low[HUMAN] = h
+    return dict(v, low=low, need=need)
+
+
 def problems(it: dict, ch: dict, meta: dict, brain_fn=None, led=None) -> list[str]:
     """[] = full potential. Judged once per version (ledger checkpoint 'potential:<version>')."""
     p = deterministic(it, ch, meta)

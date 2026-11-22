@@ -34,6 +34,11 @@ flux_steps: 4
 # after idle_min minutes without keyboard/mouse; max_day pictures a day (~2 h of CPU). enabled: false switches it off.
 local_pictures: {enabled: true, max_day: 60, idle_min: 3, threads: 6, steps: 4, timeout_s: 600}
 
+# P3 script judge (22 Nov): the potential gate's rubric on the script BEFORE voice, pictures and render; below the bar
+# the script is rewritten with the judge's fixes (up to `rounds` times) and the best draft is kept. Since the strict
+# judge went live no video passed it (story Shorts 5-7 of 10 vs 8), each after ~12 pictures and ~35 minutes.
+script_judge: {enabled: true, rounds: 2}
+
 # Best posting times per audience (IST). US slots = US daytime/evening.
 posting_slots:
   US: ["22:30", "23:45", "05:00", "06:30"]

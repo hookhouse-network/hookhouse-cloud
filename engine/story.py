@@ -2355,45 +2355,111 @@ def make_thumbnails(channel: dict, script: dict, out_dir: Path) -> list[Path]:
                               language=channel["language"], channel_name=channel["name"], pair=pair)
 
 
+def _writing_plan(channel: dict, topic: str | None, fmt: str, log=print) -> dict:
+    """What a fresh script is written from: the series, the viral pattern and the grounded reference notes. Kept for
+    a rewrite, so the judge's fixes apply to the same structure."""
+    from . import patterns, series             # S8 A13 named series + A1 viral pattern library
+    ser, pat = series.pick(channel["id"]), patterns.pick(channel["id"])
+    extra = "\n".join(x for x in (series.rule(ser), patterns.rule(pat)) if x)
+    ref = {"titles": [], "rule": ""}
+    if channel.get("content_rules", {}).get("fact_check"):     # grounded writing: facts first, then words
+        try:
+            ref = reference_notes(topic or "", chars=8000 if fmt == "long" else 4000)
+        except Exception as e:  # noqa: BLE001 - the writer still works from its own knowledge
+            log(f"Script: reference notes skipped ({type(e).__name__})")
+        if ref["rule"]:
+            extra = "\n".join(x for x in (extra, ref["rule"]) if x)
+    return {"ser": ser, "pat": pat, "extra": extra, "ref": ref}
+
+
+def _write_fresh(brain, channel: dict, topic: str | None, fmt: str, memory, log, plan: dict, notes: str = "") -> dict:
+    """A fresh script through every writing step (policy, length, early search phrase, human feel, fact-check).
+    notes: the script judge's findings on the previous draft (P3)."""
+    from . import patterns, series
+    ser, pat, ref = plan["ser"], plan["pat"], plan["ref"]
+    extra = "\n".join(x for x in (plan["extra"], notes) if x)
+    log(f"Script: writing '{topic}' for {channel['name']}" + (f" (series: {ser['name']})" if ser else "")
+        + (f" (structure: {pat['name']})" if pat else "")
+        + (f" (grounded on: {', '.join(ref['titles'])})" if ref["titles"] else "")
+        + (" (rewrite with the script judge's fixes)" if notes else ""))
+    script = write_script(brain, channel, topic, fmt, memory, extra_rules=extra)
+    script = ground_sources(patterns.apply(series.apply(script, ser, fmt), pat), ref["titles"])
+    if fmt == "long":
+        lw = _range((channel.get("spec") or {}).get("long_words", ""))
+        script = expand_long(brain, script, log=log, minimum=lw[0] if lw else LONG_MIN_WORDS,
+                             target=(sum(lw) // 2) if lw else LONG_MIN_WORDS + 150, rounds=4)
+        script = add_chapters(brain, script, wpm=(channel.get("spec") or {}).get("long_wpm", 175), log=log)
+    flags = script_flags(script)
+    if flags:                                   # owner's rule: never-topics are rewritten out, not just warned
+        log(f"Never-topics in the script ({', '.join(flags)}); rewriting once without them")
+        script = write_script(brain, channel, f"{topic}\nDo not touch these subjects at all: {', '.join(flags)}",
+                              fmt, memory, extra_rules=extra)
+        script = ground_sources(patterns.apply(series.apply(script, ser, fmt), pat), ref["titles"])
+        flags = script_flags(script)
+    script["_policy_flags"] = flags
+    if fmt == "short":
+        script = fit_length(brain, channel, script, log)
+    script = phrase_early(brain, script, log)      # before the fact-check, so the new wording is checked too
+    script = humanize_script(brain, script, log)   # S10: AI-sounding lines restated plainly, then fact-checked
+    if channel.get("content_rules", {}).get("fact_check"):
+        script = check_and_fix(brain, channel, script, topic, fmt, memory, log)
+    return script
+
+
+def _script_judge_cfg() -> dict:
+    from .config import settings
+    try:
+        return {"enabled": True, "rounds": 2, **(settings().get("script_judge") or {})}
+    except Exception as e:  # noqa: BLE001 - unreadable settings: judge with the defaults
+        print(f"script judge: settings unreadable ({type(e).__name__})")
+        return {"enabled": True, "rounds": 2}
+
+
+def _judge_loop(brain, channel: dict, script: dict, topic: str | None, fmt: str, memory, log, plan: dict) -> dict:
+    """P3, owner standard (22 Nov): judge the script with the video gate's rubric BEFORE voice, pictures and render;
+    below the bar -> rewrite with the judge's fixes (up to `rounds` times), keep the best draft. The rendered video
+    is judged by the gate as before; this only stops weak scripts from costing pictures and render time first."""
+    cfg = _script_judge_cfg()
+    if not cfg.get("enabled") or brain is None:
+        return script
+    from . import potential_gate
+    best, best_low = script, None
+    rounds = max(0, int(cfg.get("rounds") or 0))
+    for r in range(rounds + 1):
+        try:
+            v = potential_gate.judge_script(script, channel, topic or script.get("title", ""), brain)
+        except Exception as e:  # noqa: BLE001 - no verdict: the video gate still judges after the render
+            log(f"Script judge: no verdict ({type(e).__name__}: {str(e)[:80]}); the video gate decides later")
+            return best if best_low is not None else script
+        low = v["low"]
+        weakest = min(v["scores"].values()) if v["scores"] else 0
+        if best_low is None or weakest > best_low:
+            best, best_low = script, weakest
+        shown = ", ".join(f"{c} {s:g}" for c, s in sorted(v["scores"].items(), key=lambda x: x[1]))
+        if not low:
+            log(f"Script judge: passes ({shown})")
+            return script
+        if r == rounds:
+            break
+        fixes = "; ".join(v.get("fixes") or [])
+        notes = (f"A strict head of content judged the last draft of this script below the bar (needs {v['need']:g}/10 "
+                 f"on every point): " + ", ".join(f"{c} {s:g}" for c, s in sorted(low.items(), key=lambda x: x[1]))
+                 + f". Write a new draft that fixes exactly this: {fixes}")
+        log(f"Script judge: below {v['need']:g} on " + ", ".join(f"{c} {s:g}" for c, s in low.items())
+            + f"; rewriting with its fixes ({r + 1}/{rounds})")
+        script = _write_fresh(brain, channel, topic, fmt, memory, log, plan, notes=notes)
+    log(f"Script judge: best draft kept (weakest point {best_low:g}); the video gate decides after the render")
+    return best
+
+
 def make(brain, channel: dict, topic: str | None = None, fmt: str = "short", script: dict | None = None,
          memory=None, log=print) -> tuple[Path, dict]:
     fresh = script is None
     if script is None:
-        from . import patterns, series             # S8 A13 named series + A1 viral pattern library
-        ser, pat = series.pick(channel["id"]), patterns.pick(channel["id"])
-        extra = "\n".join(x for x in (series.rule(ser), patterns.rule(pat)) if x)
-        ref = {"titles": [], "rule": ""}
-        if channel.get("content_rules", {}).get("fact_check"):     # grounded writing: facts first, then words
-            try:
-                ref = reference_notes(topic or "", chars=8000 if fmt == "long" else 4000)
-            except Exception as e:  # noqa: BLE001 - the writer still works from its own knowledge
-                log(f"Script: reference notes skipped ({type(e).__name__})")
-            if ref["rule"]:
-                extra = "\n".join(x for x in (extra, ref["rule"]) if x)
-        log(f"Script: writing '{topic}' for {channel['name']}" + (f" (series: {ser['name']})" if ser else "")
-            + (f" (structure: {pat['name']})" if pat else "")
-            + (f" (grounded on: {', '.join(ref['titles'])})" if ref["titles"] else ""))
-        script = write_script(brain, channel, topic, fmt, memory, extra_rules=extra)
-        script = ground_sources(patterns.apply(series.apply(script, ser, fmt), pat), ref["titles"])
-        if fmt == "long":
-            lw = _range((channel.get("spec") or {}).get("long_words", ""))
-            script = expand_long(brain, script, log=log, minimum=lw[0] if lw else LONG_MIN_WORDS,
-                                 target=(sum(lw) // 2) if lw else LONG_MIN_WORDS + 150, rounds=4)
-            script = add_chapters(brain, script, wpm=(channel.get("spec") or {}).get("long_wpm", 175), log=log)
-        flags = script_flags(script)
-        if flags:                                   # owner's rule: never-topics are rewritten out, not just warned
-            log(f"Never-topics in the script ({', '.join(flags)}); rewriting once without them")
-            script = write_script(brain, channel, f"{topic}\nDo not touch these subjects at all: {', '.join(flags)}",
-                                  fmt, memory, extra_rules=extra)
-            script = ground_sources(patterns.apply(series.apply(script, ser, fmt), pat), ref["titles"])
-            flags = script_flags(script)
-        script["_policy_flags"] = flags
+        plan = _writing_plan(channel, topic, fmt, log)
+        script = _write_fresh(brain, channel, topic, fmt, memory, log, plan)
         if fmt == "short":
-            script = fit_length(brain, channel, script, log)
-        script = phrase_early(brain, script, log)      # before the fact-check, so the new wording is checked too
-        script = humanize_script(brain, script, log)   # S10: AI-sounding lines restated plainly, then fact-checked
-        if channel.get("content_rules", {}).get("fact_check"):
-            script = check_and_fix(brain, channel, script, topic, fmt, memory, log)
+            script = _judge_loop(brain, channel, script, topic, fmt, memory, log, plan)
     else:
         if fmt == "short":
             if brain is None:
