@@ -40,6 +40,7 @@ SOURCE = "ai_sd15_local"
 CREDIT = "Own (DreamShaper 8 LCM, CreativeML OpenRAIL-M; drawn on our PC)"
 DEFAULTS = {"enabled": False, "max_day": 60, "idle_min": 3, "threads": 6, "steps": 4, "timeout_s": 600}
 _LOCK = threading.Lock()                     # one picture at a time: two would only fight for the same CPU cores
+_SAID: set[str] = set()                      # reasons already written to the log (once each until it draws again)
 
 
 def cfg() -> dict:
@@ -131,8 +132,13 @@ def _size(size: tuple[int, int]) -> tuple[int, int]:
 
 def draw(prompt: str, seed: int, size: tuple[int, int] = (1080, 1920)) -> bytes | None:
     """One local picture as PNG bytes, or None (not allowed now, or the drawing failed)."""
-    if why_not():
+    reason = why_not()
+    if reason:
+        if reason not in _SAID:                       # 22 Nov: the PC went on battery mid-video and every scene
+            _SAID.add(reason)                         # became a graphic without a word in the log
+            print(f"local pictures: not now ({reason})", flush=True)
         return None
+    _SAID.clear()
     c = cfg()
     w, h = _size(size)
     with _LOCK, tempfile.TemporaryDirectory() as tmp:

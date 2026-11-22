@@ -205,3 +205,16 @@ def test_a_small_cached_pc_picture_is_enlarged_when_reused(monkeypatch, tmp_path
     Image.new("RGB", (1024, 1024)).save(path)                        # a cloud picture is left as it is
     sb.enlarge_small(path)
     assert Image.open(path).size == (1024, 1024)
+
+
+def test_a_refusal_is_said_once_in_the_log(pc, monkeypatch, capsys):
+    """22 Nov 10:39: the PC went on battery mid-video; every scene became a graphic and the log said nothing."""
+    local_sd._SAID.clear()
+    monkeypatch.setattr(local_sd, "plugged_in", lambda: False)
+    assert local_sd.draw("p", 1) is None and local_sd.draw("p", 2) is None
+    assert capsys.readouterr().out.count("local pictures: not now (the PC runs on its battery)") == 1
+    monkeypatch.setattr(local_sd, "plugged_in", lambda: True)
+    assert local_sd.draw("p", 3)                                         # drawing again resets the memory
+    monkeypatch.setattr(local_sd, "plugged_in", lambda: False)
+    local_sd.draw("p", 4)
+    assert "not now" in capsys.readouterr().out
