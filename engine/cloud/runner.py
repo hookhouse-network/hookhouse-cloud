@@ -116,7 +116,12 @@ def _make_and_hand_over(store, start: str, it: dict, log=_log) -> Path:
     from . import pc_outbox
     store.put(media.TAG, f"claim-{it['id']}.json", json.dumps({"id": it["id"], "at": time.time()}).encode())
     log(f"making {it.get('channel_name')} {it.get('kind')}")
-    item = make_one(start, it, log)
+    try:
+        item = make_one(start, it, log)
+    except Exception as e:
+        _pc_failed(store, it, e, log)
+        raise
+    _pc_fails_clear(it["id"])
     folder = Path(item["out_dir"])
     try:
         from ..training_data import _scripts
@@ -134,6 +139,60 @@ def _make_and_hand_over(store, start: str, it: dict, log=_log) -> Path:
     if pc_outbox.flush(store, log):
         _wake_cloud(log)
     return folder
+
+
+# 22 Nov: a make that failed on the PC kept its claim file, and a claim counts as taken for CLAIM_H (5 h): the
+# Itihaas 12:30 video failed at 05:46 (no free pictures) and stayed locked until 10:40, although the PC could draw
+# its pictures from 08:05. The PC also never counted its failures (it can't write the cloud plan), so a video that
+# always fails the same way would be tried again every 5 h forever. Now a failed make frees its claim and the PC
+# keeps its own small retry list: free daily limits wait for their reset (tries kept), other failures wait an hour
+# and count; after PC_MAX_TRIES the PC leaves the video to the cloud's own checks for the day.
+PC_FAILS = ROOT / "data" / "pc" / "make_fails.json"
+PC_MAX_TRIES = 3
+
+
+def _pc_fails() -> dict:
+    try:
+        d = json.loads(PC_FAILS.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    today = time.strftime("%Y-%m-%d")                 # a new day starts with fresh tries
+    return {k: v for k, v in d.items() if isinstance(v, dict) and v.get("day") == today}
+
+
+def _pc_failed(store, it: dict, e: Exception, log=_log) -> None:
+    from .. import autopilot
+    try:
+        store.delete(media.TAG, f"claim-{it['id']}.json")
+    except Exception as err:  # noqa: BLE001 - the claim then simply runs out after CLAIM_H
+        log(f"claim release {it['id']}: {type(err).__name__}: {err}")
+    fails = _pc_fails()
+    rec = fails.get(it["id"]) or {"n": 0, "day": time.strftime("%Y-%m-%d")}
+    wait = autopilot.free_limit_wait(e)
+    if wait:                                          # a free daily limit: wait for it, keep the tries
+        rec["until"] = wait
+    else:
+        rec["n"] = int(rec.get("n") or 0) + 1
+        rec["until"] = time.time() + 3600
+    rec["error"] = f"{type(e).__name__}: {e}"[:200]
+    fails[it["id"]] = rec
+    PC_FAILS.parent.mkdir(parents=True, exist_ok=True)
+    PC_FAILS.write_text(json.dumps(fails, indent=1), encoding="utf-8")
+    left = PC_MAX_TRIES - rec["n"]
+    log(f"{it.get('channel_name')}: claim freed; " + (
+        f"waits until {time.strftime('%H:%M', time.localtime(rec['until']))}" if left > 0 else
+        f"failed {rec['n']} times on the PC today; left to the cloud's checks"))
+
+
+def _pc_fails_clear(item_id: str) -> None:
+    fails = _pc_fails()
+    if fails.pop(item_id, None) is not None:
+        PC_FAILS.write_text(json.dumps(fails, indent=1), encoding="utf-8")
+
+
+def _pc_waiting(item_id: str) -> bool:
+    rec = _pc_fails().get(item_id)
+    return bool(rec) and (float(rec.get("until") or 0) > time.time() or int(rec.get("n") or 0) >= PC_MAX_TRIES)
 
 
 def _queue_sync(log=_log) -> dict | None:
@@ -913,7 +972,8 @@ def helper(once: bool = False, every_s: int = 300, log=_log, videos_only: bool =
                 raise _SkipClaim("disk low")
             taken = set(claims(store)) | {r["id"] for r in pc_outbox.pending()}
             # clips stay in the cloud: their spare-clip pool lives in the cloud memory, which the PC only reads
-            due = [(s, it) for s, it in _due_to_make(None, taken) if it["status"] != "making" and it.get("kind") != "clip"]
+            due = [(s, it) for s, it in _due_to_make(None, taken) if it["status"] != "making" and it.get("kind") != "clip"
+                   and not _pc_waiting(it["id"])]           # 22 Nov: the PC's own retry list (failed makes)
             pick = "fallback"
             if hb is not None:                         # Phase 2 'on' mode: the shared queue decides what this PC makes
                 from . import sched as _sched
