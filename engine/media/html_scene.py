@@ -8,8 +8,8 @@ video model, and every picture is our own code (zero copyright risk).
 How it records: the page exposes window.draw(t); we call it for t = 0, 1/fps, 2/fps ... and screenshot each frame,
 so the result is exact (no dropped frames, same input = same video) however slow the PC is.
 
-Templates live in engine/media/scenes/. chart.html draws compare bars, a timeline or true-to-scale size circles in
-each channel's own colours and fonts (story.py visual "chart")."""
+Templates live in engine/media/scenes/. chart.html draws compare bars, a timeline, true-to-scale size circles or a
+depth dive in each channel's own colours and fonts (story.py visual "chart")."""
 from __future__ import annotations
 
 import base64
@@ -22,8 +22,28 @@ from . import ffmpeg as ff
 from .fonts import font_file
 
 SCENES = Path(__file__).resolve().parent / "scenes"
-CHART_TYPES = {"compare": (2, 4), "timeline": (3, 5), "scale": (2, 3)}
+CHART_TYPES = {"compare": (2, 4), "timeline": (3, 5), "scale": (2, 3), "depth": (1, 1)}
 HINDI = re.compile(r"[ऀ-ॿ]")
+# Depth dive (23 Nov, P3b picture-free scenes; the viral ocean-depth animations use familiar landmarks as yardsticks).
+# Landmarks show NAMES only, so the screen never shows a number the narrator didn't say. Depths: NOAA Ocean
+# Exploration (sunlight zone to ~200 m, twilight zone to ~1,000 m, Titanic wreck ~3,800 m, Challenger Deep ~10,935 m);
+# 40 m = the recreational scuba limit (PADI).
+DEPTH_MARKS = (("Scuba divers' limit", 40), ("Sunlight fades out", 200), ("Last trace of light", 1000),
+               ("The Titanic", 3800), ("Challenger Deep", 10935))
+DEPTH_UNITS = {"m": 1.0, "meter": 1.0, "metre": 1.0, "km": 1000.0, "kilometer": 1000.0, "kilometre": 1000.0,
+               "ft": 0.3048, "foot": 0.3048, "feet": 0.3048, "mile": 1609.344}
+DEPTH_TEXT = re.compile(r"(\d[\d,]*(?:\.\d+)?)\s*(kilomet(?:er|re)s?|km|met(?:er|re)s?|m|feet|foot|ft|miles?)\b", re.I)
+
+
+def depth_m(text: str) -> float | None:
+    """Metres from a spoken depth such as '2,000 feet', '3.8 km' or '200 metres' (None without a unit)."""
+    m = DEPTH_TEXT.search(text or "")
+    if not m:
+        return None
+    unit = m.group(2).lower()
+    if unit.endswith("s") and unit != "feet":
+        unit = unit[:-1]
+    return float(m.group(1).replace(",", "")) * DEPTH_UNITS[unit]
 
 # Per-channel looks, matching the still graphics (graphics.STYLE_BY_CHANNEL)
 THEMES = {
@@ -88,6 +108,18 @@ def check_chart(chart: dict | None, narration: str) -> tuple[dict | None, str]:
     if not lo <= len(items) <= hi:
         return None, f"{kind} needs {lo}-{hi} items, got {len(items)}"
     spoken = set(_numbers(narration))
+    if kind == "depth":                       # one place and its depth, as spoken (the metres come from the words)
+        label, text = str(items[0]["label"]).strip()[:28], str(items[0].get("text") or "").strip()[:32]
+        metres = depth_m(text)
+        if metres is None:
+            return None, f"{label}: the depth needs its unit as spoken (e.g. '2,000 feet')"
+        missing = [n for n in _numbers(text) + _numbers(label) if n not in spoken]
+        if missing:
+            return None, f"{label}: {missing[0]:g} is shown but never said"
+        if not 1 <= metres <= 11000:
+            return None, f"{label}: {metres:,.0f} m is not an ocean depth"
+        return {"type": "depth", "title": "", "items": [{"label": label, "text": text, "value": round(metres, 1)}],
+                "marks": [{"label": a, "m": b} for a, b in DEPTH_MARKS]}, ""
     clean = []
     for it in items:
         label, text = str(it["label"]).strip()[:28], str(it.get("text") or "").strip()[:32]

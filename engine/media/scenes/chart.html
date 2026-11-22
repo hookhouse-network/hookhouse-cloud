@@ -174,12 +174,103 @@ function scale(t, top) {
   }
 }
 
+// Depth dive (23 Nov, ocean stories): the camera sinks from the surface to the spoken depth past real landmarks
+// (names only: the screen never shows a number the narrator didn't say). The gauge climbs to the spoken depth like a
+// dive computer; the water darkens through the real light zones (NOAA: sunlight to ~200 m, twilight to ~1,000 m).
+const ZONES = [[0, [70, 175, 232]], [200, [14, 74, 134]], [1000, [6, 24, 52]], [4000, [2, 7, 16]], [11000, [0, 1, 4]]];
+const frac = x => x - Math.floor(x);
+const easeInOut = x => { x = clamp(x); return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+
+function water(m) {
+  m = Math.max(0, m);
+  for (let i = 1; i < ZONES.length; i++) {
+    if (m <= ZONES[i][0]) {
+      const [m0, c0] = ZONES[i - 1], [m1, c1] = ZONES[i], k = (m - m0) / (m1 - m0);
+      return `rgb(${c0.map((v, j) => Math.round(v + (c1[j] - v) * k)).join(",")})`;
+    }
+  }
+  return "rgb(0,1,4)";
+}
+
+function depth(t) {
+  const it = DATA.items[0], target = it.value;
+  const t0 = 0.2, t1 = Math.max(t0 + 1.2, T - 1.0), gp = seg(t, t0, t1), p = easeInOut(gp);
+  const span = Math.max(target * 0.5, 24);                 // metres from the top of the frame to the bottom
+  const cam = -span * 0.1 + (target + span * 0.1) * p;     // starts just above the surface, ends on the target
+  const gy = PORTRAIT ? H * 0.2 : H * 0.18;                // the gauge's line (landmark names keep clear of it)
+  const y = m => H * 0.5 + (m - cam) / span * H;
+  const top = cam - span / 2, bot = cam + span / 2;
+  const grd = g.createLinearGradient(0, 0, 0, H);          // the water, coloured by its real depth
+  for (let k = 0; k <= 6; k++) grd.addColorStop(k / 6, water(top + (bot - top) * k / 6));
+  g.fillStyle = grd; g.fillRect(0, 0, W, H);
+  const ys = y(0);
+  if (ys > 0) {                                             // sky and the surface while they are in view
+    const sky = g.createLinearGradient(0, 0, 0, ys);
+    sky.addColorStop(0, "#9fd3f2"); sky.addColorStop(1, "#e3f4fc");
+    g.fillStyle = sky; g.fillRect(0, 0, W, ys);
+    g.fillStyle = "rgba(255,255,255,0.85)";
+    for (let x = 0; x < W; x += 6 * S) g.fillRect(x, ys - 3 * S + Math.sin(x / (40 * S) + t * 3) * 3 * S, 6 * S, 5 * S);
+  }
+  const rays = clamp(1 - Math.max(0, cam) / 200) * 0.18;   // sun rays fade out by ~200 m
+  for (let k = 0; rays > 0.005 && k < 5; k++) {
+    const x = W * (0.12 + 0.18 * k) + Math.sin(t * 0.7 + k) * 20 * S, y0 = Math.max(0, ys);
+    const rg = g.createLinearGradient(x, y0, x + W * 0.12, H);
+    rg.addColorStop(0, `rgba(220,245,255,${rays})`); rg.addColorStop(1, "rgba(220,245,255,0)");
+    g.fillStyle = rg; g.beginPath(); g.moveTo(x, y0); g.lineTo(x + W * 0.05, y0);
+    g.lineTo(x + W * 0.2, H); g.lineTo(x + W * 0.08, H); g.closePath(); g.fill();
+  }
+  for (let i = 0; i < 140; i++) {                           // marine snow drifting up past the camera (fixed seeds)
+    const a = frac(Math.sin((i + 1) * 12.9898) * 43758.5453), b = frac(Math.sin((i + 5) * 78.233) * 24634.6345);
+    const c = frac(Math.sin((i + 9) * 39.3468) * 11135.1137), yy = frac(b - cam / span * (0.7 + c * 0.6)) * H;
+    if (yy < ys) continue;
+    g.fillStyle = `rgba(230,240,255,${0.18 + c * 0.35})`;
+    g.fillRect(a * W, yy, (1.5 + c * 2.5) * S, (1.5 + c * 2.5) * S);
+  }
+  const lx = W * 0.1;                                       // the dive line
+  g.fillStyle = "rgba(255,255,255,0.25)"; g.fillRect(lx - 2 * S, Math.max(0, ys), 4 * S, H);
+  g.textAlign = "right"; g.textBaseline = "alphabetic";
+  for (const mk of DATA.marks || []) {                      // the landmarks we pass, above the target only
+    const yy = y(mk.m);
+    if (mk.m >= target * 0.97 || yy < -60 * S || yy > H + 60 * S) continue;
+    g.strokeStyle = "rgba(255,255,255,0.35)"; g.lineWidth = 2 * S; g.setLineDash([14 * S, 12 * S]);
+    g.beginPath(); g.moveTo(lx, yy); g.lineTo(W * 0.92, yy); g.stroke(); g.setLineDash([]);
+    const lp = fitText(mk.label, TH.label_font, W * 0.62, 46 * S, 24 * S);
+    const clear = clamp((Math.abs(yy - 18 * S - (gy - 50 * S)) - 90 * S) / (60 * S));   // fades near the gauge
+    g.font = font(lp, TH.label_font); g.fillStyle = `rgba(255,255,255,${0.85 * clear})`;
+    g.fillText(mk.label, W * 0.92, yy - 18 * S);
+  }
+  const yt = y(target);                                     // the place itself: a glowing ring and its name
+  if (yt < H + 120 * S) {
+    const glow = 0.6 + 0.4 * Math.sin(t * 4);
+    const rg = g.createRadialGradient(W * 0.5, yt, 4 * S, W * 0.5, yt, 120 * S);
+    rg.addColorStop(0, TH.accent2); rg.addColorStop(0.25, TH.accent); rg.addColorStop(1, "rgba(0,0,0,0)");
+    g.globalAlpha = 0.55 * glow + 0.25; g.fillStyle = rg;
+    g.beginPath(); g.arc(W * 0.5, yt, 120 * S, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1;
+    g.strokeStyle = TH.accent_ink; g.lineWidth = 6 * S; g.beginPath(); g.arc(W * 0.5, yt, 34 * S, 0, Math.PI * 2); g.stroke();
+    g.textAlign = "center";
+    const lp = fitText(it.label, TH.label_font, W * 0.8, 64 * S, 30 * S);
+    g.font = font(lp, TH.label_font); g.fillStyle = "#F4F8FF"; g.fillText(it.label, W * 0.5, yt + 110 * S);
+  }
+  const show = clamp(seg(cam, span * 0.02, span * 0.12));  // the gauge appears once we are under water
+  if (show > 0) {                                           // and climbs to the spoken depth as the dive ends
+    const gauge = counted(it.text, p).toUpperCase();
+    const vp = fitText(gauge, TH.num_font, W * 0.8, 150 * S, 60 * S);
+    g.globalAlpha = show; g.textAlign = "center"; g.font = font(vp, TH.num_font);
+    g.fillStyle = gp >= 1 ? TH.accent_ink : "#F4F8FF"; g.shadowColor = "rgba(0,0,0,0.6)"; g.shadowBlur = 18 * S;
+    g.fillText(gauge, W * 0.5, gy); g.shadowBlur = 0; g.globalAlpha = 1;
+  }
+}
+
 window.draw = function (t) {
   const zoom = 1 + 0.025 * (t / T);                           // slow push-in, like a camera
   g.setTransform(zoom, 0, 0, zoom, -(zoom - 1) * W / 2, -(zoom - 1) * H / 2);
-  background(t);
-  const top = title(t);
-  ({ compare, timeline, scale })[DATA.type](t, top || H * 0.12);
+  if (DATA.type === "depth") {
+    depth(t);                                               // paints its own water; the gauge is its headline
+  } else {
+    background(t);
+    const top = title(t);
+    ({ compare, timeline, scale })[DATA.type](t, top || H * 0.12);
+  }
   g.setTransform(1, 0, 0, 1, 0, 0);
   return true;
 };

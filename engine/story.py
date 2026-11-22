@@ -89,9 +89,12 @@ VISUAL for each beat (pick what fits best; the picture changes every 2-3 seconds
   prompt, cinematic, photorealistic, no text, no logos, no real celebrities, no real athletes' faces.
 - "text": ONLY for a key number or 1-3 word statement shown as a documentary graphic (newspaper headline,
   evidence card, scoreboard, counter). big_text like "183 RUNS", optional sub.
-- "chart": ONLY when this beat's narration compares 2-4 numbers, walks through 3-5 dates, or compares 2-3 sizes.
-  chart = {{"type": "compare|timeline|scale", "title": "max 5 words", "items": [{{"label": "1-3 words or a year",
+- "chart": ONLY when this beat's narration compares 2-4 numbers, walks through 3-5 dates, or compares 2-3 sizes,
+  or says how deep something lies or lives under the sea.
+  chart = {{"type": "compare|timeline|scale|depth", "title": "max 5 words", "items": [{{"label": "1-3 words or a year",
   "value": number (compare/scale), "text": "the number as spoken, e.g. $85.3M, or 2-5 words for a timeline"}}]}}.
+  depth = ONE item: label = what is down there (1-3 words), text = the depth as spoken WITH its unit, e.g.
+  "2,000 feet"; the video dives from the surface to it past real landmarks.
   Every number on the chart must be said in that beat or the 2 beats before it. Also give a photo query as a backup.
 Use "text" at most 2 times and "chart" at most once. Never 3 beats of the same visual type in a row.
 emoji: leave "" on almost every beat (emoji spam looks dated); at most 1 in the whole video.
