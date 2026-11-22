@@ -23,6 +23,7 @@ Two layers, both must pass (fail closed):
 Findings start with "potential:" so a failing video is remade with the judge's fixes (autopilot._campaign_held)."""
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -63,7 +64,46 @@ CRITERIA_HELP = {
                   "'delve', 'buckle up', 'little did they know', 'not just X but Y', same-shaped sentences, a "
                   "template look, word cards instead of real pictures)",
 }
+# 23 Nov: the generic texts were written for Shorts and grown-up viewers. The owner-approved Bloop long video (kids,
+# 24 Nov 06:30) was judged "can it win on Shorts/Reels", and its human_feel lost points for "same-shaped sentences"
+# while its own rubric scores joyful repetition (8/10). These texts replace the generic ones for that format/type.
+HELP_KIDS = {
+    "human_feel": "it feels made by a skilled human preschool team: warm, natural lines that talk TO the child, "
+                  "characters with their own personality, small surprises and gentle jokes, a little story that makes "
+                  "sense; the planned sing-along repetition is GOOD here, not an AI tell. Obvious AI = random objects "
+                  "or events, lines that make no sense, a stiff template voice, nothing a parent would smile at",
+}
+HELP_LONG = {
+    "hook": "the first 30 seconds deliver on the title's promise right away (no slow intro, no 'in this video'): "
+            "viewers who clicked decide here whether to stay",
+    "retention": "every minute earns the next: open loops, turns and payoffs keep viewers to the end (watch time)",
+}
 HUMAN = "human_feel"            # judged with its own bar (ai_tell.min_human): only obviously-AI videos are remade
+
+
+def _long(it: dict) -> bool:
+    return str((it or {}).get("kind") or "") == "long"
+
+
+def criteria_help(ctype: str, it: dict) -> dict:
+    """The rubric texts the judge sees for this video: kids and long videos get their own where the generic ones
+    (written for grown-up Shorts) would judge them by the wrong standard."""
+    out = dict(CRITERIA_HELP)
+    if ctype == "kids":
+        out.update(HELP_KIDS)
+    if _long(it):
+        out.update(HELP_LONG)
+    return out
+
+
+def judge_tag(ctype: str, it: dict) -> str:
+    """'' for a video the judge sees exactly as before 23 Nov (grown-up Shorts: their cached verdicts stay); otherwise
+    a short hash of its own texts, part of the verdict's cache key, so a kids or long video is judged once more by
+    the corrected judge and again whenever those texts change (scores can go down as well as up)."""
+    own = {k: v for k, v in criteria_help(ctype, it).items() if CRITERIA_HELP.get(k) != v}
+    if not own and not _long(it):
+        return ""
+    return hashlib.sha1(json.dumps([own, _long(it)], sort_keys=True).encode("utf-8")).hexdigest()[:8]
 
 
 def _cfg() -> dict:
@@ -216,22 +256,34 @@ def _prompt(ch: dict, it: dict, meta: dict, ctype: str, criteria: list[str], evi
         "Indian viewers" if ch.get("market") == "IN" else "United States viewers")
     if ctype == "kids":
         aud = "children aged 2-5 and their parents"
-    rubric = "\n".join(f"- {c}: {CRITERIA_HELP.get(c, c)}" for c in criteria)
+    helps = criteria_help(ctype, it)
+    rubric = "\n".join(f"- {c}: {helps.get(c, c)}" for c in criteria)
     if ctype == "clips":                          # a clip's brief is the campaign's, not the slot's planned topic
         topic_line = f"CAMPAIGN BRIEF: {campaign_brief(meta) or 'not given'}"
     else:
         topic_line = f"TOPIC: {str(it.get('topic') or '')[:150]}"
+    said = script_text(it, meta)
+    if _long(it):                                 # 23 Nov: a long video was asked "can it win on Shorts/Reels"
+        task = ("You are the strictest head of content at a top YouTube studio. Decide if this LONG video can WIN on "
+                "YouTube (viewers arrive from search, suggested videos and autoplay: the title earns the click, the "
+                "first 30 seconds earn the stay, then watch time) and earn money. ")
+        reward = "YouTube rewards watch time and viewers who are glad they watched"
+        shown = "WHAT IS SAID / SHOWN" + (" (the first minutes of a longer video)" if len(said) > 3500 else "")
+    else:
+        task = ("You are the strictest head of content at a top short-video studio. Decide if this video can WIN on "
+                "YouTube Shorts, Instagram Reels and Facebook Reels and earn money. ")
+        reward = "Platforms reward viewers who stay, rewatch and SEND videos to friends"
+        shown = "WHAT IS SAID / SHOWN"
     return (
-        "You are the strictest head of content at a top short-video studio. Decide if this video can WIN on YouTube "
-        "Shorts, Instagram Reels and Facebook Reels and earn money. Score each criterion 0-10 where 9 means top 5% "
+        task + "Score each criterion 0-10 where 9 means top 5% "
         "of what this niche posts this month and 10 means it could be one of the niche's best videos this week. "
-        "Be harsh: generic, templated, slow or confusing content scores 6 or less. Platforms reward viewers who stay, "
-        "rewatch and SEND videos to friends; YouTube does not monetise mass-produced content without its own insight.\n"
+        f"Be harsh: generic, templated, slow or confusing content scores 6 or less. {reward}; "
+        "YouTube does not monetise mass-produced content without its own insight.\n"
         f"CHANNEL: {ch.get('name', ch.get('id'))} ({ch.get('niche', '')}) for {aud}\n"
         f"TITLE: {str(meta.get('title') or '')[:150]}\n"
         f"HOOK / FIRST LINE: {str(meta.get('hook') or meta.get('hook_text') or '')[:200]}\n"
         f"{topic_line}\n{evidence}\n"
-        f"WHAT IS SAID / SHOWN:\n{script_text(it, meta)[:3500]}\n\n"
+        f"{shown}:\n{said[:3500]}\n\n"
         f"CRITERIA:\n{rubric}\n\n"
         'Reply JSON only: {"scores": {"<criterion>": <0-10>, ...}, "fixes": ["the most important concrete fix", '
         '"..."], "summary": "one sentence"}')
@@ -260,7 +312,7 @@ def judge(it: dict, ch: dict, meta: dict, brain, evidence: str = "") -> dict:
     return {"scores": clean, "fixes": fixes, "summary": str(data.get("summary") or "")[:300], "criteria": criteria}
 
 
-def judge_script(script: dict, ch: dict, topic: str, brain) -> dict:
+def judge_script(script: dict, ch: dict, topic: str, brain, kind: str = "") -> dict:
     """P3 (22 Nov): the gate's own rubric on the SCRIPT, before voice, pictures and render. Since the strict judge
     went live (20-21 Nov) no video passed it (story Shorts 5-7 of 10 against 8 on every point), and each rejected
     story Short had already cost ~12 pictures and ~35 minutes. Same prompt and bar as the video gate; the script's
@@ -271,7 +323,8 @@ def judge_script(script: dict, ch: dict, topic: str, brain) -> dict:
     said = " ".join(str(b.get("narration") or "") for b in beats if isinstance(b, dict)).strip()
     meta = {"title": str(script.get("title") or ""), "description": said or str(script.get("script") or ""),
             "hook": str((beats[0] or {}).get("narration") or "") if beats and isinstance(beats[0], dict) else ""}
-    it = {"id": "script", "topic": topic, "out_dir": str(ROOT / "data" / "tmp" / "script_judge_no_folder")}
+    it = {"id": "script", "topic": topic, "kind": kind,           # "long": judged as a long video (23 Nov)
+          "out_dir": str(ROOT / "data" / "tmp" / "script_judge_no_folder")}
     evidence = ""
     if topic:
         try:
@@ -291,14 +344,15 @@ def judge_script(script: dict, ch: dict, topic: str, brain) -> dict:
 
 
 def problems(it: dict, ch: dict, meta: dict, brain_fn=None, led=None) -> list[str]:
-    """[] = full potential. Judged once per version (ledger checkpoint 'potential:<version>')."""
+    """[] = full potential. Judged once per version (ledger checkpoint 'potential:<version>[:<judge tag>]')."""
     p = deterministic(it, ch, meta)
     if p:
         return p                                      # fix these first; no AI call for a video that fails anyway
     from .content_gate import version
     from .core import ledger
     led = led or ledger.default()
-    stage = f"{PREFIX}:{version(it)}"
+    tag = judge_tag(_ctype(ch, meta, it), it)
+    stage = f"{PREFIX}:{version(it)}" + (f":{tag}" if tag else "")
     cp = led.checkpoint(it["id"], stage)
     if not (cp and cp["status"] == "completed"):
         brain = None

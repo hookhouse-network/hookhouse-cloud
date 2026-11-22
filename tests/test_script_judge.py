@@ -47,7 +47,8 @@ def test_obviously_ai_scripts_count_as_below_the_bar(monkeypatch):
 def loop(monkeypatch):
     verdicts, writes = [], []
 
-    def judge(script, ch, topic, brain):
+    def judge(script, ch, topic, brain, kind=""):           # 23 Nov: kind="long" judges a long video's script
+        assert kind == ""                                    # these loops are Shorts
         v = verdicts.pop(0)
         if isinstance(v, Exception):
             raise v

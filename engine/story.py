@@ -2448,7 +2448,8 @@ def _judge_loop(brain, channel: dict, script: dict, topic: str | None, fmt: str,
     rounds = max(0, int(cfg.get("rounds") or 0))
     for r in range(rounds + 1):
         try:
-            v = potential_gate.judge_script(script, channel, topic or script.get("title", ""), brain)
+            v = potential_gate.judge_script(script, channel, topic or script.get("title", ""), brain,
+                                            kind="long" if fmt == "long" else "")
         except Exception as e:  # noqa: BLE001 - no verdict: the video gate still judges after the render
             log(f"Script judge: no verdict ({type(e).__name__}: {str(e)[:80]}); the video gate decides later")
             return best if best_low is not None else script
