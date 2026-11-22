@@ -191,10 +191,20 @@ def cut_times(video: Path, threshold: float = 0.3) -> list[float]:
     return [float(x) for x in re.findall(r"pts_time:([\d.]+)", r.stderr)]
 
 
+GAP_RECHECK = 0.1          # weaker cuts that count only inside an over-long gap (see longest_shot)
+
+
 def longest_shot(video: Path, dur: float) -> float:
     # 0.2: our story Shorts cross-fade between beats; at 0.3 a real 64 s Short (13 beats) showed a false 13.5 s
     # "static" opening, at 0.2 its longest gap was 5.6 s (calibrated 21 Nov on the D. B. Cooper Short)
     cuts = [0.0] + [t for t in cut_times(video, threshold=0.2) if 0 < t < dur] + [dur]
+    gaps = [(a, b) for a, b in zip(cuts, cuts[1:]) if b - a > SHOT_MAX_S]
+    if gaps:
+        # 23 Nov: Deep Blue Files' 17 different pictures (beats 1-5 s) read as two 7.6 s shots: the cross-fade between
+        # two dark deep-sea pictures scores under 0.2 (at 0.1: cuts at 23.3 s and 30.7 s, both beat boundaries).
+        # Inside an over-long gap only, a weaker cut counts too; one picture with a slow zoom stays far below it.
+        weak = [t for t in cut_times(video, threshold=GAP_RECHECK) if any(a + 0.5 < t < b - 0.5 for a, b in gaps)]
+        cuts = sorted(set(cuts) | set(weak))
     return round(max((b - a for a, b in zip(cuts, cuts[1:])), default=dur), 1)
 
 
