@@ -23,7 +23,6 @@ Two layers, both must pass (fail closed):
 Findings start with "potential:" so a failing video is remade with the judge's fixes (autopilot._campaign_held)."""
 from __future__ import annotations
 
-import difflib
 import json
 import re
 from pathlib import Path
@@ -160,12 +159,12 @@ def deterministic(it: dict, ch: dict, meta: dict, past_titles: list[str] | None 
             past_titles = []
     # 21 Nov: used_titles stores titles normalised (lower case, no emoji/punctuation) and includes THIS video's own
     # upload.json, so "Wait for the last try 😳" was judged a repeat of its own "wait for the last try". Both sides
-    # are compared normalised; the video's own title is skipped.
-    from .uniq import _norm
+    # are compared normalised; the video's own title is skipped. 23 Nov: a shared series tag at the end no longer
+    # makes two different titles a repeat (uniq.repeat_ratio).
+    from .uniq import _norm, repeat_ratio
     low = _norm(title)
     for old in past_titles:
-        if old and _norm(old) != low and difflib.SequenceMatcher(None, low, _norm(old)).ratio() >= \
-                float(cfg["title_repeat_ratio"]):
+        if old and _norm(old) != low and repeat_ratio(low, old) >= float(cfg["title_repeat_ratio"]):
             p.append(f"{PREFIX}: title nearly repeats an earlier one (\"{str(old)[:60]}\")")
             break
     text = " ".join([title, str(meta.get("description") or ""), said])

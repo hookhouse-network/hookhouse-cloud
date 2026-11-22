@@ -18,6 +18,27 @@ def _norm(t: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", str(t).lower()).strip()
 
 
+TAIL_MIN_WORDS = 3     # a shared ending this long is the series tag ("| Bloop & Friends Nursery Rhymes & Kids Songs")
+
+
+def repeat_ratio(a: str, b: str) -> float:
+    """How close two titles are (difflib ratio of the normalised text; the gates call >= 0.85 a near-repeat). When
+    both end in the same tag of TAIL_MIN_WORDS+ words, the parts before it decide: 23 Nov, the owner's approved Bloop
+    long video 'Counting to 5 with Bouncy Candy Canes | Bloop & Friends Nursery Rhymes & Kids Songs' was held as a
+    repeat of 'Counting to 10 with Shiny Apples | (same tag)': 0.86, the shared tag being most of the text (now 0.70;
+    'Counting to 5 with Shiny Apples' against it stays a repeat at 0.89)."""
+    import difflib
+    na, nb = _norm(a), _norm(b)
+    full = difflib.SequenceMatcher(None, na, nb).ratio()
+    wa, wb = na.split(), nb.split()
+    n = 0
+    while n < min(len(wa), len(wb)) and wa[-1 - n] == wb[-1 - n]:
+        n += 1
+    if n < TAIL_MIN_WORDS or n >= len(wa) or n >= len(wb):
+        return full
+    return min(full, difflib.SequenceMatcher(None, " ".join(wa[:-n]), " ".join(wb[:-n])).ratio())
+
+
 def used_titles(channel_id: str) -> set[str]:
     out: set[str] = set()
     if LOG.exists():
@@ -66,8 +87,7 @@ def pick(channel_id: str, options: list[str], detail: str = "", used: set[str] |
 
 def repeat_scores(channel_id: str, options: list[str], past: set[str] | None = None) -> dict[str, float]:
     """Each option's closest match among the channel's earlier titles/topics, measured the way the potential gate
-    measures it (normalised text, difflib ratio; >= 0.85 = "title nearly repeats")."""
-    import difflib
+    measures it (repeat_ratio; >= 0.85 = "title nearly repeats")."""
     if past is None:
         past = set(used_titles(channel_id))
         try:
@@ -78,7 +98,7 @@ def repeat_scores(channel_id: str, options: list[str], past: set[str] | None = N
 
     def worst(t: str) -> float:
         n = _norm(t)
-        return max((difflib.SequenceMatcher(None, n, p).ratio() for p in past if p and p != n), default=0.0)
+        return max((repeat_ratio(n, p) for p in past if p and p != n), default=0.0)
     return {t: worst(t) for t in options}
 
 

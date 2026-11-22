@@ -128,14 +128,13 @@ def quality_report(it: dict, ch: dict, meta: dict, led=None) -> dict:
 
 def repair_title(it: dict, ch: dict, problems: list[str], past: list[str] | None = None) -> bool:
     """21 Nov: Brain Snack Shorts were held for 'title nearly repeats an earlier one' although the maker had written
-    other title options. Swap in the first option that passes the same repeat test (potential_gate: difflib ratio vs
-    the channel's used titles and past topics). Returns True if upload.json got a new title."""
+    other title options. Swap in the first option that passes the same repeat test (potential_gate: uniq.repeat_ratio
+    vs the channel's used titles and past topics). Returns True if upload.json got a new title."""
     if not any("title nearly repeats" in str(x) for x in problems or []):
         return False
     path = Path(it.get("out_dir") or "") / "upload.json"
     if not path.exists():
         return False
-    import difflib
     m = json.loads(path.read_text(encoding="utf-8"))
     try:
         from .potential_gate import _cfg
@@ -148,14 +147,14 @@ def repair_title(it: dict, ch: dict, problems: list[str], past: list[str] | None
         print(f"content gate: title repair could not read past titles ({type(e).__name__})")
         return False
     current = str(m.get("title") or "")
-    from .uniq import _norm
+    from .uniq import _norm, repeat_ratio
 
-    def fresh(t: str) -> bool:                      # same normalised test as potential_gate
+    def fresh(t: str) -> bool:                      # same test as potential_gate
         low = _norm(t)
-        if difflib.SequenceMatcher(None, low, _norm(current)).ratio() >= ratio:
+        if repeat_ratio(low, current) >= ratio:
             return False                                # a near-copy of the flagged title repeats the same thing
         return bool(low) and all(not o or _norm(o) == _norm(current)          # this video's own record is skipped
-                                 or difflib.SequenceMatcher(None, low, _norm(o)).ratio() < ratio for o in past)
+                                 or repeat_ratio(low, o) < ratio for o in past)
     for t in [str(x) for x in m.get("title_options") or []]:
         if t and t != current and fresh(t):
             m["title"], m["title_options"] = t, list(dict.fromkeys([t, current] + list(m.get("title_options") or [])))
