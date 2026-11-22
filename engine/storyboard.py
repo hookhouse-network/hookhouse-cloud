@@ -436,12 +436,15 @@ def scene(beat: dict, era: str, size: tuple[int, int], log=print, i: int = 0, tr
             "eyes": verdict}
 
 
-def check_photo(vis: dict, beat: dict, era: str) -> bool:
-    """A library photo/clip found for a storyboard beat must also pass the eyes check (keyword matches showed a garden
-    bridge for 'saltwater')."""
+UNCHECKED = {"score": -1, "text": False, "wrong": "", "ok": True}
+
+
+def photo_verdict(vis: dict, beat: dict, era: str) -> dict:
+    """The eyes verdict for a photo/clip/AI picture found for a storyboard beat (score -1 = not checked: no picture,
+    no intended shot, or the checker is off)."""
     path = vis.get("path")
     if not path or not beat.get("see"):
-        return True
+        return dict(UNCHECKED)
     p = Path(str(path))
     if p.suffix.lower() in (".mp4", ".mov", ".webm"):
         import subprocess
@@ -449,7 +452,13 @@ def check_photo(vis: dict, beat: dict, era: str) -> bool:
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", "0.5", "-i", str(p), "-frames:v", "1", str(frame)],
                        check=False)
         if not frame.exists():
-            return True
+            return dict(UNCHECKED)
         p = frame
-    v = eyes(p, beat.get("narration", ""), beat.get("see", ""), era)
+    return eyes(p, beat.get("narration", ""), beat.get("see", ""), era)
+
+
+def check_photo(vis: dict, beat: dict, era: str) -> bool:
+    """A library photo/clip found for a storyboard beat must also pass the eyes check (keyword matches showed a garden
+    bridge for 'saltwater')."""
+    v = photo_verdict(vis, beat, era)
     return v["ok"] or v["score"] < 0

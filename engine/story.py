@@ -1280,6 +1280,7 @@ def find_beat_visual(beat: dict, seconds: float, palette: list[str], work: Path,
         order = [try_paintings] + [f for f in order if f is not try_paintings]
     if era == "ancient":                           # stock footage is modern (a pier with lightning played "Indra")
         order = [f for f in order if f is not try_footage]
+    spare = None                                   # the best AI picture the eyes check turned down (see _spare_ok)
     for fn in order:
         try:
             got = fn()
@@ -1288,9 +1289,12 @@ def find_beat_visual(beat: dict, seconds: float, palette: list[str], work: Path,
             got = None
         if got and beat.get("_prompt") and not got.get("graphic") and got.get("source") != "chart":
             from . import storyboard
-            if not storyboard.check_photo(got, beat, beat.get("_era", "")):
+            v = storyboard.photo_verdict(got, beat, beat.get("_era", ""))
+            if not (v["ok"] or v["score"] < 0):
                 log(f"  beat {i + 1}: {got.get('source')} picture doesn't show this moment; next source")
                 used.add(str(got.get("path")))
+                if _spare_ok(got, v) and (spare is None or v["score"] > spare[1]):
+                    spare = (got, v["score"])
                 continue
         if got:
             return got
@@ -1299,7 +1303,23 @@ def find_beat_visual(beat: dict, seconds: float, palette: list[str], work: Path,
         got = storyboard.scene(beat, beat.get("_era", ""), size, log, i)
         if got:
             return got
+    if spare:
+        log(f"  beat {i + 1}: keeping the {spare[0].get('source')} picture (eyes {spare[1]}/10); a text card shows "
+            "the moment less")
+        return dict(spare[0], match=round(spare[1] / 10, 2))
     return {"kind": "reuse", "path": None, "frame": "full", "credit": "", "source": "reuse"}
+
+
+SPARE_MIN = 5                                      # eyes score (0-10) an AI picture needs to be kept as the last resort
+
+
+def _spare_ok(got: dict, verdict: dict) -> bool:
+    """An AI picture drawn for this very beat, turned down by the eyes check (bar: storyboard.PASS) but with no letters
+    in it and at least SPARE_MIN: kept as the beat's last resort instead of a text card. 21 Nov (Unsolved, Dyatlov
+    Pass): 8 of 9 FLUX pictures (a tent in snow at night, hikers, misty slopes) were thrown away for 'modern gear' or a
+    stray logo, six beats became text graphics, and the quality gate held the video for '6/10 shots are word cards'."""
+    return (str(got.get("source") or "").startswith("ai_") and got.get("kind") == "image"
+            and not verdict.get("text") and float(verdict.get("score", -1)) >= SPARE_MIN)
 
 
 # ---------- sound ----------
