@@ -899,6 +899,21 @@ def remember_shots(item: dict, out: Path, log=print) -> int:
     return len(new)
 
 
+def redo_text(item: dict, ch: dict) -> str:
+    """What a remake is told: the owner's change (Change button) and the gate's findings (20 Nov). 23 Nov, S10: a video
+    held as 'obviously AI-made' also gets what the human_feel score measures for its type (its remakes had been told
+    only the judge's general hook/pacing fixes and stayed at human_feel 5)."""
+    out = ""
+    if item.get("status") == "redo" and item.get("note"):
+        out += f"\nThe owner asked for this change: {item['note']}"
+    if item.get("status") == "redo" and item.get("gate_note"):
+        out += f"\nThe last version failed the quality check; fix all of this: {item['gate_note']}"
+        from . import potential_gate
+        if potential_gate.HUMAN_FINDING in str(item["gate_note"]):
+            out += "\n" + potential_gate.human_note(potential_gate._ctype(ch, {}, item), item.get("kind") or "")
+    return out
+
+
 def make_item(plan: dict, item: dict, brain, memory=None, log=print) -> None:
     from .config import channel as get_channel
     ch = get_channel(item["channel"])
@@ -939,10 +954,7 @@ def make_item(plan: dict, item: dict, brain, memory=None, log=print) -> None:
     if item.get("feeling"):
         topic = f"{topic}\nThe feeling this video must deliver: {item['feeling']}" + (
             f" (why now: {item['now_hook']})" if item.get("now_hook") else "")
-    if item.get("status") == "redo" and item.get("note"):
-        topic = f"{topic}\nThe owner asked for this change: {item['note']}"
-    if item.get("status") == "redo" and item.get("gate_note"):        # 20 Nov: the quality gate's findings
-        topic = f"{topic}\nThe last version failed the quality check; fix all of this: {item['gate_note']}"
+    topic += redo_text(item, ch)
     if ch["type"] == "story":
         if not item.get("topic"):                      # never write a script about nothing
             raise RuntimeError("No topic was planned for this slot. Run 'python cli.py week plan' again.")

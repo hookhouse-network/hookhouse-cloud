@@ -96,6 +96,18 @@ def criteria_help(ctype: str, it: dict) -> dict:
     return out
 
 
+HUMAN_FINDING = "looks/sounds obviously AI-made"
+
+
+def human_note(ctype: str, kind: str = "") -> str:
+    """S10 for the writer (23 Nov): a remake or script rewrite after an 'obviously AI-made' verdict was told only the
+    judge's general fixes (hook, pacing), never what the human_feel score measures, so the 22-23 Nov remakes stayed at
+    human_feel 5. This is the judge's own criterion text for this content type, so the rewrite aims at what is scored."""
+    return (f"The judge said the last version {HUMAN_FINDING} (human_feel below the bar). Human-made here means: "
+            f"{criteria_help(ctype, {'kind': kind})[HUMAN]}. Write it the way one skilled person would say it to a "
+            "friend: concrete details, varied sentence lengths, a real reaction or opinion, no stock phrases.")
+
+
 def judge_tag(ctype: str, it: dict) -> str:
     """'' for a video the judge sees exactly as before 23 Nov (grown-up Shorts: their cached verdicts stay); otherwise
     a short hash of its own texts, part of the verdict's cache key, so a kids or long video is judged once more by

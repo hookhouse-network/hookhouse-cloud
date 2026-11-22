@@ -514,9 +514,12 @@ def fit_length(brain, channel: dict, script: dict, log=print) -> dict:
     if len(nums) == 2 and n < nums[0]:          # too short for the niche's researched length (movie: 55-75 s)
         out = expand_long(brain, copy.deepcopy(script), target=(nums[0] + nums[1]) // 2, log=log, minimum=nums[0],
                           rounds=2)
-        if sum(len(b.get("narration", "").split()) for b in out.get("beats") or []) > n:
+        m = sum(len(b.get("narration", "").split()) for b in out.get("beats") or [])
+        if m > n:
             out["_fact_check"] = {}                     # new lines: check again before upload
             out["_expanded"] = True
+            if m > nums[1]:                             # 23 Nov: the writer overshot (Deep Blue 119 -> 153 and
+                return fit_length(brain, channel, out, log)   # 112 -> 159 words for 125-150): trimmed back in range
             return out
         return script
     if len(nums) < 2 or n <= nums[1]:               # strict: the research range is the limit (53.7 s slipped through)
@@ -2467,6 +2470,8 @@ def _judge_loop(brain, channel: dict, script: dict, topic: str | None, fmt: str,
         notes = (f"A strict head of content judged the last draft of this script below the bar (needs {v['need']:g}/10 "
                  f"on every point): " + ", ".join(f"{c} {s:g}" for c, s in sorted(low.items(), key=lambda x: x[1]))
                  + f". Write a new draft that fixes exactly this: {fixes}")
+        if potential_gate.HUMAN in low:                    # S10: say what human-made means, not only the fixes
+            notes += "\n" + potential_gate.human_note(potential_gate._ctype(channel, {}, {}), fmt)
         log(f"Script judge: below {v['need']:g} on " + ", ".join(f"{c} {s:g}" for c, s in low.items())
             + f"; rewriting with its fixes ({r + 1}/{rounds})")
         script = _write_fresh(brain, channel, topic, fmt, memory, log, plan, notes=notes)
