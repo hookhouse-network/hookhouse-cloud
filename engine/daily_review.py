@@ -167,7 +167,9 @@ def judge(videos: list[dict]) -> dict:
                 weak.append(f"{tag}: few likes for the views ({(v.get('likes') or 0) / vw:.1%}, target 2%+): "
                             "weak payoff or no reason to react")
             if v.get("shares") is not None and v["shares"] == 0:
-                weak.append(f"{tag}: nobody shared it: add a 'send this to ...' moment or a surprising fact")
+                # 22 Nov: never "add a 'send this to' line": Instagram does not recommend posts that ask for shares
+                weak.append(f"{tag}: nobody shared it: add a moment worth sending (a surprising true detail or a "
+                            f"relatable laugh) without asking for shares")
     return {"median_views": med, "good": good, "bad": bad, "weak": weak}
 
 

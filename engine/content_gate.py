@@ -71,6 +71,30 @@ def temporary_bar(today: str | None = None) -> dict:
     return dict(t) if today <= str(t["until"]) else {}
 
 
+def potential_mode(it: dict, meta: dict | None = None) -> str:
+    """How the potential (viral) judge's findings count for this video. 22 Nov: since the strict judge went live no
+    video passed it (real posted Shorts score 3-6; a 1,311-view hit scored below a 68-view flop), and the owner's own
+    dashboard approvals (Itihaas 19:00, Bloop long) were blocked right after the tap. Two owner options, both off
+    until the owner picks one (config/gates.yaml):
+      'coach'  temporary_bar.potential: coach -> while the temporary bar runs, the judge only coaches (the script
+               judge still rewrites with its fixes); its rubric findings are recorded, never blocking;
+      'owner'  potential.owner_approval_overrides: true -> the owner's own approval (not an auto-approval) waives it
+               for that video.
+    Otherwise 'block' (as before). Either way only the 1-10 rubric bar is waived (rubric_finding): the judge's other
+    findings and the quality, fact-check, policy, copyright and clip/campaign checks never change.
+    Owner 22 Nov 23:10: "run them and B option as you have suggested" -> coach (config/gates.yaml). Campaign clips
+    stay 'block': the owner wants them super-strict (20 Nov) and B was offered with "clip gates stay strict"; their
+    rubric includes brief_fit, how well the clip fits the brand's brief."""
+    if meta is not None and (meta.get("clip") or meta.get("campaign")) or (it or {}).get("made_as") == "clip":
+        return "block"
+    if temporary_bar().get("potential") == "coach":
+        return "coach"
+    pc = config().get("potential") or {}
+    if pc.get("owner_approval_overrides") and it.get("status") == "approved" and not it.get("auto_approved"):
+        return "owner"
+    return "block"
+
+
 def platform_rules(platform: str) -> dict:
     return dict((config().get("platforms") or {}).get(platform) or {})
 
@@ -271,10 +295,35 @@ def base_problems(it: dict, ch: dict | None = None, meta: dict | None = None, qu
                 meta = dict(meta, title=json.loads((Path(it["out_dir"]) / "upload.json").read_text(
                     encoding="utf-8"))["title"])
                 pot = potential(it, ch, meta, brain_fn=brain_fn)
-            p += pot
+            mode = potential_mode(it, meta)
+            soft = [f for f in pot if rubric_finding(f)] if mode != "block" else []
+            if soft:                                    # owner's choice (22 Nov, "B"): recorded, not blocking
+                _potential_waived(it, soft, mode)
+            p += [f for f in pot if f not in soft]      # hook start, title repeat, ad-friendly, AI-made, not judged
         except Exception as e:  # noqa: BLE001 - not judged = not passed
             p.append(f"potential: not judged yet (the judge could not run: {type(e).__name__}); it tries again")
     return list(dict.fromkeys(p))
+
+
+RUBRIC_FINDING = re.compile(r"^potential: below [\d.]+/10 on ")
+
+
+def rubric_finding(finding: str) -> bool:
+    """Only the judge's 1-10 rubric bar is coached by the owner's choice (it scored real hits 3-6). Its other
+    findings keep blocking: the hook-start and title-repeat checks, advertiser-friendly words, the S10 'obviously
+    AI-made' checks and 'not judged yet' (owner 21 Nov: S10 applies to every video; policy checks never relax)."""
+    return bool(RUBRIC_FINDING.match(str(finding)))
+
+
+def _potential_waived(it: dict, findings: list[str], mode: str) -> None:
+    """The judge's findings stay on record for the learning loop (scores vs real views) when they do not block."""
+    print(f"potential ({mode}): not blocking {it.get('id')}: {'; '.join(findings)[:200]}")
+    try:
+        from .core import ledger
+        ledger.event("potential.waived", item=it.get("id") or "", channel=it.get("channel") or "",
+                     data={"mode": mode, "findings": findings[:3]})
+    except Exception as e:  # noqa: BLE001 - the record never decides a video
+        print(f"potential record: {type(e).__name__}: {e}")
 
 
 def platform_problems(it: dict, platform: str, ch: dict, meta: dict, dur: float | None = None) -> list[str]:

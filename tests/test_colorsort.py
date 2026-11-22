@@ -70,8 +70,8 @@ def test_maker_spec_titles_and_description():
     spec = maker.new_spec("colorsort", [], seed=11)
     assert spec["format"] == "colorsort" and spec["layout"] in range(len(cs.LAYOUTS)) and 0 <= spec["hue_shift"] < 1
     assert any("last tile" in t for t in maker.titles_for(spec))
-    q, send = maker.cta_for("colorsort")
-    assert q.endswith("👇") and send.startswith("Send it to")
+    (q,) = maker.cta_for("colorsort")                       # 22 Nov: a question only, no "Send it to ..." ask
+    assert q.endswith("👇")
     assert "no AI" in maker.MADE_WITH["colorsort"] and "collision" not in maker.MADE_WITH["colorsort"]
 
 

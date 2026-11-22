@@ -30,6 +30,9 @@ temporary_bar:                # owner 21 Nov ("Temporary 85 bar"): 0 of 53 posts
   until: "2026-11-28"         # last day it applies (IST); then the strict bars below come back by themselves
   min_quality: 85             # quality score; 'bad' issues still block, only small craft warnings may remain
   min_each: 8                 # potential rubric per criterion (9 normally)
+  potential: coach            # owner 22 Nov 23:10 ("B"): the judge's 1-10 rubric only coaches until `until` (it
+                              # scored real hits 3-6; 0 posts for 2 days). Its hook-start, title-repeat, ad-friendly,
+                              # S10 'obviously AI-made' and 'not judged yet' findings still block. Off: delete this line
   # policy, copyright/franchise, fact-check, kids-safety, AI-label and clip/campaign checks are NOT relaxed
 
 potential:                    # engine/potential_gate.py: the "viral + earning" half of 100/100

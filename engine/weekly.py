@@ -807,6 +807,98 @@ def snack_theme(item: dict) -> str:
     return theme.strip()
 
 
+# P3 checkpointed stages (22 Nov, owner: "the content creation must become smoother"): a story Short that stopped
+# after its script was written (no free picture, the PC on battery, a network blip) started again from nothing on the
+# next try: the PC's fresh plan copy re-ran the topic refresh (Itihaas 12:30: "Tulsi Vivah" at 05:40, "Raja Raghu" at
+# 08:46), wrote a new script, new voice, new shot prompts, so pictures already drawn were never reused. The finished
+# script + shot plan + chosen topic are now kept per item until the video is made; a retry after such a stop resumes
+# it (scene pictures come from the cache). A quality redo or an owner change (new note) writes a fresh script.
+CHECKPOINTS = ROOT / "data" / "checkpoints"
+CHECKPOINT_MAX_H = 24
+CK_FIELDS = ("topic", "angle", "why", "feeling", "now_hook", "planned_topic")
+
+
+def _ck_path(item: dict) -> Path:
+    return CHECKPOINTS / f"{re.sub(r'[^A-Za-z0-9_.-]', '_', str(item.get('id') or 'item'))}.json"
+
+
+def save_checkpoint(item: dict, script: dict) -> None:
+    CHECKPOINTS.mkdir(parents=True, exist_ok=True)
+    rec = {"at": time.time(), "item": {k: item.get(k) for k in CK_FIELDS},
+           "note": item.get("note"), "gate_note": item.get("gate_note"), "script": script}
+    _ck_path(item).write_text(json.dumps(rec, ensure_ascii=False, default=str), encoding="utf-8")
+
+
+def clear_checkpoint(item: dict) -> None:
+    _ck_path(item).unlink(missing_ok=True)
+
+
+def checkpoint(item: dict) -> dict | None:
+    """The kept script of this item's last stopped try, or None (missing, older than a day, or the owner/gate asked
+    for changes since: then a fresh script is written with them)."""
+    try:
+        rec = json.loads(_ck_path(item).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if time.time() - float(rec.get("at") or 0) > CHECKPOINT_MAX_H * 3600 or not isinstance(rec.get("script"), dict):
+        return None
+    if (item.get("note") or None) != (rec.get("note") or None) or \
+            (item.get("gate_note") or None) != (rec.get("gate_note") or None):
+        return None
+    return rec
+
+
+# P3b asset bank (22 Nov): the AI pictures every made version of an item used (shot description + file), kept on the
+# machine that drew them; the item's next remake is offered them before anything is drawn (storyboard.reuse decides
+# per beat with the eyes check). All versions count (a 3rd version may reuse the 1st one's pictures).
+ITEM_SHOTS = ROOT / "data" / "cache" / "item_shots"
+BANK_MAX = 40                                          # pictures kept per item
+BANK_KEEP_D = 10                                       # bank files older than this are removed
+
+
+def _bank_path(item: dict) -> Path:
+    return ITEM_SHOTS / f"{re.sub(r'[^A-Za-z0-9_.-]', '_', str(item.get('id') or 'item'))}.json"
+
+
+def shot_bank(item: dict, log=print) -> list[dict]:
+    """The item's earlier pictures whose files still exist (the cache may have been cleaned since)."""
+    p = _bank_path(item)
+    if not p.exists():
+        return []
+    try:
+        rows = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        log(f"   picture bank of {item.get('id')} unreadable ({type(e).__name__}); every picture is drawn new")
+        return []
+    return [r for r in rows if isinstance(r, dict) and r.get("path") and Path(str(r["path"])).is_file()]
+
+
+def remember_shots(item: dict, out: Path, log=print) -> int:
+    """Adds this version's AI pictures to the item's bank; returns how many it used."""
+    try:
+        shots = json.loads((Path(out) / "shots.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        log(f"   picture bank: no shot list in {Path(out).name} ({type(e).__name__}); a remake draws every picture")
+        return 0
+    new = [{"see": str(s.get("see") or ""), "path": str(s["path"]), "source": str(s.get("source") or ""),
+            "kind": "image", "match": str(s.get("match") or "")}
+           for s in shots if isinstance(s, dict) and s.get("kind") == "image" and s.get("path")
+           and str(s.get("source") or "").startswith("ai_scene")]
+    if not new:
+        return 0
+    rows = {r["path"]: r for r in shot_bank(item, log) + new}         # the newest description of a file wins
+    ITEM_SHOTS.mkdir(parents=True, exist_ok=True)
+    _bank_path(item).write_text(json.dumps(list(rows.values())[-BANK_MAX:], ensure_ascii=False), encoding="utf-8")
+    cut = time.time() - BANK_KEEP_D * 86400
+    for f in ITEM_SHOTS.glob("*.json"):
+        try:
+            if f.stat().st_mtime < cut:
+                f.unlink()
+        except OSError as e:                           # another process has it open: next time
+            log(f"   picture bank: old file {f.name} not removed ({e})")
+    return len(new)
+
+
 def make_item(plan: dict, item: dict, brain, memory=None, log=print) -> None:
     from .config import channel as get_channel
     ch = get_channel(item["channel"])
@@ -819,6 +911,12 @@ def make_item(plan: dict, item: dict, brain, memory=None, log=print) -> None:
         return
     if ch["type"] == "story" and story_paused(ch):
         raise RuntimeError(f"{ch['name']}: story Shorts are paused ({story_paused(ch)}); only campaign clips are made")
+    ck = checkpoint(item) if ch["type"] == "story" else None
+    if ck:                                             # P3: resume the stopped try (same topic, script, shot prompts)
+        item.update({k: v for k, v in (ck.get("item") or {}).items() if v is not None})
+        item["refreshed"] = True
+        log(f"   Resuming the last try's script (kept {(time.time() - float(ck['at'])) / 60:.0f} min ago): "
+            f"{str(ck['script'].get('title') or '')[:70]}")
     if ch["type"] == "story" and not item.get("topic") and brain is not None:
         # the week plan got fewer topics than slots (AI busy that day): pick one now instead of skipping the slot
         taken = [it.get("topic") for it in plan.get("items", []) if it.get("topic")]
@@ -848,9 +946,22 @@ def make_item(plan: dict, item: dict, brain, memory=None, log=print) -> None:
     if ch["type"] == "story":
         if not item.get("topic"):                      # never write a script about nothing
             raise RuntimeError("No topic was planned for this slot. Run 'python cli.py week plan' again.")
-        from . import story
-        out, _ = story.make(brain, ch, topic=topic, fmt="long" if item["kind"] == "long" else "short",
-                            memory=memory, log=log)
+        from . import story, storyboard
+        bank = shot_bank(item, log)
+        if bank:
+            log(f"   {len(bank)} picture(s) of the last version offered for reuse")
+        try:
+            out, _ = story.make(brain, ch, topic=topic, fmt="long" if item["kind"] == "long" else "short",
+                                memory=memory, log=log, script=(ck or {}).get("script"),
+                                on_script=lambda s: save_checkpoint(item, s), bank=bank)
+        except storyboard.NoPictures as e:             # 22 Nov: stopped at the picture limit; the script stays
+            if getattr(e, "out_dir", None):            # (checkpoint) and the pictures that came wait for the retry
+                n = remember_shots(item, Path(e.out_dir), log)
+                if n:
+                    log(f"   {n} picture(s) of the stopped try kept for the retry after the reset")
+            raise
+        clear_checkpoint(item)                         # made: the next version (a redo) is written fresh
+        remember_shots(item, out, log)                 # P3b: this version's pictures, offered to a remake
         item["out_dir"], item["file"] = str(out), (sorted(out.glob("*.mp4")) or [Path("")])[0].name
         try:                                           # the hook loop learns which hook type this video used
             from .content_tuning import record_hook

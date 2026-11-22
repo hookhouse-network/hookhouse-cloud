@@ -489,6 +489,83 @@ def scene(beat: dict, era: str, size: tuple[int, int], log=print, i: int = 0, tr
             "eyes": verdict}
 
 
+# ---------------------------------------------------------------- P3b asset bank (pictures of the last version)
+# 22 Nov: a remake (gate redo) writes a new script, so every shot prompt changed and every picture was drawn again:
+# Itihaas 22 Nov 12:30 was drawn three times the same morning, and the redos the potential gate then held took
+# Cloudflare's free allowance and the PC's 60 local pictures. The last version's pictures of the same video are now
+# offered first. Word overlap only ranks them (the same moment is written differently each time: "Kautsa bowing before
+# his guru" vs "Rishi Kouts bowing before Raja Raghu" overlap 0.16); the eyes check decides, against the NEW narration.
+REUSE_MIN = 0.15             # word overlap an old picture's shot needs before the eyes check looks at it
+REUSE_BLIND = 0.5            # overlap that is enough on its own when the eyes check is off (no key / down)
+_SHOT_STOP = {"a", "an", "the", "of", "in", "on", "at", "with", "and", "or", "to", "from", "by", "for", "is", "are",
+              "his", "her", "their", "its", "close", "up", "close-up", "shot", "wide", "view", "scene", "showing",
+              "shows", "while", "as", "into", "over", "under", "behind", "front", "background", "foreground",
+              "dramatic", "cinematic", "angle", "low", "high", "medium", "aerial", "camera", "frame", "framing",
+              "toward", "towards", "through", "extreme", "macro", "real", "photo"}
+
+
+def _shot_words(see: str) -> set[str]:
+    return {re.sub(r"(?<=[a-z]{3})s$", "", w.lower()) for w in re.findall(r"[A-Za-z][A-Za-z'-]{2,}", see or "")} \
+        - _SHOT_STOP
+
+
+def shot_overlap(a: str, b: str) -> float:
+    """0-1: shared content words of two shot descriptions (Jaccard; camera words and plurals ignored)."""
+    wa, wb = _shot_words(a), _shot_words(b)
+    return len(wa & wb) / len(wa | wb) if wa and wb else 0.0
+
+
+def same_shot(a, b) -> bool:
+    """The very same shot description (a retry of the same script), spacing and case aside."""
+    na, nb = (" ".join(str(x or "").lower().split()) for x in (a, b))
+    return bool(na) and na == nb
+
+
+SAME_SHOT_MATCH = 0.7          # a stored eyes score (match) this good is trusted again for the very same shot
+
+
+def _stored_match(s: dict) -> float:
+    try:
+        return float(s.get("match") or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def reuse(beat: dict, bank: list[dict], era: str = "", log=print, i: int = 0) -> dict | None:
+    """The best picture of the video's last version for this beat, if the eyes check says it shows THIS moment (one
+    check per beat). A reused picture leaves the bank (never twice in one video). The caller keeps the opening shot
+    new (the hook is what a remake must change) unless the bank holds the very same shot. The very same shot with a
+    good stored eyes score needs no new check (22 Nov: a retry of the same script after the picture limit)."""
+    see = str(beat.get("see") or "")
+    if not see or not bank:
+        return None
+    cands = []
+    for s in bank:
+        p = Path(str(s.get("path") or ""))
+        if s.get("kind", "image") != "image" or not str(s.get("source") or "").startswith("ai_scene") or not p.is_file():
+            continue
+        cands.append((shot_overlap(see, str(s.get("see") or "")), s, p))
+    if not cands:
+        return None
+    sim, s, p = max(cands, key=lambda c: (same_shot(see, c[1].get("see")), c[0]))
+    if sim < REUSE_MIN:
+        return None
+    if same_shot(see, s.get("see")) and _stored_match(s) >= SAME_SHOT_MATCH:
+        bank.remove(s)
+        log(f"  beat {i + 1}: the same shot's picture from the stopped try reused (stored match {_stored_match(s):.2f})")
+        return {"kind": "image", "path": p, "frame": "full", "credit": "AI-generated image", "source": "ai_scene_reuse",
+                "match": _stored_match(s), "eyes": {"score": round(_stored_match(s) * 10), "ok": True, "stored": True}}
+    verdict = eyes(p, beat.get("narration", ""), see, era)
+    if not (verdict["ok"] and (verdict["score"] >= 0 or sim >= REUSE_BLIND)):
+        log(f"  beat {i + 1}: last version's closest picture doesn't fit (overlap {sim:.2f}, eyes {verdict['score']});"
+            " drawing a new one")
+        return None
+    bank.remove(s)
+    log(f"  beat {i + 1}: picture from the last version reused (overlap {sim:.2f}, eyes {verdict['score']})")
+    return {"kind": "image", "path": p, "frame": "full", "credit": "AI-generated image", "source": "ai_scene_reuse",
+            "match": max(0.0, verdict["score"]) / 10 if verdict["score"] >= 0 else 0.85, "eyes": verdict}
+
+
 UNCHECKED = {"score": -1, "text": False, "wrong": "", "ok": True}
 
 

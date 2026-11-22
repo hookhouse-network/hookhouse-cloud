@@ -120,3 +120,13 @@ def test_a_clip_is_judged_against_its_campaign_brief_not_the_slots_story_topic(m
     assert "CAMPAIGN BRIEF: Dasgasd3m x RUCKUS" in p and "Map Size" not in p
     story = potential_gate._prompt(ch, it, {"title": "t"}, "story", potential_gate.DEFAULT_RUBRICS["story"], "")
     assert "TOPIC: GTA 6 vs GTA 5 Map Size" in story and "CAMPAIGN BRIEF" not in story
+
+
+def test_the_writer_may_open_with_a_stakes_question_but_never_a_stale_opener():
+    """22 Nov: the viral judge's #1 fix on 17 of 17 held videos was a punchier first line; the writer only allowed a
+    mid-action scene. Now a direct stakes question is allowed too; the stale openers stay banned."""
+    from engine import story
+    p = story.WRITER_PROMPT
+    assert "at most 12 words" in p and "direct question that names the stakes" in p
+    for stale in ('"did you know"', '"what if I told you"', '"imagine"'):
+        assert stale in p                                       # listed as banned openers

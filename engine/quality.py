@@ -208,6 +208,16 @@ def rhythm_issues(video: Path, dur: float, fmt: str) -> list[tuple[str, str]]:
     return []
 
 
+CARD_MAX = 0.2                 # share of word cards above which a video is blocked ("show the moment instead")
+
+
+def card_count(shots: list[dict]) -> int:
+    """Word cards in a shot list (shots.json rows): text shots and graphics. The renderer's picture-limit stop
+    (story._picture_stop) uses this same count, so it stops exactly the videos this gate would block."""
+    return sum(1 for s in shots if isinstance(s, dict) and (s.get("kind") == "text"
+                                                            or s.get("source") in ("graphic", "text")))
+
+
 def story_issues(d: Path) -> list[tuple[str, str]]:
     """Owner 15 Nov 2026: a video must SHOW what is said, not words on cards. Reads shots.json (per beat)."""
     try:
@@ -216,11 +226,11 @@ def story_issues(d: Path) -> list[tuple[str, str]]:
         return []
     if not shots:
         return []
-    cards = sum(1 for s in shots if s.get("kind") == "text" or s.get("source") in ("graphic", "text"))
+    cards = card_count(shots)
     weak = sum(1 for s in shots if s.get("kind") in ("image", "video") and s.get("source") not in ("graphic", "chart")
                and 0 < float(s.get("match") or 1) < 0.7)
     out = []
-    if cards / len(shots) > 0.2:
+    if cards / len(shots) > CARD_MAX:
         out.append(("bad", f"{cards}/{len(shots)} shots are word cards: show the moment instead"))
     if weak / len(shots) > 0.2:
         out.append(("warn", f"{weak}/{len(shots)} pictures barely match what is said"))

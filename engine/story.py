@@ -50,10 +50,14 @@ viewer's own life, "everyone thinks X, actually Y"). Pick the most surprising TR
 STEP 2 - THUMBNAIL + TITLE FIRST (MrBeast rule). The video must deliver exactly what they promise, inside
 the first 2 seconds. Never promise anything the video does not show (YouTube removes misleading clickbait).
 STEP 3 - BEATS (the structure top story Shorts use in 2026).
-- Beat 1 = COLD OPEN: drop the viewer into the most dramatic true moment, mid-action, as a scene
-  ("He put his sons in the lifeboat, but instead of climbing in..."). Stakes + an exact number if there is one
-  ("India need 15 runs off 6 balls."). No greetings, no "in this video", no "did you know", no "imagine", and never
-  open with a date, a year or a full name (viewers swipe before the point arrives): open with the action or the claim.
+- Beat 1 = COLD OPEN in ONE line of at most 12 words that makes a stranger NEED the answer. Either drop the viewer
+  into the most dramatic true moment, mid-action ("He put his sons in the lifeboat, but instead of climbing in..."),
+  OR ask a direct question that names the stakes and teases the payoff without giving it away ("Why did a king pay
+  14 crore gold coins for one lesson?"). Pick the one that is more surprising for THIS story. Stakes + an exact
+  number if there is one ("India need 15 runs off 6 balls."). No greetings, no "in this video", no "did you know",
+  no "what if I told you", no "imagine", and never open with a date, a year or a full name (viewers swipe before the
+  point arrives). hook_text shows the same promise on screen from the first frame.
+  (22 Nov: the viral judge's #1 fix on 17 of 17 held videos was a punchier hook in the first 1-2 seconds.)
 - Beats 2-3 = "You see," / "It started..." backstory: who, where, when (by 4-8 seconds).
 - Middle = escalation; every 6-10 seconds a new question, number or reveal. Around 40-60% a "But..." twist.
 - End = the payoff, ideally ironic or surprising. NO call to action, no "follow for more", no "subscribe".
@@ -1189,14 +1193,18 @@ def _see_query(see: str, words: int = 4) -> str:
 def find_beat_visual(beat: dict, seconds: float, palette: list[str], work: Path, i: int, language: str,
                      mood: str, used: set, size: tuple[int, int], log=print, pool: list | None = None,
                      paintings: str = "", painting_context: str = "", era: str = "", channel: dict | None = None,
-                     said: str = "") -> dict:
-    """Returns {"kind": image|video|text|reuse, "path", "frame": full|card, "credit", "source"}."""
+                     said: str = "", bank: list | None = None) -> dict:
+    """Returns {"kind": image|video|text|reuse, "path", "frame": full|card, "credit", "source"}. `bank`: the pictures
+    of this video's last version (P3b), tried before drawing a scene; the opening shot is drawn new unless the bank
+    holds the very same shot (a retry of the same script after the picture limit, 22 Nov)."""
     kind = beat.get("visual", "photo")
     if beat.get("_prompt") and kind in ("scene", "photo", "ai", "footage"):
         from . import storyboard
         era_text = beat.get("_era", "")
         if kind == "scene":                        # drawn + checked shot of exactly this moment
-            got = storyboard.scene(beat, era_text, size, log, i, tries=3 if size[1] > size[0] else 2)   # long: lighter
+            first_ok = i == 0 and bank and any(storyboard.same_shot(beat.get("see"), b.get("see")) for b in bank)
+            got = storyboard.reuse(beat, bank, era_text, log, i) if bank and (i > 0 or first_ok) else None
+            got = got or storyboard.scene(beat, era_text, size, log, i, tries=3 if size[1] > size[0] else 2)  # long: lighter
             if got:
                 return got
             kind = "photo"                         # no free picture left today: the library search (checked below)
@@ -1678,7 +1686,27 @@ def _v3_frame(vis: dict) -> str:
     return "parallax"
 
 
-def render(channel: dict, script: dict, out_dir: Path, fmt: str = "short", log=print) -> dict:
+def _picture_stop(beats: list[dict], out_dir: Path) -> None:
+    """Owner 15 Nov: a storyboard video whose pictures ran out (free daily limit) became word cards and was still
+    sent. Stop instead: the item is retried after the picture limits reset.
+    22 Nov: this stop used its own count (scenes only, over 30 %) while the quality gate blocks over 20 % word cards
+    of all shots, so a video between the two (Cosmos Unboxed 23 Nov 05:00: 3 of 13 shots) was finished, blocked, and
+    its redo spent. One count now, the gate's own (quality.card_count / CARD_MAX). The error carries the folder: the
+    pictures that did come wait in the item's bank for the retry (weekly.remember_shots, P3b)."""
+    from . import quality, storyboard
+    shots = [{"see": b.get("see", ""), **(b.get("_visual") or {})} for b in beats]
+    cards = quality.card_count(shots)
+    if shots and cards / len(shots) > quality.CARD_MAX and storyboard.images_blocked():
+        e = storyboard.NoPictures(f"{cards}/{len(shots)} shots would be word cards (the gate allows "
+                                  f"{quality.CARD_MAX:.0%}): free picture limit reached; this video is made after the "
+                                  "daily reset")
+        e.out_dir = out_dir
+        raise e
+
+
+def render(channel: dict, script: dict, out_dir: Path, fmt: str = "short", log=print,
+           bank: list | None = None) -> dict:
+    bank = list(bank or [])                        # P3b: the last version's pictures (each reused at most once)
     script = normalize_script(script)
     f = FORMATS[fmt]
     size = f["size"]
@@ -1886,7 +1914,8 @@ def render(channel: dict, script: dict, out_dir: Path, fmt: str = "short", log=p
             vis = find_beat_visual(b, end - st, look.palette, work, i, lang, style.get("ai_style") or style.get("mood", ""), used, size, log,
                                    pool=pool, paintings=style.get("painting_search", ""),
                                    painting_context=style.get("painting_context", ""), era=style.get("visual_era", ""),
-                                   channel=channel, said=" ".join(x.get("narration", "") for x in beats[max(0, i - 2):i + 1]))
+                                   channel=channel, said=" ".join(x.get("narration", "") for x in beats[max(0, i - 2):i + 1]),
+                                   bank=bank)
         if channel["id"] in NO_FACES and vis.get("kind") == "image" and vis.get("path") and _big_face(vis["path"]):
             log(f"  beat {i + 1}: picture shows a real person's face (sports rule: no likeness); replacing")
             vis = {"kind": "reuse"}
@@ -2101,15 +2130,7 @@ def render(channel: dict, script: dict, out_dir: Path, fmt: str = "short", log=p
                                                         for b in beats], indent=1, ensure_ascii=False), encoding="utf-8")
     except (OSError, TypeError):
         pass
-    # owner 15 Nov: a storyboard video whose pictures ran out (free daily limit) became word cards and was still sent.
-    # Stop instead: the item is retried after the picture limits reset.
-    from . import storyboard
-    sb_beats = [b for b in beats if b.get("see") and b.get("shot") != "number"]
-    as_cards = [b for b in sb_beats if (b.get("_visual") or {}).get("kind") == "text"
-                or (b.get("_visual") or {}).get("source") in ("graphic", "text")]
-    if sb_beats and len(as_cards) / len(sb_beats) > 0.3 and storyboard.images_blocked():
-        raise storyboard.NoPictures(f"{len(as_cards)}/{len(sb_beats)} scenes had no picture: free picture limit "
-                                    "reached; this video is made after the daily reset")
+    _picture_stop(beats, out_dir)
     # 4. Sound: voice + effects + our own music bed (ducked under the voice)
     log("Audio: voice, sound effects, music")
     voice48 = to_48k(narration, work / "narration_48k.wav")
@@ -2453,7 +2474,7 @@ def _judge_loop(brain, channel: dict, script: dict, topic: str | None, fmt: str,
 
 
 def make(brain, channel: dict, topic: str | None = None, fmt: str = "short", script: dict | None = None,
-         memory=None, log=print) -> tuple[Path, dict]:
+         memory=None, log=print, on_script=None, bank: list | None = None) -> tuple[Path, dict]:
     fresh = script is None
     if script is None:
         plan = _writing_plan(channel, topic, fmt, log)
@@ -2501,9 +2522,14 @@ def make(brain, channel: dict, topic: str | None = None, fmt: str = "short", scr
             from .brain import Brain
             brain = Brain()
         storyboard.plan(brain, script, channel, fmt, log)
+    if on_script is not None:                      # P3 checkpoint: the finished script + shot plan, kept for a retry
+        try:
+            on_script(script)
+        except Exception as e:  # noqa: BLE001 - a checkpoint never stops a video
+            log(f"checkpoint not saved: {type(e).__name__}: {e}")
     stamp = time.strftime("%Y%m%d_%H%M%S")
     out_dir = ROOT / "output" / channel["id"] / f"{stamp}_{_slug(script.get('title') or topic or 'video')}"
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "script.json").write_text(json.dumps(script, indent=2, ensure_ascii=False), encoding="utf-8")
-    meta = render(channel, script, out_dir, fmt, log)
+    meta = render(channel, script, out_dir, fmt, log, bank=bank)
     return out_dir, meta

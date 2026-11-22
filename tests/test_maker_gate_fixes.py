@@ -70,7 +70,7 @@ def test_planned_franchise_topic_is_replaced_before_making(monkeypatch):
     monkeypatch.setattr("engine.config.channel", lambda cid: {"id": cid, "name": "Ending Decoded", "type": "story"})
     made = {}
 
-    def fake_make(brain, ch, topic, fmt, memory, log):
+    def fake_make(brain, ch, topic, fmt, memory, log, **k):     # **k: script / on_script / bank (P3)
         made["topic"] = topic
         raise StopIteration                                     # stop before rendering
     monkeypatch.setattr(story, "make", fake_make)

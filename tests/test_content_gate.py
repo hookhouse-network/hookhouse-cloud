@@ -23,6 +23,9 @@ def story(tmp_path, monkeypatch):
     monkeypatch.setattr("engine.media.ffmpeg.duration", lambda v: 40.0)
     monkeypatch.setattr("engine.quality.check_video", lambda c, v, m, f: {"score": 100, "issues": []})
     monkeypatch.setattr("engine.potential_gate.problems", lambda *a, **k: [])     # tested in test_potential_gate
+    base = cg.config()                     # strict viral judge unless a test picks the owner's mode (22 Nov: "B" live)
+    strict = {k: v for k, v in (base.get("temporary_bar") or {}).items() if k != "potential"}
+    monkeypatch.setattr(cg, "config", lambda: dict(base, temporary_bar=strict))
     it = {"id": "s1", "channel": "unsolved_after_dark", "kind": "short", "out_dir": str(out), "file": "video.mp4",
           "publish_at": "2099-01-05T10:00:00+05:30",
           "made_at": 5.0}
@@ -345,3 +348,67 @@ def test_potential_is_part_of_100(story, monkeypatch):
     assert probs == ["potential: below 9/10 on hook 7. Fix: open on the payoff"] and cg.fixable_by_remake(probs)
     monkeypatch.setattr("engine.potential_gate.problems", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("x")))
     assert any("not judged yet" in p for p in cg.verify(story["it"]))
+
+
+def test_the_owner_picks_how_the_viral_judge_counts(story, monkeypatch):
+    """22 Nov: no video passed the potential judge since it went live and the owner's own dashboard approvals were
+    blocked right after the tap. Two owner options, off until chosen: 'coach' for the temporary-bar week, or the
+    owner's own approval waives it for that video. Policy checks never move."""
+    monkeypatch.setattr("engine.platforms.allowed", lambda ch, p, meta=None: True)
+    monkeypatch.setattr("engine.potential_gate.problems", lambda *a, **k: ["potential: below 8/10 on hook 6. Fix: x"])
+    base = cg.config()
+    pot = lambda it: [p for p in cg.verify(it) if p.startswith("potential")]       # noqa: E731
+    assert pot(story["it"])                                                        # default: it blocks, as before
+    monkeypatch.setattr(cg, "config", lambda: dict(base, potential=dict(base.get("potential") or {},
+                                                                    owner_approval_overrides=True)))
+    assert pot(story["it"]) and pot(dict(story["it"], status="approved", auto_approved=True))
+    assert pot(dict(story["it"], status="approved")) == []                         # the owner's own tap waives it
+    monkeypatch.setattr(cg, "config", lambda: dict(base, temporary_bar=dict(base.get("temporary_bar") or {},
+                                                                        until="2099-01-01", potential="coach")))
+    assert pot(story["it"]) == []                                                   # coach week: never blocks
+    _meta(story, ai_label=False)
+    assert any("AI disclosure" in p for p in cg.verify(story["it"]))              # policy still blocks
+    monkeypatch.setattr(cg, "config", lambda: dict(base, temporary_bar=dict(base.get("temporary_bar") or {},
+                                                                        until="2000-01-01", potential="coach")))
+    _meta(story, ai_label=True)
+    assert pot(story["it"])                                                         # the week is over: it blocks
+
+
+def test_coaching_waives_only_the_rubric_bar(story, monkeypatch):
+    """Owner 22 Nov ('B'): the judge's 1-10 rubric (real hits scored 3-6) coaches until 28 Nov. Its other findings
+    still block: hook start, title repeat, ad-friendly words, the S10 'obviously AI-made' checks, 'not judged yet'."""
+    monkeypatch.setattr("engine.platforms.allowed", lambda ch, p, meta=None: True)
+    base = cg.config()
+    monkeypatch.setattr(cg, "config", lambda: dict(base, temporary_bar=dict(base.get("temporary_bar") or {},
+                                                                        until="2099-01-01", potential="coach")))
+    waived = []
+    monkeypatch.setattr(cg, "_potential_waived", lambda it, f, mode: waived.append((mode, list(f))))
+    rubric = "potential: below 8/10 on hook 6, retention 7. Fix: open on the payoff"
+    human = "potential: looks/sounds obviously AI-made (human_feel 4, needs 6). Fix: real camera moves"
+    for hard in ("potential: speech starts at 2.0s (the hook must land within 0.6s)",
+                 "potential: title nearly repeats an earlier one (\"counting to 5\")",
+                 "potential: not advertiser-friendly (gore): limited or no ads = no earning",
+                 "potential: reads like AI-written text (\"delve\"): say it plainly like a person would",
+                 "potential: not judged yet (no AI judge available here); it tries again"):
+        monkeypatch.setattr("engine.potential_gate.problems", lambda *a, _h=hard, **k: [_h])
+        assert hard in cg.verify(story["it"]), hard
+    monkeypatch.setattr("engine.potential_gate.problems", lambda *a, **k: [rubric, human])
+    probs = cg.verify(story["it"])
+    assert human in probs and rubric not in probs and waived[-1] == ("coach", [rubric])
+    monkeypatch.setattr("engine.potential_gate.problems", lambda *a, **k: [rubric])
+    assert not [p for p in cg.verify(story["it"]) if p.startswith("potential")]
+    assert cg.rubric_finding(rubric) and not cg.rubric_finding(human) and not cg.rubric_finding("below 8/10 on x")
+
+
+def test_campaign_clips_keep_the_full_viral_check(monkeypatch):
+    """Owner 20 Nov: clips must pass super-strict campaign gates; B was offered with 'clip gates stay strict' (the clip
+    rubric includes brief_fit). Our own channels' videos are coached, a clip is not."""
+    base = cg.config()
+    monkeypatch.setattr(cg, "config", lambda: dict(base, temporary_bar=dict(base.get("temporary_bar") or {},
+                                                                        until="2099-01-01", potential="coach")))
+    own = {"id": "1123_0500_brain_snack_short", "status": "made"}
+    assert cg.potential_mode(own, {"title": "x"}) == "coach"
+    assert cg.potential_mode(dict(own, made_as="clip"), {}) == "block"
+    assert cg.potential_mode(own, {"clip": True}) == "block"
+    assert cg.potential_mode(own, {"campaign": {"id": "c1"}}) == "block"
+    assert cg.potential_mode(own) == "coach"                                       # no metadata: by the item

@@ -82,8 +82,15 @@ def job_for(start: str, it: dict, now: float) -> dict:
     when = autopilot._when(it).timestamp()
     kind = str(it.get("kind") or "short")
     long_ = kind == "long"
-    return {"kind": "make", "key": f"make:{it['id']}:{it.get('gate_redos') or 0}:{it.get('status')}",
-            "cls": 1 if when - now < 24 * 3600 else 2, "deadline": when, "est_min": 45 if long_ else 12,
+    # 22 Nov shadow check: a video whose slot already passed (still made up to OVERDUE_D days late; it gets the next
+    # free slot) kept class P1 and its old deadline, so earliest-deadline-first put the 20 and 21 Nov Itihaas videos
+    # at the head of the queue, ahead of tonight's 19:00 Cricket long video that can still make its slot. A late
+    # video gets its own key (the old job is cancelled by the sync), class P2 and a deadline a day out.
+    late = when < now
+    key = f"make:{it['id']}:{it.get('gate_redos') or 0}:{it.get('status')}" + (":late" if late else "")
+    return {"kind": "make", "key": key,
+            "cls": 2 if late or when - now >= 24 * 3600 else 1, "deadline": now + 24 * 3600 if late else when,
+            "est_min": 45 if long_ else 12,
             "requires": ["ffmpeg"] + (["pc"] if long_ else []), "prefer": ["pc"],
             "fallback": [] if long_ else [{"kind": "gh_render", "when": "no_pc_online&slack_lt_2x"}],
             "payload": {"item": it["id"], "start": start, "channel": it.get("channel"), "kind": kind}}

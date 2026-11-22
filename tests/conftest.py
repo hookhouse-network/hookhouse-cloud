@@ -79,6 +79,9 @@ def _no_real_picture_quota(monkeypatch, tmp_path):
     import engine.cloud.runner as rn
     monkeypatch.setattr(pco, "UPLOADED", tmp_path / "uploaded_test.json")
     monkeypatch.setattr(rn, "PC_FAILS", tmp_path / "make_fails_test.json")
+    import engine.weekly as wk                          # 22 Nov: never the PC's real script checkpoints
+    monkeypatch.setattr(wk, "CHECKPOINTS", tmp_path / "checkpoints_test")
+    monkeypatch.setattr(wk, "ITEM_SHOTS", tmp_path / "item_shots_test")   # ... nor its picture bank (P3b)
 
 
 @pytest.fixture(autouse=True)

@@ -41,7 +41,7 @@ def test_one_decision_per_day_and_the_experiment_verdict(tmp_path):
     state = {}
     d = sc.decide("brain_snack", NOW, db, state)
     assert d["change"] and d["signal"] == "shares" and state["brain_snack"]["active"]["baseline"] == 1.0
-    assert "shares" in sc.writer_rule("brain_snack", state) and "send challenge" in sc.writer_rule("brain_snack", state)
+    assert "shares" in sc.writer_rule("brain_snack", state) and "worth sending" in sc.writer_rule("brain_snack", state)
     d2 = sc.decide("brain_snack", NOW + 2 * DAY, db, state)
     assert not d2["change"] and "day 3 of 7" in d2["why"]                     # a reasoned no-change
     d3 = sc.decide("brain_snack", NOW + 8 * DAY, db, state)

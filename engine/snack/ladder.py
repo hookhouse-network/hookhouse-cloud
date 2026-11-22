@@ -119,7 +119,7 @@ def render(spec: dict, quiz: dict, voice: dict, work: Path, writer, fps: int, lo
     rng = np.random.default_rng(spec["seed"])
     qs = quiz["questions"]
     hook_text = quiz.get("hook") or f"Only 1% get all {len(qs)}. Ready?"
-    cta_text = "Comment your score!"
+    cta_text = "How many did you get?"         # 22 Nov S6: was "Comment your score!" (engagement bait on Instagram)
     # voice lines and timeline
     hook_a, hook_d = _voice_line(hook_text, work / "q_hook.wav", voice)
     t = 0.2

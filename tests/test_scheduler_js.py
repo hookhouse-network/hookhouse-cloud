@@ -107,6 +107,32 @@ def test_queue_mirrors_what_is_due(monkeypatch):
     assert sched.sync_due(q, due2, now=now.timestamp(), log=lambda *_: None)["added"] == 0   # idempotent
 
 
+def test_a_late_video_never_jumps_ahead_of_a_slot_that_can_still_be_made(monkeypatch):
+    """22 Nov shadow check: the 20 and 21 Nov Itihaas videos (slots passed, still made up to 3 days late) headed the
+    queue with class P1 and their old deadlines, ahead of tonight's 19:00 Cricket long video."""
+    from datetime import datetime, timedelta, timezone
+
+    from engine import autopilot
+    now = datetime(2026, 11, 22, 8, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(autopilot, "_when", lambda it: now + timedelta(hours=it["h"]))
+    q = QueueTwin()
+    on_time = {"id": "1117_1230_cricket_ke_kisse_long", "kind": "long", "status": "planned", "h": 5.5}
+    late = {"id": "1120_1230_itihaas_ke_raaz_short", "kind": "short", "status": "planned", "h": -50}
+    sched.sync_due(q, [("s1", late), ("s1", on_time)], now=now.timestamp(), log=lambda *_: None)
+    lj, oj = q.jobs["make:1120_1230_itihaas_ke_raaz_short:0:planned:late"], \
+        q.jobs["make:1117_1230_cricket_ke_kisse_long:0:planned"]
+    assert oj["cls"] == 1 and lj["cls"] == 2                         # the slot that can still be saved goes first
+    assert lj["deadline"] == now.timestamp() + 24 * 3600             # the late one is still made (next free slot)
+    order = sorted(q.list(), key=lambda j: (j["cls"], j["deadline"]))
+    assert order[0]["key"] == oj["key"]
+    # a job queued before this rule (old key, class P1, old deadline) is cancelled by the next sync
+    q.jobs["make:1121_1230_itihaas_ke_raaz_short:0:planned"] = {"key": "make:1121_1230_itihaas_ke_raaz_short:0:planned",
+                                                                "kind": "make", "cls": 1, "state": "queued"}
+    late2 = {"id": "1121_1230_itihaas_ke_raaz_short", "kind": "short", "status": "planned", "h": -26}
+    r = sched.sync_due(q, [("s1", late), ("s1", on_time), ("s1", late2)], now=now.timestamp(), log=lambda *_: None)
+    assert r["cancelled"] == 1 and "make:1121_1230_itihaas_ke_raaz_short:0:planned:late" in q.jobs
+
+
 class JobsTwin(Transport):
     """A queue that hands out given jobs and records the reports."""
     def __init__(self, jobs):

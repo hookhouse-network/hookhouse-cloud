@@ -247,24 +247,26 @@ def titles_for(spec: dict) -> list[str]:
 
 
 # 19 Nov review (Brain Snack Instagram: 1.6% likes, 0 shares; every caption asked "Which rule next?", even on facts).
-# Per format: a real question viewers can answer + a friendly send challenge. Mosseri (Jan 2025): watch time, likes
-# per reach and sends per reach weigh most; sends most for reaching non-followers. Meta demotes chain-letter bait
-# ("share with 10 friends", "comment YES"), so these stay questions/challenges tied to the video.
+# Per format: a real question viewers can answer about this exact video. Mosseri (2025): watch time, likes per reach
+# and sends per reach weigh most; sends most for reaching non-followers.
+# 22 Nov S6: the "Send it to a friend ..." line is gone. Instagram does not recommend posts to non-followers when they
+# explicitly ask for shares, comments or tags (engagement bait), and the line earned nothing (0 shares on 2,105 views
+# for the 20 Nov Short). Sends have to be earned by the video itself (scorecard shares rule).
 CTA = {
-    "readfast": ("What word did you lose it at? 👇", "Send it to a friend and see who reads further 👀"),
-    "ladder": ("What did you score? Be honest 👇", "Send it to the friend who thinks they know everything 🧠"),
-    "versus": ("Who were you rooting for, and why? 👇", "Send it to the friend who'd pick the other side 🔴🔵"),
-    "spiral": ("Which try did you think would make it? 👇", "Send it to someone who needs 30 calm seconds 😌"),
-    "multiply": ("Did you guess when it would fill up? 👇", "Send it to someone who needs 30 calm seconds 😌"),
-    "colorsort": ("Which colour did you watch the whole time? 👇", "Send it to someone who needs 15 calm seconds 😌"),
+    "readfast": ("What word did you lose it at? 👇",),
+    "ladder": ("What did you score? Be honest 👇",),
+    "versus": ("Who were you rooting for, and why? 👇",),
+    "spiral": ("Which try did you think would make it? 👇",),
+    "multiply": ("Did you guess when it would fill up? 👇",),
+    "colorsort": ("Which colour did you watch the whole time? 👇",),
 }
 MADE_WITH = {   # the description's "how it was made" line (true per format)
     "colorsort": "Drawn and animated from scratch in code, no AI. Every note is played by a swap.",
 }
-CTA_DEFAULT = ("Which rule should we try next? 👇", "Send it to someone who'd love this 🧠")
+CTA_DEFAULT = ("Which rule should we try next? 👇",)
 
 
-def cta_for(fmt: str) -> tuple[str, str]:
+def cta_for(fmt: str) -> tuple[str, ...]:
     return CTA.get(fmt, CTA_DEFAULT)
 
 

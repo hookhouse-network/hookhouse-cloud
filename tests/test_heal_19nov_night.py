@@ -101,8 +101,8 @@ def test_working_insights_close_the_permission_error(tmp_path, monkeypatch):
 def test_brain_snack_captions_fit_the_format():
     from engine.snack import maker
     for fmt in maker.FORMATS:
-        q, send = maker.cta_for(fmt)
-        assert q.rstrip().endswith("\U0001F447") and send.startswith("Send it to")
-        low = (q + send).lower()
-        assert "share with" not in low and "comment yes" not in low and "tag " not in low   # Meta's bait list
+        (q,) = maker.cta_for(fmt)                           # 22 Nov: the question stays, the send ask is gone
+        assert q.rstrip().endswith("\U0001F447")
+        low = q.lower()
+        assert not any(w in low for w in ("share", "send", "tag ", "comment", "like "))   # never ask (Instagram)
     assert "rule" not in maker.cta_for("readfast")[0]           # facts no longer ask "which rule next?"

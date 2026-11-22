@@ -24,6 +24,8 @@ from .config import ROOT
 STATE = ROOT / "data" / "telegram" / "state.json"
 PAIR = ROOT / "data" / "telegram" / "pair_code.txt"
 PICKS = ROOT / "data" / "telegram" / "picks.jsonl"
+SAID = ROOT / "data" / "telegram" / "owner_said.jsonl"    # the owner's typed messages (cloud memory, read by Claude)
+SAID_KEEP = 300
 CHOICES = ROOT / "config" / "owner_choices.yaml"
 VOICES = ROOT / "data" / "review" / "voice_samples"
 DIGEST_SIZE = 10
@@ -93,6 +95,43 @@ def notify(text: str) -> bool:
         return True
     except Exception:  # noqa: BLE001
         return False
+
+
+# ---------------- the owner's own words ----------------
+def note_owner_text(text: str, at: float | None = None) -> str:
+    """22 Nov: a typed message from the owner that is not a command (an answer to a question Claude asked here, an
+    idea, a correction) got the Worker's "working on it" and was then dropped by the cloud run without a trace, so the
+    answers to Claude's questions never arrived. It is now kept in data/telegram/owner_said.jsonl (cloud memory, read
+    by the plan loop every round) and in the ledger (event owner_text), and the owner is told plainly where it went."""
+    row = {"t": round(at or time.time(), 1), "text": text[:2000]}
+    try:
+        SAID.parent.mkdir(parents=True, exist_ok=True)
+        lines = SAID.read_text(encoding="utf-8").splitlines() if SAID.exists() else []
+        lines = (lines + [json.dumps(row, ensure_ascii=False)])[-SAID_KEEP:]
+        SAID.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    except OSError as e:                     # the ledger copy below still holds it (said, never silent)
+        file_log(f"owner message not saved to {SAID.name}: {type(e).__name__}: {e}")
+    from .core import ledger
+    ledger.event("owner_text", data=row)
+    short = text if len(text) <= 160 else text[:157] + "..."
+    return (f"📝 Saved for Claude: “{short}”\nClaude reads your messages at every check (about once an hour) "
+            "and answers here. Buttons and commands still work as before (/menu).")
+
+
+def owner_said(since: float = 0.0) -> list[dict]:
+    """The owner's typed messages from `since` on, oldest first (a damaged line is skipped, the rest still count)."""
+    if not SAID.exists():
+        return []
+    out = []
+    for line in SAID.read_text(encoding="utf-8").splitlines():
+        try:
+            row = json.loads(line)
+        except ValueError as e:
+            file_log(f"{SAID.name}: damaged line skipped ({e})")
+            continue
+        if isinstance(row, dict) and float(row.get("t") or 0) >= since:
+            out.append(row)
+    return out
 
 
 # ---------------- state ----------------
@@ -841,6 +880,8 @@ def handle(update: dict, conn=None) -> None:
                  "Send it like this: /trial <prospect> <file link>  (the creator's Google Drive / Dropbox file)")
         elif text.startswith("/"):
             send("I don't know that command.\n\n" + HELP)
+        elif text:
+            send(note_owner_text(text))
         return
     cb = update.get("callback_query")
     if not cb or str(cb["message"]["chat"]["id"]) != owner:

@@ -67,7 +67,7 @@ def test_slot_without_topic_gets_one(monkeypatch):
     monkeypatch.setattr(weekly, "pick_topics", lambda brain, ch, n, **k: [{"topic": "The Lost Colony", "angle": "x"}])
     from engine import story
 
-    def fake_make(brain, ch, topic, fmt, memory=None, log=print):
+    def fake_make(brain, ch, topic, fmt, memory=None, log=print, **k):     # **k: script / on_script / bank (P3)
         picked["topic"] = topic
         raise RuntimeError("stop here")
     monkeypatch.setattr(story, "make", fake_make)
