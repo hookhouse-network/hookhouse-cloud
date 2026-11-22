@@ -39,12 +39,16 @@ def config() -> dict:
     return yaml.safe_load(FILE.read_text(encoding="utf-8")) or {}
 
 
-def rules_for(ch: dict, it: dict | None = None) -> dict:
+def rules_for(ch: dict, it: dict | None = None, meta: dict | None = None) -> dict:
     """defaults < content type < channel overrides. A campaign clip cut in a story channel's slot (clips_first,
     made_as "clip") follows the CLIPS rules: there is no script to fact-check, and the strict clip + campaign gates
-    judge the footage instead (20 Nov: a gate-approved Stream Clips clip was held for 'fact-check missing')."""
+    judge the footage instead (20 Nov: a gate-approved Stream Clips clip was held for 'fact-check missing').
+    22 Nov: the cloud's own make path never wrote made_as into the plan, so Dom's three Kick clips (22:30, 05:00,
+    06:30) were held for 'fact-check missing' on every tick; the video's own metadata (campaign / clip, written by
+    the clip maker) now counts too."""
     c = config()
-    kind = "clips" if (it or {}).get("made_as") == "clip" else (ch.get("type") or "")
+    clip = (it or {}).get("made_as") == "clip" or bool(meta and (meta.get("clip") or meta.get("campaign")))
+    kind = "clips" if clip else (ch.get("type") or "")
     r = dict(c.get("defaults") or {})
     r.update((c.get("content") or {}).get(kind, {}) or {})
     r.update((c.get("channels") or {}).get(ch.get("id") or "", {}) or {})
@@ -178,7 +182,7 @@ def base_problems(it: dict, ch: dict | None = None, meta: dict | None = None, qu
             meta = item_meta(it) or {}
         except Exception as e:  # noqa: BLE001
             return [f"video metadata unreadable ({type(e).__name__})"]
-    r = rules_for(ch, it)
+    r = rules_for(ch, it, meta)
     # 1. record
     title = str(meta.get("title") or "").strip()
     if not title:

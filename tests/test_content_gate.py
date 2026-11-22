@@ -294,6 +294,23 @@ def test_campaign_clip_in_a_story_slot_follows_the_clips_rules():
     assert clip_rules.get("fact_check") in ("off", False) and clip_rules.get("clip_gate") == "required"  # YAML: off=False
 
 
+def test_a_cloud_made_clip_is_judged_as_a_clip_from_its_own_metadata():
+    """22 Nov: the cloud's make path never wrote made_as into the plan, so Dom's three Kick clips (22:30, 05:00,
+    06:30) were held for 'fact-check missing' on every tick. The clip maker's metadata (campaign) now counts too."""
+    from engine import content_gate
+    story = {"id": "stream_clips", "type": "story"}
+    assert content_gate.rules_for(story, {"made_as": None}, {"campaign": "kick_dom"}).get("fact_check") in ("off", False)
+    assert content_gate.rules_for(story, {}, {"clip": True}).get("clip_gate") == "required"
+    assert content_gate.rules_for(story, {}, {"campaign": None}).get("fact_check") == "required"   # a story Short
+
+
+def test_the_cloud_make_path_records_what_the_video_was_made_as():
+    import inspect
+    from engine.cloud import runner
+    src = inspect.getsource(runner.render)
+    assert 'made_as=item.get("made_as")' in src and 'clip_source=item.get("clip_source")' in src
+
+
 def test_unknown_brief_platforms_block_everywhere(clip, monkeypatch):
     monkeypatch.setattr("engine.db.get_campaign", lambda conn, cid: dict(clip["camp"], platforms=[]))
     assert any("lists no platforms" in p for p in clip_gate.verify(clip["it"], "youtube", ch=clip["ch"]))

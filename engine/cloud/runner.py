@@ -770,7 +770,9 @@ def render(budget_min: float = 40, log=_log) -> int:
                                   file=item.get("file"), cloud_asset=media.asset_name(item["id"]), error=None,
                                   attempts=0, retry_at=None, topic=item.get("topic"), angle=item.get("angle"),
                                   planned_topic=item.get("planned_topic"), feeling=item.get("feeling"),
-                                  now_hook=item.get("now_hook"), made_by="cloud")
+                                  now_hook=item.get("now_hook"), made_by="cloud",
+                                  made_as=item.get("made_as"),             # 22 Nov: a clip in a story slot is judged
+                                  clip_source=item.get("clip_source"))     # as a clip (the PC path always sent these)
             made += 1
             log(f"made {item.get('channel_name')} in {(time.time() - t0) / 60:.0f} min")
             if job is not None:
