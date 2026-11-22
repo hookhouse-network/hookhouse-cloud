@@ -236,8 +236,12 @@ def titles_for(spec: dict) -> list[str]:
         n = len(quiz.get("questions", [])) or 10
         return (quiz.get("title_options") or [])[:2] + [f"Only 1% get all {n} 🧠"]
     if fmt == "readfast":
-        return ["If you can read this, your brain is fast 🧠", "Read it before it speeds up 😳",
-                "What word did you lose it at? 👇"]
+        # 23 Nov: only these 3 fixed titles were offered, so after 3 videos every one was taken: '(Round 2)', held
+        # as a repeat, swapped to 'What word did you lose it at?', and the judge: 'vague title ... mention butter vs
+        # heavy cream'. The fact writer already returns titles about its fact (like the quiz's): they go first.
+        own = [str(t).strip() for t in (spec.get("fact") or {}).get("title_options") or [] if str(t).strip()]
+        return own[:3] + ["If you can read this, your brain is fast 🧠", "Read it before it speeds up 😳",
+                          "What word did you lose it at? 👇"]
     if fmt == "versus":
         a, b = spec["pair"].split("|")
         return [f"{a} vs {b}: who wins? 🔴🔵", f"{a} gets stronger every hit… 😳", f"{b} vs {a}, rematch time 🏆"]
