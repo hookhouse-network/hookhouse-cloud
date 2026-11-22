@@ -50,5 +50,5 @@ def test_the_dive_records_and_the_water_darkens(tmp_path):
 def test_the_story_prompt_offers_the_depth_dive():
     from engine import story
     src = Path(story.__file__).read_text(encoding="utf-8")
-    assert '"type": "compare|timeline|scale|depth"' in src and "WITH its unit" in src
+    assert '"type": "compare|timeline|scale|depth|map"' in src and "WITH its unit" in src   # 23 Nov: + map
     json.dumps({"ok": True})

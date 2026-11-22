@@ -22,7 +22,18 @@ from . import ffmpeg as ff
 from .fonts import font_file
 
 SCENES = Path(__file__).resolve().parent / "scenes"
-CHART_TYPES = {"compare": (2, 4), "timeline": (3, 5), "scale": (2, 3), "depth": (1, 1)}
+CHART_TYPES = {"compare": (2, 4), "timeline": (3, 5), "scale": (2, 3), "depth": (1, 1), "map": (1, 1)}
+# Map (23 Nov, P3b): the globe turns to the place the narrator names, dives in and drops a pin. Land, lakes and
+# country borders: Natural Earth 1:50m (public domain, naturalearthdata.com), simplified to 0.02 degrees. The point
+# comes from the place's Wikipedia article (never from the writer), the subtitle from its Wikipedia short description.
+WORLD_FILE = SCENES / "world_50m.json"
+WIKI_API = "https://{lang}.wikipedia.org/w/api.php"
+WIKI_UA = {"User-Agent": "HookHouse-scenes/1.0 (map scenes: one coordinates lookup per video)"}
+# how many km the frame is wide at the end of the dive, by the kind of place Wikipedia gives (GeoHack "type:")
+SPAN_KM = {"country": 3200, "adm1st": 1500, "adm2nd": 900, "waterbody": 2000, "city": 900, "landmark": 800,
+           "mountain": 900, "isle": 900, "river": 1500, "glacier": 900, "forest": 1200, "event": 900, "edu": 800,
+           "airport": 800, "railwaystation": 800}
+PLACE_STOP = {"the", "of", "and", "in", "on", "at", "a", "an", "de", "la", "le"}
 HINDI = re.compile(r"[ऀ-ॿ]")
 # Depth dive (23 Nov, P3b picture-free scenes; the viral ocean-depth animations use familiar landmarks as yardsticks).
 # Landmarks show NAMES only, so the screen never shows a number the narrator didn't say. Depths: NOAA Ocean
@@ -108,6 +119,15 @@ def check_chart(chart: dict | None, narration: str) -> tuple[dict | None, str]:
     if not lo <= len(items) <= hi:
         return None, f"{kind} needs {lo}-{hi} items, got {len(items)}"
     spoken = set(_numbers(narration))
+    if kind == "map":                         # one place, named as spoken; its point comes from Wikipedia (locate)
+        label, text = str(items[0]["label"]).strip()[:28], str(items[0].get("text") or "").strip()[:40]
+        place = str(items[0].get("place") or label).strip()[:90]
+        if not place_said(label, narration):
+            return None, f"{label}: the place is shown but never said"
+        missing = [n for n in _numbers(text) + _numbers(label) if n not in spoken]
+        if missing:
+            return None, f"{label}: {missing[0]:g} is shown but never said"
+        return {"type": "map", "title": "", "items": [{"label": label, "text": text, "place": place}]}, ""
     if kind == "depth":                       # one place and its depth, as spoken (the metres come from the words)
         label, text = str(items[0]["label"]).strip()[:28], str(items[0].get("text") or "").strip()[:32]
         metres = depth_m(text)
@@ -141,6 +161,105 @@ def check_chart(chart: dict | None, narration: str) -> tuple[dict | None, str]:
     if kind == "scale" and max(i["value"] for i in clean) / min(i["value"] for i in clean) > 60:
         return None, "sizes too far apart to draw to scale"
     return {"type": kind, "title": str(chart.get("title") or "").strip()[:40], "items": clean}, ""
+
+
+def _words(text: str) -> list[str]:
+    """Words for matching place names (whitespace/punctuation split: Hindi vowel signs are not regex word chars)."""
+    return [w for w in re.split(r"[\s,.;:!?।\"'()\[\]/-]+", (text or "").lower()) if w]
+
+
+def place_said(label: str, narration: str) -> bool:
+    """Every real word of the place's on-screen name is in the narration (the name on screen is the one heard)."""
+    said = set(_words(narration))
+    need = [w for w in _words(label) if w not in PLACE_STOP and len(w) > 1]
+    return bool(need) and all(w in said or any(s.startswith(w) and len(s) - len(w) <= 2 for s in said) for w in need)
+
+
+def _wiki_place(title: str, lang: str, get) -> dict | None:
+    """Wikipedia's primary coordinates for a page (redirects followed; a disambiguation page has no single point)."""
+    params = {"action": "query", "format": "json", "redirects": 1, "titles": title, "prop": "coordinates|pageprops|description",
+              "coprop": "type|dim", "coprimary": "primary"}
+    data = get(WIKI_API.format(lang=lang), params)
+    pages = list(((data or {}).get("query") or {}).get("pages", {}).values())
+    if not pages:
+        return None
+    page = pages[0]
+    if "missing" in page or "disambiguation" in (page.get("pageprops") or {}):
+        return None
+    co = (page.get("coordinates") or [None])[0]
+    if not co:
+        return None
+    return {"title": page.get("title", title), "lat": float(co["lat"]), "lon": float(co["lon"]),
+            "type": str(co.get("type") or ""), "dim": co.get("dim"), "description": str(page.get("description") or "")}
+
+
+def _wiki_search(query: str, lang: str, get) -> list[str]:
+    data = get(WIKI_API.format(lang=lang), {"action": "query", "format": "json", "list": "search", "srsearch": query,
+                                            "srlimit": 3, "srnamespace": 0})
+    return [str(r.get("title")) for r in ((data or {}).get("query") or {}).get("search", []) if r.get("title")]
+
+
+def _http_get(url: str, params: dict) -> dict:
+    import requests
+    r = requests.get(url, params=params, headers=WIKI_UA, timeout=20)
+    r.raise_for_status()
+    return r.json()
+
+
+def span_km(info: dict) -> float:
+    """How wide the frame is (km) when the dive ends: from the page's own size when it has one, else its kind."""
+    try:
+        dim = float(info.get("dim") or 0)
+    except (TypeError, ValueError):
+        dim = 0.0
+    if dim > 0:
+        return max(800.0, min(9000.0, dim / 1000 * 2.5))
+    return float(SPAN_KM.get(info.get("type", "").split("(")[0], 1500))
+
+
+def locate(chart: dict, language: str = "en", get=None) -> tuple[dict | None, str]:
+    """The map's place on Earth from Wikipedia: its page (the writer's English title, else the on-screen name, else
+    the best search hit that shares its words) -> lat/lon, a frame width for its size, and (English channels) the
+    page's short description as the subtitle when it has no numbers. (None, reason) when nothing has one point."""
+    get = get or _http_get
+    it = dict(chart["items"][0])
+    tries = [(it.get("place") or it["label"], "en")]
+    if HINDI.search(it["label"]):
+        tries.append((it["label"], "hi"))
+    elif it["label"] != it.get("place"):
+        tries.append((it["label"], "en"))
+    info = None
+    try:
+        for title, lang in tries:
+            info = _wiki_place(title, lang, get)
+            if info:
+                break
+        if not info:
+            key = set(_words(it.get("place") or it["label"])) - PLACE_STOP
+            for title in _wiki_search(it.get("place") or it["label"], "en", get):
+                if key & set(_words(title)):
+                    info = _wiki_place(title, "en", get)
+                    if info:
+                        break
+    except Exception as e:  # noqa: BLE001 - no map; the beat keeps its picture
+        return None, f"{it['label']}: Wikipedia lookup failed ({type(e).__name__})"
+    if not info:
+        return None, f"{it['label']}: no single point on Wikipedia"
+    desc = info["description"].strip()
+    if language != "hi" and desc and not re.search(r"\d", desc) and len(desc) <= 44:
+        it["text"] = desc[0].upper() + desc[1:]
+    it.update(lat=round(info["lat"], 4), lon=round(info["lon"], 4), span_km=span_km(info), wiki=info["title"])
+    return dict(chart, items=[it]), ""
+
+
+_WORLD: dict | None = None
+
+
+def world() -> dict:
+    global _WORLD
+    if _WORLD is None:
+        _WORLD = json.loads(WORLD_FILE.read_text(encoding="utf-8"))
+    return _WORLD
 
 
 # ---------- recording ----------
@@ -210,5 +329,7 @@ def render(template: str, data: dict, theme: dict, size: tuple[int, int], second
 
 def chart_video(channel: dict, chart: dict, size: tuple[int, int], seconds: float, out_mp4: Path,
                 fps: int = 30) -> Path:
-    """The animated chart for one story beat (chart already passed check_chart)."""
+    """The animated chart for one story beat (chart already passed check_chart; a map also passed locate)."""
+    if chart.get("type") == "map":
+        chart = dict(chart, world=world())
     return render("chart", chart, theme_for(channel), size, max(2.5, seconds), out_mp4, fps=fps)

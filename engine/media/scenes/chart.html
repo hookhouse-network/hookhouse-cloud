@@ -261,11 +261,225 @@ function depth(t) {
   }
 }
 
+// Map (23 Nov, P3b picture-free scenes; the "where on Earth" globe dive of documentary and explainer channels): the
+// globe turns to the place the narrator names, dives in and drops a pin with its name. Land, lakes and borders:
+// Natural Earth 1:50m (public domain), simplified; our own orthographic projection. Names only, no coordinates on
+// screen (the screen never shows a number the narrator didn't say).
+const DEG = Math.PI / 180;
+const HI = /[ऀ-ॿ]/;
+let GEO = null, SCRATCH = new Float64Array(2);
+
+function _lighten(hex, k) {
+  const h = hex.replace("#", ""), c = [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16));
+  return "#" + c.map(x => Math.round(x + (255 - x) * k).toString(16).padStart(2, "0")).join("");
+}
+
+function geo() {
+  if (GEO) return GEO;
+  const q = DATA.world.q;
+  const pack = pts => {                                     // [lon, lat] degrees -> sin/cos per point (no trig per frame)
+    const out = new Float64Array(pts.length * 4);
+    pts.forEach(([lo, la], i) => {
+      out[4 * i] = Math.sin(lo * DEG); out[4 * i + 1] = Math.cos(lo * DEG);
+      out[4 * i + 2] = Math.sin(la * DEG); out[4 * i + 3] = Math.cos(la * DEG);
+    });
+    return out;
+  };
+  const decode = list => list.map(arr => {                  // delta-encoded, quantized rings
+    const pts = []; let x = 0, y = 0;
+    for (let i = 0; i < arr.length; i += 2) { x += arr[i]; y += arr[i + 1]; pts.push([x / q, y / q]); }
+    const p = pack(pts), ll = new Float32Array(pts.length * 2), box = [1e9, -1e9, 1e9, -1e9];
+    pts.forEach(([lo, la], i) => {
+      ll[2 * i] = lo; ll[2 * i + 1] = la;
+      box[0] = Math.min(box[0], lo); box[1] = Math.max(box[1], lo); box[2] = Math.min(box[2], la); box[3] = Math.max(box[3], la);
+    });
+    p.ll = ll; p.box = box;
+    return p;
+  });
+  const grat = [];
+  for (let lon = -180; lon < 180; lon += 15) { const p = []; for (let la = -84; la <= 84; la += 3) p.push([lon, la]); grat.push(pack(p)); }
+  for (let la = -75; la <= 75; la += 15) { const p = []; for (let lon = -180; lon <= 180; lon += 3) p.push([lon, la]); grat.push(pack(p)); }
+  GEO = { land: decode(DATA.world.land), lakes: decode(DATA.world.lakes || []), borders: decode(DATA.world.borders),
+          states: decode(DATA.world.states || []), rivers: decode(DATA.world.rivers || []), grat };
+  let longest = 2;
+  for (const a of GEO.land.concat(GEO.lakes)) longest = Math.max(longest, a.length / 4);
+  SCRATCH = new Float64Array(longest * 2);
+  return GEO;
+}
+
+// orthographic projection of point i of a packed list: [x, y, z]; z < 0 = behind the globe
+function projector(v) {
+  const sl0 = Math.sin(v.lam0), cl0 = Math.cos(v.lam0), sp0 = Math.sin(v.phi0), cp0 = Math.cos(v.phi0), o = [0, 0, 0];
+  return (a, i) => {
+    const sl = a[4 * i], cl = a[4 * i + 1], sp = a[4 * i + 2], cp = a[4 * i + 3];
+    const sdl = sl * cl0 - cl * sl0, cdl = cl * cl0 + sl * sl0;
+    o[0] = cp * sdl; o[1] = cp0 * sp - sp0 * cp * cdl; o[2] = sp0 * sp + cp0 * cp * cdl;
+    return o;
+  };
+}
+
+function inRing(ll, lon, lat) {                             // point in a lon/lat ring (Natural Earth cuts at 180)
+  let inside = false;
+  for (let i = 0, j = ll.length / 2 - 1; i < ll.length / 2; j = i++) {
+    const xi = ll[2 * i], yi = ll[2 * i + 1], xj = ll[2 * j], yj = ll[2 * j + 1];
+    if ((yi > lat) !== (yj > lat) && lon < (xj - xi) * (lat - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+// Filled areas: points behind the globe hug its edge. A ring that also holds the point straight behind the globe
+// (the antipode) then wraps the whole edge and would paint the sea as land (the Americas seen from Asia), so one
+// extra edge circle flips it back under the even-odd rule.
+function areaPath(rings, v) {
+  const P = projector(v), m = 60 * S;
+  const aLon = ((v.lam0 / DEG + 720) % 360) - 180, aLat = -v.phi0 / DEG;   // the point straight behind
+  let flips = 0;
+  g.beginPath();
+  for (const a of rings) {
+    const n = a.length / 4;
+    let front = 0, x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (let i = 0; i < n; i++) {
+      const o = P(a, i);
+      let x = o[0], y = o[1];
+      if (o[2] < 0) { const h = Math.hypot(x, y) || 1; x /= h; y /= h; } else front++;
+      const X = v.cx + v.R * x, Y = v.cy - v.R * y;
+      SCRATCH[2 * i] = X; SCRATCH[2 * i + 1] = Y;
+      if (X < x0) x0 = X; if (X > x1) x1 = X; if (Y < y0) y0 = Y; if (Y > y1) y1 = Y;
+    }
+    if (!front || x1 < -m || x0 > W + m || y1 < -m || y0 > H + m) continue;
+    const b = a.box;
+    if (front < n && aLon >= b[0] && aLon <= b[1] && aLat >= b[2] && aLat <= b[3] && inRing(a.ll, aLon, aLat)) flips++;
+    g.moveTo(SCRATCH[0], SCRATCH[1]);
+    for (let i = 1; i < n; i++) g.lineTo(SCRATCH[2 * i], SCRATCH[2 * i + 1]);
+    g.closePath();
+  }
+  if (flips % 2) { g.moveTo(v.cx + v.R, v.cy); g.arc(v.cx, v.cy, v.R, 0, Math.PI * 2); g.closePath(); }
+}
+
+function linePath(lines, v) {                               // lines: only the parts on the visible side
+  const P = projector(v);
+  g.beginPath();
+  for (const a of lines) {
+    let pen = false;
+    for (let i = 0; i < a.length / 4; i++) {
+      const o = P(a, i);
+      if (o[2] < 0.02) { pen = false; continue; }
+      const X = v.cx + v.R * o[0], Y = v.cy - v.R * o[1];
+      if (pen) g.lineTo(X, Y); else { g.moveTo(X, Y); pen = true; }
+    }
+  }
+}
+
+function landInFrame(v) {                                   // does any coast or island show in the middle of the frame?
+  const P = projector(v);
+  for (const a of geo().land) {
+    for (let i = 0; i < a.length / 4; i++) {
+      const o = P(a, i);
+      if (o[2] <= 0) continue;
+      const X = v.cx + v.R * o[0], Y = v.cy - v.R * o[1];
+      if (X > W * 0.08 && X < W * 0.92 && Y > H * 0.08 && Y < H * 0.92) return true;
+    }
+  }
+  return false;
+}
+
+let SPAN = null;
+function finalSpan(it) {                                    // an ocean place alone is a blank frame: widen until land shows
+  if (SPAN !== null) return SPAN;
+  const base = Math.max(300, it.span_km || 1500);
+  SPAN = base * 4.5;
+  for (const k of [1, 1.7, 2.8, 4.5]) {
+    const v = { lam0: it.lon * DEG, phi0: it.lat * DEG, R: W * 6371 / (base * k), cx: W / 2, cy: H * (PORTRAIT ? 0.42 : 0.44) };
+    if (landInFrame(v)) { SPAN = base * k; break; }
+  }
+  return SPAN;
+}
+
+function mapView(t) {                                       // where the camera is at time t
+  const it = DATA.items[0], lamT = it.lon * DEG, phiT = it.lat * DEG;
+  const arrive = Math.min(T * 0.72, 3.4);                   // long beats hold on the pin instead of a slower spin
+  const pr = easeInOut(seg(t, 0, arrive * 0.85)), pz = easeInOut(seg(t, arrive * 0.2, arrive));
+  const lamS = lamT + 80 * DEG, phiS = Math.max(-25 * DEG, Math.min(25 * DEG, phiT * 0.4));
+  const R0 = Math.min(W, H) * 0.43, R1 = Math.max(R0, W * 6371 / finalSpan(it));
+  return { lam0: lamS + (lamT - lamS) * pr, phi0: phiS + (phiT - phiS) * pr, R: R0 * Math.pow(R1 / R0, pz),
+           cx: W / 2, cy: H * (PORTRAIT ? 0.42 : 0.44), pz, arrive };
+}
+
+function map(t) {
+  const it = DATA.items[0], G = geo(), v = mapView(t), arrive = v.arrive;
+  background(t);
+  const halo = clamp(1 - v.pz * 1.6);                       // the atmosphere glow while the whole globe shows
+  if (halo > 0) {
+    const hg = g.createRadialGradient(v.cx, v.cy, v.R * 0.96, v.cx, v.cy, v.R * 1.18);
+    hg.addColorStop(0, TH.sheen.replace(/[\d.]+\)$/, `${(0.35 * halo).toFixed(3)})`)); hg.addColorStop(1, "rgba(0,0,0,0)");
+    g.fillStyle = hg; g.beginPath(); g.arc(v.cx, v.cy, v.R * 1.18, 0, Math.PI * 2); g.fill();
+  }
+  const sea = g.createRadialGradient(v.cx - v.R * 0.35, v.cy - v.R * 0.4, v.R * 0.05, v.cx, v.cy, v.R);
+  sea.addColorStop(0, _lighten(TH.bg2, 0.12)); sea.addColorStop(0.7, TH.bg2); sea.addColorStop(1, TH.bg);
+  g.save(); g.beginPath(); g.arc(v.cx, v.cy, v.R, 0, Math.PI * 2); g.fillStyle = sea; g.fill(); g.clip();
+  g.strokeStyle = TH.ink; g.globalAlpha = 0.07; g.lineWidth = 1.5 * S; linePath(G.grat, v); g.stroke();
+  g.globalAlpha = 1;
+  areaPath(G.land, v); g.fillStyle = TH.muted2; g.fill("evenodd");
+  g.strokeStyle = TH.ink2; g.globalAlpha = 0.45; g.lineWidth = 1.6 * S; g.stroke(); g.globalAlpha = 1;
+  const near = clamp((v.pz - 0.45) / 0.35);                 // rivers and state lines once we are close
+  if (near > 0) {
+    g.strokeStyle = _lighten(TH.bg2, 0.18); g.globalAlpha = 0.75 * near; g.lineWidth = 2.2 * S; g.lineJoin = "round";
+    linePath(G.rivers, v); g.stroke();
+    g.strokeStyle = TH.ink; g.globalAlpha = 0.22 * near; g.lineWidth = 1.3 * S; g.setLineDash([3 * S, 6 * S]);
+    linePath(G.states, v); g.stroke(); g.setLineDash([]); g.globalAlpha = 1;
+  }
+  areaPath(G.lakes, v); g.fillStyle = sea; g.fill("evenodd");
+  g.strokeStyle = TH.ink; g.globalAlpha = 0.32; g.lineWidth = 1.6 * S; g.setLineDash([9 * S, 6 * S]);
+  linePath(G.borders, v); g.stroke(); g.setLineDash([]); g.globalAlpha = 1;
+  const limb = g.createRadialGradient(v.cx, v.cy, v.R * 0.55, v.cx, v.cy, v.R);   // the round shade of a sphere
+  limb.addColorStop(0, "rgba(0,0,0,0)"); limb.addColorStop(1, "rgba(0,0,0,0.45)");
+  g.fillStyle = limb; g.fillRect(0, 0, W, H);
+  g.restore();
+  const t0 = arrive * 0.86, drop = seg(t, t0, t0 + 0.35), py = v.cy - (1 - easeBack(drop)) * 160 * S;
+  if (drop > 0) {                                           // the pin lands on the place and keeps pulsing
+    for (let k = 0; k < 2; k++) {
+      const since = t - t0 - 0.3 - k * 0.7;
+      if (since < 0) continue;
+      const ph = (since / 1.4) % 1;
+      g.strokeStyle = TH.accent; g.globalAlpha = 0.7 * (1 - ph); g.lineWidth = 5 * S;
+      g.beginPath(); g.arc(v.cx, v.cy, 20 * S + ph * 110 * S, 0, Math.PI * 2); g.stroke();
+    }
+    g.globalAlpha = clamp(drop * 3);
+    const gl = g.createRadialGradient(v.cx, py, 2 * S, v.cx, py, 70 * S);
+    gl.addColorStop(0, TH.accent2); gl.addColorStop(0.35, TH.accent); gl.addColorStop(1, "rgba(0,0,0,0)");
+    g.fillStyle = gl; g.beginPath(); g.arc(v.cx, py, 70 * S, 0, Math.PI * 2); g.fill();
+    g.fillStyle = TH.accent; g.beginPath(); g.arc(v.cx, py, 18 * S, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#FFFFFF"; g.beginPath(); g.arc(v.cx, py, 7 * S, 0, Math.PI * 2); g.fill();
+    g.globalAlpha = 1;
+  }
+  const a = easeOut(seg(t, arrive * 0.95, arrive * 0.95 + 0.45));
+  if (a > 0) {                                              // the name, as the narrator says it, and where it is
+    const hindi = HI.test(it.label + (it.text || "")), name = hindi ? it.label : it.label.toUpperCase();
+    const cw = W * 0.82, top = v.cy + (PORTRAIT ? 190 : 120) * S + (1 - a) * 40 * S;
+    const np = fitText(name, TH.title_font, cw - 70 * S, 96 * S, 44 * S);
+    const sp = it.text ? fitText(it.text, TH.label_font, cw - 70 * S, 46 * S, 24 * S) : 0;
+    const ch = np * 1.05 + (it.text ? sp * 1.5 : 0) + 56 * S, x = W / 2 - cw / 2;
+    g.globalAlpha = a; g.strokeStyle = TH.accent; g.lineWidth = 3 * S;
+    g.beginPath(); g.moveTo(v.cx, v.cy + 24 * S); g.lineTo(v.cx, top); g.stroke();
+    g.fillStyle = TH.bg; g.globalAlpha = 0.86 * a; roundRect(x, top, cw, ch, 18 * S); g.fill();
+    g.globalAlpha = a; g.fillStyle = TH.accent; g.fillRect(x, top, 12 * S, ch);
+    g.textAlign = "center"; g.textBaseline = "alphabetic"; g.fillStyle = TH.ink;
+    g.font = font(np, TH.title_font); g.fillText(name, W / 2 + 6 * S, top + 28 * S + np * 0.9);
+    if (it.text) {
+      g.fillStyle = TH.ink2; g.font = font(sp, TH.label_font);
+      g.fillText(it.text, W / 2 + 6 * S, top + 28 * S + np * 1.05 + sp * 1.15);
+    }
+    g.globalAlpha = 1;
+  }
+}
+
 window.draw = function (t) {
   const zoom = 1 + 0.025 * (t / T);                           // slow push-in, like a camera
   g.setTransform(zoom, 0, 0, zoom, -(zoom - 1) * W / 2, -(zoom - 1) * H / 2);
   if (DATA.type === "depth") {
     depth(t);                                               // paints its own water; the gauge is its headline
+  } else if (DATA.type === "map") {
+    map(t);                                                 // the globe dive; the place card is its headline
   } else {
     background(t);
     const top = title(t);
