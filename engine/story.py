@@ -2555,8 +2555,10 @@ def _judge_loop(brain, channel: dict, script: dict, topic: str | None, fmt: str,
         low = v["low"]
         weakest = min(v["scores"].values()) if v["scores"] else 0
         facts = _facts_pass(script)
-        if best_key is None or (facts, weakest) > best_key:    # 23 Nov: a draft the fact gate holds never wins
-            best, best_key = script, (facts, weakest)
+        human = potential_gate.HUMAN not in low     # S10 'obviously AI-made' blocks every video, even under B
+        key = (facts, human, weakest)               # 23 Nov: a draft the fact gate or S10 holds never wins
+        if best_key is None or key > best_key:
+            best, best_key = script, key
         shown = ", ".join(f"{c} {s:g}" for c, s in sorted(v["scores"].items(), key=lambda x: x[1]))
         if not low and facts:
             log(f"Script judge: passes ({shown})")
@@ -2579,8 +2581,8 @@ def _judge_loop(brain, channel: dict, script: dict, topic: str | None, fmt: str,
                      f"details: {wrong}. Write it again without them and keep everything that is true.")
             log(f"Script judge: passes ({shown}) but its facts fail the check; rewriting without them ({r + 1}/{rounds})")
         script = _write_fresh(brain, channel, topic, fmt, memory, log, plan, notes=notes)
-    log(f"Script judge: best draft kept (weakest point {best_key[1]:g}" + ("" if best_key[0] else ", facts still wrong")
-        + "); the video gate decides after the render")
+    log(f"Script judge: best draft kept (weakest point {best_key[2]:g}" + ("" if best_key[0] else ", facts still wrong")
+        + ("" if best_key[1] else ", still reads AI-made") + "); the video gate decides after the render")
     return best
 
 

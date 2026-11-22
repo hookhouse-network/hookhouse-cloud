@@ -154,6 +154,22 @@ def test_a_passing_draft_with_wrong_facts_is_rewritten_without_them(loop):
     assert out["title"] == "draft 2" and len(writes) == 1 and WRONG in writes[0] and "without them" in writes[0]
 
 
+def test_a_draft_that_still_reads_ai_made_never_beats_one_that_clears_s10(loop):
+    """Under B only S10 ('obviously AI-made', human_feel under 6) still blocks; the old ranking kept the draft with
+    the best weakest point even when it was the one S10 would hold."""
+    verdicts, writes, drafts = loop
+    h = potential_gate.HUMAN
+    verdicts += [{"scores": {"hook": 7, "clarity": 9, h: 5.5}, "fixes": ["x"], "low": {"hook": 7, h: 5.5}, "need": 8},
+                 {"scores": {"hook": 5, "clarity": 9, h: 6}, "fixes": ["x"], "low": {"hook": 5}, "need": 8},
+                 {"scores": {"hook": 4, "clarity": 9, h: 8}, "fixes": ["x"], "low": {"hook": 4}, "need": 8}]
+    drafts += [{"title": "draft 2", "_fact_check": dict(CLEAN)}, {"title": "draft 3", "_fact_check": dict(CLEAN)}]
+    logs = []
+    out = story._judge_loop(object(), CH, {"title": "draft 1", "_fact_check": dict(CLEAN)}, "t", "short", None,
+                            logs.append, {})
+    assert out["title"] == "draft 2"                    # clears S10; weakest 5 beats draft 3's 4
+    assert "weakest point 5" in logs[-1] and "AI-made" not in logs[-1]
+
+
 def test_drafts_without_a_fact_check_are_judged_on_scores_alone():
     assert story._facts_pass({}) and story._facts_pass({"_fact_check": {}})
     assert not story._facts_pass({"_fact_check": {"checked": False, "ok": False, "problems": ["No sources"]}})
