@@ -159,7 +159,27 @@ def draw(prompt: str, seed: int, size: tuple[int, int] = (1080, 1920)) -> bytes 
             return None
         _count_one()
         print(f"AI pictures: drew one on this PC in {time.time() - t:.0f}s ({used_today()} today)", flush=True)
-        return out.read_bytes()
+        return _enlarge(out.read_bytes())
+
+
+SHORT_SIDE = 1080
+
+
+def _enlarge(png: bytes) -> bytes:
+    """22 Nov: the renderer shows a picture whose short side is under 650 px as a small framed 'document' card on a
+    dark blur (story._v3_frame): every 512 px PC picture of the first Itihaas video became a card and its frames went
+    dark. Cloudflare's 1024x1024 FLUX pictures are cropped to ~576x1024 for a Short, about the same detail, and get the
+    full-screen motion; so the PC picture is enlarged once (Lanczos + a light sharpen) to 1080 px on its short side."""
+    import io
+    from PIL import Image, ImageFilter
+    img = Image.open(io.BytesIO(png)).convert("RGB")
+    k = SHORT_SIDE / min(img.size)
+    if k > 1:
+        img = img.resize((round(img.width * k), round(img.height * k)), Image.LANCZOS)
+        img = img.filter(ImageFilter.UnsharpMask(radius=1.6, percent=55, threshold=2))
+    b = io.BytesIO()
+    img.save(b, "PNG")
+    return b.getvalue()
 
 
 def status() -> str:

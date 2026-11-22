@@ -45,7 +45,7 @@ def pc(monkeypatch, tmp_path):
 def test_draws_one_picture_at_low_priority_and_counts_it(pc):
     conf, runs = pc
     data = local_sd.draw("a tent in the snow at night", 12345, (1080, 1920))
-    assert data and Image.open(io.BytesIO(data)).size == (512, 896)
+    assert data and Image.open(io.BytesIO(data)).size == (1080, 1890)   # enlarged: full-screen, not a 'card'
     args, k = runs[0]
     assert args[args.index("-W") + 1] == "512" and args[args.index("-H") + 1] == "896"
     assert args[args.index("--sampling-method") + 1] == "lcm" and args[args.index("--cfg-scale") + 1] == "1.0"
@@ -182,3 +182,26 @@ def test_a_beat_draws_its_pc_picture_only_in_the_scene_drawer():
     src = inspect.getsource(story)
     i = src.index("def try_ai():")
     assert "local=False" in src[i:i + 600]
+
+
+def test_pc_pictures_are_big_enough_for_the_full_screen_frame(tmp_path):
+    """22 Nov: 512 px pictures were shown as small dark 'document' cards (story._v3_frame: short side under 650)."""
+    from engine import story
+    p = tmp_path / "pic.png"
+    p.write_bytes(local_sd._enlarge(_png()))
+    assert Image.open(p).size == (1080, 1890)
+    assert story._v3_frame({"path": str(p), "source": local_sd.SOURCE, "credit": "AI-generated image"}) == "parallax"
+
+
+def test_a_small_cached_pc_picture_is_enlarged_when_reused(monkeypatch, tmp_path):
+    """PC pictures drawn before the enlargement (512 px) sit in the scene cache: a remake reuses them full-screen."""
+    import hashlib
+    monkeypatch.setattr(sb, "CACHE", tmp_path)
+    prompt, seed, size = "a palace gate at night", 3, (1080, 1920)
+    key = hashlib.md5(f"{prompt}|{seed}|{size}".encode()).hexdigest()
+    Image.effect_noise((512, 896), 60).convert("RGB").save(tmp_path / f"{key}.jpg", quality=93)
+    path, src = sb.draw(prompt, seed, size)
+    assert src == "cache" and Image.open(path).size == (1080, 1890)
+    Image.new("RGB", (1024, 1024)).save(path)                        # a cloud picture is left as it is
+    sb.enlarge_small(path)
+    assert Image.open(path).size == (1024, 1024)

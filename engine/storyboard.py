@@ -255,6 +255,23 @@ def _local(prompt: str, seed: int, size: tuple[int, int]) -> bytes | None:
 LOCAL_TRIES = 2          # draws per scene when they come from the PC (each ~2 CPU minutes; cloud pictures: 3)
 
 
+def enlarge_small(path: Path) -> None:
+    """A cached picture under 650 px on its short side can only be a PC picture drawn before 22 Nov 10:00 (512 px;
+    every cloud model draws 768+): enlarge it in place, or the renderer frames it as a small dark card."""
+    from PIL import Image
+    try:
+        with Image.open(path) as im:
+            small = min(im.size) < 650
+    except OSError as e:
+        print(f"cached picture unreadable ({path.name}): {type(e).__name__}")
+        return
+    if small:
+        import io
+        from .media import local_sd
+        big = Image.open(io.BytesIO(local_sd._enlarge(path.read_bytes()))).convert("RGB")
+        big.save(path, quality=93)
+
+
 def reset_at() -> float:
     """When the first blocked source opens again (epoch seconds): its reset, or its next test call (Cloudflare).
     Only blocks still running count: an old, expired mark (a retired model's) used to pull this into the past."""
@@ -390,6 +407,7 @@ def draw(prompt: str, seed: int, size: tuple[int, int], variant: int = 0) -> tup
     key = hashlib.md5(f"{prompt}|{seed}|{size}".encode()).hexdigest()
     dest = CACHE / f"{key}.jpg"
     if dest.exists():
+        enlarge_small(dest)
         return dest, "cache"
     for name, fn in (("cloudflare", lambda: _cloudflare(prompt, seed, size)),
                      ("pollinations", lambda: _pollinations(prompt, seed, size)), ("hf", lambda: _hf(prompt, seed, size)),

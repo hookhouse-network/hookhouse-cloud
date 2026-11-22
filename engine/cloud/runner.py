@@ -973,7 +973,8 @@ def helper(once: bool = False, every_s: int = 300, log=_log, videos_only: bool =
             taken = set(claims(store)) | {r["id"] for r in pc_outbox.pending()}
             # clips stay in the cloud: their spare-clip pool lives in the cloud memory, which the PC only reads
             due = [(s, it) for s, it in _due_to_make(None, taken) if it["status"] != "making" and it.get("kind") != "clip"
-                   and not _pc_waiting(it["id"])]           # 22 Nov: the PC's own retry list (failed makes)
+                   and not _pc_waiting(it["id"])            # 22 Nov: the PC's own retry list (failed makes)
+                   and not pc_outbox.awaiting_merge(it)]    # 22 Nov: uploaded, the plan copy is older than the merge
             pick = "fallback"
             if hb is not None:                         # Phase 2 'on' mode: the shared queue decides what this PC makes
                 from . import sched as _sched

@@ -86,9 +86,45 @@ def flush(store, log=print, now: float | None = None) -> int:
             log(f"upload {rec['id']} failed ({rec['attempts']}x, next try in {wait / 60:.0f} min): {rec['error']}")
             continue
         path.unlink(missing_ok=True)
+        _remember_upload(rec["id"], float((rec.get("marker") or {}).get("made_at") or 0), now)
         done += 1
         log(f"uploaded {rec['id']}" + (f" after {rec['attempts']} failed tries" if rec.get("attempts") else ""))
     return done
+
+
+# 22 Nov 09:26: the PC made the Itihaas 12:30 video AGAIN three minutes after uploading it. The cloud tick that merged
+# it had already deleted its claim, but saves the plan only at its end, so the PC's fresh copy still showed the video
+# unmade and unclaimed (35 min and ~11 local pictures wasted). The PC now remembers what it uploaded and skips a video
+# until its plan copy shows the merged make (made_at equal to ours: then a 'redo' there is a real remake request).
+UPLOADED = ROOT / "data" / "pc" / "uploaded.json"
+UPLOAD_TRUST_H = 6            # a merge that never shows up in the copy for this long: the PC may make it again
+
+
+def _uploads() -> dict:
+    try:
+        d = json.loads(UPLOADED.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    cut = time.time() - 2 * 86400
+    return {k: v for k, v in d.items() if isinstance(v, dict) and float(v.get("uploaded") or 0) > cut}
+
+
+def _remember_upload(item_id: str, made_at: float, now: float) -> None:
+    d = _uploads()
+    d[item_id] = {"made_at": made_at, "uploaded": now}
+    UPLOADED.parent.mkdir(parents=True, exist_ok=True)
+    UPLOADED.write_text(json.dumps(d, indent=1), encoding="utf-8")
+
+
+def awaiting_merge(it: dict, now: float | None = None) -> bool:
+    """True when this PC uploaded the video and its plan copy does not show that make yet (a stale copy)."""
+    rec = _uploads().get(it.get("id"))
+    if not rec:
+        return False
+    now = now or time.time()
+    if now - float(rec.get("uploaded") or 0) > UPLOAD_TRUST_H * 3600:
+        return False
+    return float(it.get("made_at") or 0) < float(rec.get("made_at") or 0) - 1
 
 
 def disk_ok(log=print, path: Path | None = None, cleanup=None) -> bool:

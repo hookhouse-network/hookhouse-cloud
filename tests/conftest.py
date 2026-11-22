@@ -75,6 +75,10 @@ def _no_real_picture_quota(monkeypatch, tmp_path):
     import engine.media.local_sd as lsd                 # 22 Nov: never the PC's own picture model or its daily count
     monkeypatch.setattr(lsd, "MODEL", tmp_path / "no_local_model.safetensors")
     monkeypatch.setattr(lsd, "COUNT", tmp_path / "local_sd_count_test.json")
+    import engine.cloud.pc_outbox as pco                # 22 Nov: never the PC's real upload / failed-make records
+    import engine.cloud.runner as rn
+    monkeypatch.setattr(pco, "UPLOADED", tmp_path / "uploaded_test.json")
+    monkeypatch.setattr(rn, "PC_FAILS", tmp_path / "make_fails_test.json")
 
 
 @pytest.fixture(autouse=True)
