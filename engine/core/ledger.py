@@ -204,11 +204,12 @@ class Ledger:
             self.event("job.dead", worker=worker, data={"job": job_id, "error": str(error)[:300]})
         return state
 
-    def retry_dead(self, job_id: int) -> bool:
-        """Put a dead job back (after a fix): attempts start again."""
+    def retry_dead(self, job_id: int, run_after: float | None = None) -> bool:
+        """Put a dead job back (after a fix): attempts start again, now or at run_after (e.g. the next posting slot)."""
         now = self.clock()
+        when = now if run_after is None else float(run_after)
         return self._tx(lambda c: c.execute("UPDATE jobs SET state='queued', attempts=0, run_after=?, updated=? "
-                                            "WHERE id=? AND state='dead'", (now, now, job_id)).rowcount == 1)
+                                            "WHERE id=? AND state='dead'", (when, now, job_id)).rowcount == 1)
 
     def jobs(self, state: str | None = None, kind: str | None = None) -> list[dict]:
         q, args = "SELECT * FROM jobs WHERE 1=1", []

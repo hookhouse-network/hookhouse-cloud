@@ -638,6 +638,64 @@ def _rescue_stuck(log=print) -> int:
     return n
 
 
+def _recheck_coached(log=print) -> int:
+    """Owner 22 Nov ("B"): until 28 Nov the potential judge's 1-10 rubric only coaches our own channels' videos. Approved
+    videos that every platform blocked for that rubric ALONE before B were settled at their redo limit and never tried
+    again (23 Nov 01:15: the 22 Nov Brain Snack and Wild Instinct Shorts). Each version gets ONE fresh check at its
+    channel's next free slot: the post jobs the gate killed go back to the queue for that time and the gate decides
+    again (its other findings, S10, quality, policy and clip checks still block)."""
+    from . import content_gate, publish, publish_queue
+    from .core import ledger
+    settled = _load().get("posted", {})
+    cands = [(s, it) for s, it in items(7, 1) if it.get("status") == "approved" and not it.get("youtube_id")
+             and settled.get(it["id"]) is not None and float(settled[it["id"]]) >= float(it.get("made_at") or 0)
+             and it.get("coach_recheck") != publish_queue._ver(it)]
+    if not cands:
+        return 0
+    want = {it["id"]: float(it.get("made_at") or 0) for _s, it in cands}
+    last: dict[str, dict[str, list[str]]] = {}            # item -> platform -> the findings of its last block
+    try:
+        for line in Path(publish.LOG).read_text(encoding="utf-8").splitlines():
+            if '"BLOCKED by the content gate"' not in line:
+                continue
+            r = json.loads(line)
+            iid = r.get("item_id")
+            if iid in want and float(r.get("at") or 0) >= want[iid]:
+                probs = (r.get("details") or {}).get("problems") or content_gate.split_problems(
+                    str((r.get("result") or {}).get("error") or "").split("🛑 blocked: ", 1)[-1])
+                last.setdefault(iid, {})[str(r.get("platform") or "")] = [str(p) for p in probs]
+    except (OSError, ValueError) as e:
+        log(f"coach recheck: publish log unreadable ({e})")
+        return 0
+    n = 0
+    for s, it in cands:
+        blocks = last.get(it["id"]) or {}
+        if not blocks or not all(ps and all(content_gate.rubric_finding(p) for p in ps) for ps in blocks.values()):
+            continue                                       # something besides the rubric held it: it stays held
+        try:
+            meta = publish.item_meta(it)
+        except (OSError, ValueError, KeyError):
+            meta = {}
+        if content_gate.potential_mode(it, meta) == "block":
+            continue                                       # campaign clips keep the full check
+        ver = publish_queue._ver(it)
+        dead = [j for j in publish_queue.queued(it["id"], version=ver)
+                if j["state"] == "dead" and j["key"].rsplit(":", 1)[-1] in blocks]
+        if not dead:
+            continue
+        slot = next_free_slot(s, it)
+        led = ledger.default()
+        back = sum(1 for j in dead if led.retry_dead(j["id"], run_after=datetime.fromisoformat(slot).timestamp()))
+        update_item(s, it["id"], publish_at=slot, coach_recheck=ver)
+        _update_state(lambda st, i=it["id"]: st.setdefault("posted", {}).pop(i, None))
+        ledger.event("potential.recheck", item=it["id"], channel=it.get("channel") or "",
+                     data={"slot": slot, "platforms": back})
+        log(f"coach recheck: {it['id']} was held only by the potential rubric (it coaches until "
+            f"{content_gate.temporary_bar().get('until')}): {back} platform(s) try again at {slot}")
+        n += 1
+    return n
+
+
 def _unique_title(it: dict) -> None:
     """Last check before any upload: the title was never used on this channel (owner 17 Nov: "be careful about
     duplicates"). An unused option from title_options, else the title plus a short distinguishing detail."""
@@ -909,6 +967,10 @@ def _post_due(log, allow=None) -> None:
     steps to some videos (the Studio's "Upload now" on the PC)."""
     from . import publish_queue
     from .telegram_bot import notify
+    try:
+        _recheck_coached(log)                              # 23 Nov: B gives rubric-only holds one fresh check
+    except Exception as e:  # noqa: BLE001 - posting goes on (said, never silent)
+        log(f"coach recheck: {type(e).__name__}: {e}")
     try:
         _rescue_stuck(log)                                 # 21 Nov: settled-but-blocked videos get their remake
     except Exception as e:  # noqa: BLE001 - posting goes on (said, never silent)
