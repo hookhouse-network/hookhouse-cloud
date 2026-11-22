@@ -57,7 +57,9 @@ def test_fact_fix_never_makes_a_script_worse(monkeypatch):
                      {"checked": True, "ok": False, "problems": ["new mistake 3", "new mistake 4"], "warnings": []}])
     monkeypatch.setattr(story, "fact_check", lambda brain, script, deep=False: next(verdicts))
 
-    def fake_fix(brain, script, wrong):
+    def fake_fix(brain, script, wrong, prompt=""):
+        if prompt:                                                # 23 Nov: the deletion step finds nothing to cut
+            return script, 0
         script["beats"][0]["narration"] = "edited"
         return script, 1
     monkeypatch.setattr(story, "fix_script", fake_fix)

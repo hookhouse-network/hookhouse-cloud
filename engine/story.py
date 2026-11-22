@@ -693,8 +693,34 @@ def check_and_fix(brain, channel: dict, script: dict, topic: str, fmt: str, memo
     if _fc_score(verdict) > _fc_score(best[1]):
         log("Fact-check: the fix made it worse; keeping the earlier, better version")
         script, verdict = best
+    if verdict.get("checked") and verdict.get("problems"):
+        script, verdict = _delete_wrong(brain, script, verdict, deep, log)
     script["_fact_check"] = verdict
     return script
+
+
+def _delete_wrong(brain, script: dict, verdict: dict, deep: bool, log=print) -> tuple[dict, dict]:
+    """23 Nov (Deep Blue 1123, its last remake): both corrections failed, so the best draft still stated a detail the
+    sources contradict; the PC rendered it for 35 minutes and the gate held it (wrong facts had caused 5 of the
+    week's 24 remakes before it). A detail that cannot be corrected is deleted: deleting adds no new claim to get
+    wrong. Kept only when the new check is better, so this too can never make the script worse."""
+    wrong = verdict.get("problems") or []
+    log(f"Fact-check: still wrong after the fixes; deleting these details: {wrong}")
+    try:
+        cut, applied = drop_wrong(brain, copy.deepcopy(script), wrong)
+        if not applied:
+            log("Fact-check: no deletion fitted; the video gate will hold this draft")
+            return script, verdict
+        after = fact_check(brain, cut, deep=deep)
+    except Exception as e:  # noqa: BLE001 - keep the best draft; the video gate still checks it
+        log(f"Fact-check: deleting failed ({type(e).__name__}: {str(e)[:80]})")
+        return script, verdict
+    if after.get("checked") and _fc_score(after) < _fc_score(verdict):
+        left = after.get("problems") or []
+        log(f"Fact-check: {applied} deletion(s) applied; " + (f"still wrong: {left}" if left else "the facts check out now"))
+        return cut, after
+    log("Fact-check: deleting did not help; keeping the best draft (the video gate will hold it)")
+    return script, verdict
 
 
 def _fc_score(verdict: dict) -> tuple[int, int]:
@@ -802,13 +828,24 @@ Keep the same language and style. Return ONLY JSON:
 "claims": ["the corrected full list of factual claims, one per line"]}}"""
 
 
-def fix_script(brain, script: dict, problems: list[str]) -> tuple[dict, int]:
+DROP_PROMPT = """Two attempts to correct these details in a video script failed; the sources still contradict them:
+{problems}
+Script lines (index: narration):
+{lines}
+Delete each of these details from the script: remove the words that state it (the clause, or the whole sentence if
+nothing true is left in it) so every line still reads naturally. Do NOT replace a detail with another fact, number,
+date or name. Keep the same language and style. Return ONLY JSON:
+{{"edits": [{{"i": 0, "old": "exact words copied from that line", "new": "the same words without the wrong detail (empty to delete them all)"}}],
+"claims": ["every factual claim still in the script, one per line"]}}"""
+
+
+def fix_script(brain, script: dict, problems: list[str], prompt: str = "") -> tuple[dict, int]:
     """Targeted fix for long scripts: small find/replace edits instead of rewriting 100+ lines
-    (a full rewrite is slow and can bring in new mistakes)."""
+    (a full rewrite is slow and can bring in new mistakes). prompt=DROP_PROMPT deletes instead of correcting."""
     beats = script.get("beats") or []
     lines = "\n".join(f"{i}: {b.get('narration', '')}" for i, b in enumerate(beats))
-    data, _ = brain.ask_json("writer", FIX_PROMPT.format(problems="\n".join(f"- {p}" for p in problems),
-                                                         lines=lines), temperature=0.2)
+    data, _ = brain.ask_json("writer", (prompt or FIX_PROMPT).format(problems="\n".join(f"- {p}" for p in problems),
+                                                                     lines=lines), temperature=0.2)
     applied = 0
     for e in data.get("edits") or []:
         try:
@@ -818,13 +855,34 @@ def fix_script(brain, script: dict, problems: list[str]) -> tuple[dict, int]:
         old, new = str(e.get("old") or ""), str(e.get("new") or "")
         if not old or not 0 <= i < len(beats) or old not in beats[i].get("narration", ""):
             continue
-        beats[i]["narration"] = re.sub(r"\s{2,}", " ", beats[i]["narration"].replace(old, new, 1)).strip()
+        beats[i]["narration"] = _tidy(beats[i]["narration"].replace(old, new, 1), beats[i]["narration"])
         for key in ("big_text", "sub", "label"):                     # on-screen words repeating the detail
             if isinstance(beats[i].get(key), str) and old in beats[i][key]:
-                beats[i][key] = beats[i][key].replace(old, new)
+                beats[i][key] = _tidy(beats[i][key].replace(old, new), beats[i][key])
         applied += 1
     if data.get("claims"):
         script["claims"] = [str(c) for c in data["claims"]]
+    return script, applied
+
+
+def _tidy(text: str, before: str = "") -> str:
+    """A line after an edit: no double spaces, no space before punctuation, no comma left over from a deleted clause."""
+    s = re.sub(r"\s{2,}", " ", text)
+    s = re.sub(r"\s+([,.;:!?।])", r"\1", s)
+    s = re.sub(r"[,;:](?=[.!?।])", "", s)
+    s = re.sub(r"^[\s,.;:]+", "", s).strip()
+    if s[:1].islower() and before.strip()[:1].isupper():        # the deleted words opened the sentence
+        s = s[0].upper() + s[1:]
+    return s
+
+
+def drop_wrong(brain, script: dict, problems: list[str]) -> tuple[dict, int]:
+    """Delete details the sources contradict (no replacement facts); a line left without words loses its beat."""
+    script, applied = fix_script(brain, script, problems, prompt=DROP_PROMPT)
+    beats = script.get("beats") or []
+    kept = [b for b in beats if re.search(r"\w", str(b.get("narration", "")))]
+    if kept and len(kept) < len(beats):
+        script["beats"] = kept
     return script, applied
 
 
@@ -2450,7 +2508,7 @@ def _judge_loop(brain, channel: dict, script: dict, topic: str | None, fmt: str,
     if not cfg.get("enabled") or brain is None:
         return script
     from . import potential_gate
-    best, best_low = script, None
+    best, best_key = script, None
     rounds = max(0, int(cfg.get("rounds") or 0))
     for r in range(rounds + 1):
         try:
@@ -2458,28 +2516,45 @@ def _judge_loop(brain, channel: dict, script: dict, topic: str | None, fmt: str,
                                             kind="long" if fmt == "long" else "")
         except Exception as e:  # noqa: BLE001 - no verdict: the video gate still judges after the render
             log(f"Script judge: no verdict ({type(e).__name__}: {str(e)[:80]}); the video gate decides later")
-            return best if best_low is not None else script
+            return best if best_key is not None else script
         low = v["low"]
         weakest = min(v["scores"].values()) if v["scores"] else 0
-        if best_low is None or weakest > best_low:
-            best, best_low = script, weakest
+        facts = _facts_pass(script)
+        if best_key is None or (facts, weakest) > best_key:    # 23 Nov: a draft the fact gate holds never wins
+            best, best_key = script, (facts, weakest)
         shown = ", ".join(f"{c} {s:g}" for c, s in sorted(v["scores"].items(), key=lambda x: x[1]))
-        if not low:
+        if not low and facts:
             log(f"Script judge: passes ({shown})")
             return script
         if r == rounds:
             break
-        fixes = "; ".join(v.get("fixes") or [])
-        notes = (f"A strict head of content judged the last draft of this script below the bar (needs {v['need']:g}/10 "
-                 f"on every point): " + ", ".join(f"{c} {s:g}" for c, s in sorted(low.items(), key=lambda x: x[1]))
-                 + f". Write a new draft that fixes exactly this: {fixes}")
-        if potential_gate.HUMAN in low:                    # S10: say what human-made means, not only the fixes
-            notes += "\n" + potential_gate.human_note(potential_gate._ctype(channel, {}, {}), fmt)
-        log(f"Script judge: below {v['need']:g} on " + ", ".join(f"{c} {s:g}" for c, s in low.items())
-            + f"; rewriting with its fixes ({r + 1}/{rounds})")
+        if low:
+            fixes = "; ".join(v.get("fixes") or [])
+            notes = (f"A strict head of content judged the last draft of this script below the bar (needs "
+                     f"{v['need']:g}/10 on every point): "
+                     + ", ".join(f"{c} {s:g}" for c, s in sorted(low.items(), key=lambda x: x[1]))
+                     + f". Write a new draft that fixes exactly this: {fixes}")
+            if potential_gate.HUMAN in low:                # S10: say what human-made means, not only the fixes
+                notes += "\n" + potential_gate.human_note(potential_gate._ctype(channel, {}, {}), fmt)
+            log(f"Script judge: below {v['need']:g} on " + ", ".join(f"{c} {s:g}" for c, s in low.items())
+                + f"; rewriting with its fixes ({r + 1}/{rounds})")
+        else:
+            wrong = "; ".join(str(x) for x in (script.get("_fact_check") or {}).get("problems") or [])
+            notes = ("A strict head of content passed the last draft of this script, but the sources contradict these "
+                     f"details: {wrong}. Write it again without them and keep everything that is true.")
+            log(f"Script judge: passes ({shown}) but its facts fail the check; rewriting without them ({r + 1}/{rounds})")
         script = _write_fresh(brain, channel, topic, fmt, memory, log, plan, notes=notes)
-    log(f"Script judge: best draft kept (weakest point {best_low:g}); the video gate decides after the render")
+    log(f"Script judge: best draft kept (weakest point {best_key[1]:g}" + ("" if best_key[0] else ", facts still wrong")
+        + "); the video gate decides after the render")
     return best
+
+
+def _facts_pass(script: dict) -> bool:
+    """Would the gate's fact part pass this draft? (no fact-check result yet: nothing is known against it)"""
+    fc = script.get("_fact_check")
+    if not isinstance(fc, dict) or "checked" not in fc:
+        return True
+    return bool(fc.get("checked") and fc.get("ok"))
 
 
 def make(brain, channel: dict, topic: str | None = None, fmt: str = "short", script: dict | None = None,
