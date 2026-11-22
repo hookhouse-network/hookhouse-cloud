@@ -9,7 +9,7 @@ ledger_backend: dual
 # Phase 1 last step (21 Nov): the Telegram bot's working keys (upd:/cmd:/res:/dec:/meta:) leave KV (1,000 free writes
 # a day) for the LedgerDO. kv = as before; dual = write both, read KV; do = the DO first. Move together with the
 # Worker's TELE_STORE var (cloud/worker/wrangler.toml).
-tele_store: dual
+tele_store: do
 # Phase 2 scheduler (cloud/worker/scheduler.js in the LedgerDO): off | shadow (workers heartbeat and build the 7-day
 # presence history; the PC still claims through the old claim files) | on (claims come from the shared queue).
 scheduler: shadow

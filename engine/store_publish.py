@@ -322,7 +322,16 @@ def payhip_add(p, pid: str) -> str:
         raise RuntimeError(err.strip()[:200])
     if p.url.rstrip("/").endswith("/product/add/digital"):   # still on the blank form: refused without an error box
         raise RuntimeError("Payhip kept the form open: " + p.evaluate("() => document.body.innerText")[:300])
-    return p.url
+    # 22 Nov: the Savings Challenge Kit came back as "listed" (the page had moved to /product/addit) but Payhip never
+    # created it; only the product list says for sure. Listed = its title is on the dashboard (edit link returned).
+    page_text = p.evaluate("() => document.body.innerText")[:300]
+    want = title_for(pid)[:40].lower()
+    for _ in range(3):
+        mine = [u for u, t, _pub in payhip_rows(p) if t[:40].lower() == want]
+        if mine:
+            return mine[0]
+        p.wait_for_timeout(5000)
+    raise RuntimeError(f"Payhip did not create the product (page after saving: {page_text!r})")
 
 
 def publish(store: str = "payhip", ids: list[str] | None = None, replace: bool = False, log=print) -> list[str]:

@@ -10,7 +10,7 @@ TICK_SLOTS = "06:00,10:00,14:00,18:00,22:30,01:30"   # Indian time: posting wind
 RENDER_SLOT = "20:00"                                 # 18 Nov: back to one render a day (GitHub suspension, light jobs only)
 GH_REPO = "hookhouse-network/hookhouse-cloud"         # 18 Nov: the public code repo runs the jobs
 STORE_REPO = "hookhouse-network/hookhouse"            # private: memory, videos, footage (release files)
-TELE_STORE = "dual"                                   # Phase 1 last step: Telegram keys kv | dual | do (with settings.yaml tele_store)
+TELE_STORE = "do"                                   # Phase 1 last step: Telegram keys kv | dual | do (with settings.yaml tele_store)
 # (17 Nov: repo names are kept here, not only passed by the setup command: an auto-deploy once dropped them)
 
 # Phase 1 (20 Nov): shared truth = one Durable Object with SQLite storage (free plan; cloud/worker/ledger_do.js)
