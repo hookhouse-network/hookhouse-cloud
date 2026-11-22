@@ -190,12 +190,38 @@ def _criteria(cfg: dict, ctype: str) -> list[str]:
     return crit
 
 
+def campaign_brief(meta: dict) -> str:
+    """22 Nov: the clip rubric scores brief_fit ("fits the campaign brief's spirit and audience"), but the judge was
+    never shown the brief, only the slot's planned STORY topic (Dom's Kick clips sit in GTA fact slots: 'GTA 6 vs GTA 5
+    map size'), so brief_fit came out 2-4. This is the brief from the campaign record (config/campaigns_picked.yaml)."""
+    cid = meta.get("campaign")
+    if not cid:
+        return ""
+    try:
+        from . import db
+        c = db.get_campaign(db.connect(), str(cid)) or {}
+    except Exception as e:  # noqa: BLE001 - the judge still sees the clip itself
+        return f"(campaign brief unavailable: {type(e).__name__})"
+    if not c:
+        return ""
+    ln = c.get("length_seconds") or {}
+    parts = [str(c.get("name") or cid), f"game: {c['game']}" if c.get("game") else "",
+             str(c.get("rules") or "; ".join(c.get("other_rules") or [])),
+             ("hook ideas: " + "; ".join(c.get("hook_ideas") or [])) if c.get("hook_ideas") else "",
+             f"length {ln.get('min')}-{ln.get('max')} s" if isinstance(ln, dict) and ln.get("max") else ""]
+    return " | ".join(p for p in parts if p.strip())[:700]
+
+
 def _prompt(ch: dict, it: dict, meta: dict, ctype: str, criteria: list[str], evidence: str) -> str:
     aud = "Indian viewers (Hindi)" if ch.get("language") == "hi" else (
         "Indian viewers" if ch.get("market") == "IN" else "United States viewers")
     if ctype == "kids":
         aud = "children aged 2-5 and their parents"
     rubric = "\n".join(f"- {c}: {CRITERIA_HELP.get(c, c)}" for c in criteria)
+    if ctype == "clips":                          # a clip's brief is the campaign's, not the slot's planned topic
+        topic_line = f"CAMPAIGN BRIEF: {campaign_brief(meta) or 'not given'}"
+    else:
+        topic_line = f"TOPIC: {str(it.get('topic') or '')[:150]}"
     return (
         "You are the strictest head of content at a top short-video studio. Decide if this video can WIN on YouTube "
         "Shorts, Instagram Reels and Facebook Reels and earn money. Score each criterion 0-10 where 9 means top 5% "
@@ -205,7 +231,7 @@ def _prompt(ch: dict, it: dict, meta: dict, ctype: str, criteria: list[str], evi
         f"CHANNEL: {ch.get('name', ch.get('id'))} ({ch.get('niche', '')}) for {aud}\n"
         f"TITLE: {str(meta.get('title') or '')[:150]}\n"
         f"HOOK / FIRST LINE: {str(meta.get('hook') or meta.get('hook_text') or '')[:200]}\n"
-        f"TOPIC: {str(it.get('topic') or '')[:150]}\n{evidence}\n"
+        f"{topic_line}\n{evidence}\n"
         f"WHAT IS SAID / SHOWN:\n{script_text(it, meta)[:3500]}\n\n"
         f"CRITERIA:\n{rubric}\n\n"
         'Reply JSON only: {"scores": {"<criterion>": <0-10>, ...}, "fixes": ["the most important concrete fix", '
@@ -285,7 +311,7 @@ def problems(it: dict, ch: dict, meta: dict, brain_fn=None, led=None) -> list[st
         if brain is None:
             return [f"{PREFIX}: not judged yet (no AI judge available here); it tries again"]
         evidence = ""
-        if it.get("topic"):
+        if it.get("topic") and _ctype(ch, meta, it) != "clips":   # a clip slot's planned topic says nothing about it
             try:
                 from .topic_proof import evidence_text, proof
                 evidence = evidence_text(proof(str(it["topic"]), ch))

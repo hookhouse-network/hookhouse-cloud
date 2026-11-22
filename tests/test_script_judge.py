@@ -99,3 +99,24 @@ def test_the_real_settings_switch_it_on():
     from engine.config import ROOT
     sj = yaml.safe_load((ROOT / "config" / "settings.yaml").read_text(encoding="utf-8"))["script_judge"]
     assert sj.get("enabled") is True and True not in sj and sj["rounds"] >= 1
+
+
+def test_a_clip_is_judged_against_its_campaign_brief_not_the_slots_story_topic(monkeypatch):
+    """22 Nov: Dom's Kick clips sit in GTA fact slots; the judge saw 'TOPIC: GTA 6 vs GTA 5 map size' and no brief,
+    and scored brief_fit 2-4."""
+    camp = {"id": "dasgasd3m-x-ruckus-gta-6", "name": "Dasgasd3m x RUCKUS | GTA 6", "game": "Grand Theft Auto VI",
+            "rules": "Keep Dom's face or voice; keep setup, reaction and payoff",
+            "hook_ideas": ["Dasgas Dom reacts to ..."], "length_seconds": {"min": 30, "max": 60}}
+    monkeypatch.setattr("engine.db.get_campaign", lambda conn, cid: camp if cid == camp["id"] else None)
+    monkeypatch.setattr("engine.db.connect", lambda *a, **k: None)
+    brief = potential_gate.campaign_brief({"campaign": camp["id"]})
+    for part in ("Dasgasd3m x RUCKUS", "Grand Theft Auto VI", "setup, reaction and payoff", "reacts to", "30-60 s"):
+        assert part in brief
+    it = {"id": "1122_2230_stream_clips_short", "topic": "GTA 6 vs GTA 5 Map Size", "out_dir": ""}
+    meta = {"title": "Dom vs the shark", "campaign": camp["id"], "description": "he screams"}
+    ch = {"id": "stream_clips", "name": "Stream Clips", "type": "story"}
+    crit = potential_gate.DEFAULT_RUBRICS["clips"]
+    p = potential_gate._prompt(ch, it, meta, "clips", crit, "")
+    assert "CAMPAIGN BRIEF: Dasgasd3m x RUCKUS" in p and "Map Size" not in p
+    story = potential_gate._prompt(ch, it, {"title": "t"}, "story", potential_gate.DEFAULT_RUBRICS["story"], "")
+    assert "TOPIC: GTA 6 vs GTA 5 Map Size" in story and "CAMPAIGN BRIEF" not in story
