@@ -411,6 +411,8 @@ def _due_to_make(kinds: set | None, skip: set, connected_only: bool = False) -> 
             continue                                       # missed, but a newer one for this channel is coming: make that
         if it["status"] == "needs_source" and not weekly.has_clip_material(it["channel"]):
             continue
+        if _story_paused(it) and not _clip_slot(it):
+            continue                                       # 22 Nov: story Shorts paused (franchise niche); clips go
         if (it.get("retry_at") or 0) > time.time() or (it.get("attempts") or 0) >= 3:
             continue
         if pictures_out and it.get("kind") in ("short", "long", "story") and _storyboarded(it["channel"]) \
@@ -461,6 +463,18 @@ def _clip_slot(it: dict) -> bool:
         return weekly.clip_slot(channel(it["channel"]), it)
     except Exception as e:  # noqa: BLE001 - a broken clip check never stops the queue
         _log(f"clip slot check {it.get('id')}: {type(e).__name__}: {e}")
+        return False
+
+
+def _story_paused(it: dict) -> bool:
+    """A story channel whose story Shorts are paused (weekly.story_paused): its slots wait for campaign footage."""
+    from .. import weekly
+    from ..config import channel
+    try:
+        ch = channel(it["channel"])
+        return ch.get("type") == "story" and it.get("kind") != "clip" and bool(weekly.story_paused(ch))
+    except Exception as e:  # noqa: BLE001 - an unreadable channel is judged by the rest of the queue
+        _log(f"story pause check {it.get('id')}: {type(e).__name__}: {e}")
         return False
 
 

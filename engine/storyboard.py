@@ -165,19 +165,70 @@ def _quota() -> dict:
     return q
 
 
+# 22 Nov: Cloudflare's free allocation did NOT come back at 00:00 UTC as its pricing page says: at 00:15 and 00:23 UTC
+# FLUX still answered 4006 'used up your daily free allocation' (nothing else on the account had run since 20:32 UTC).
+# Community reports and a cloudflare-docs issue (#34137) describe the same: 4006 for hours after the reset, the first
+# success ~24 h after the last use (a rolling window, it seems). Blocking until the next 00:00 UTC then locked the
+# pictures out for a whole day after one failed call. A blocked Cloudflare source is now re-tested at most once an
+# hour by ONE 1-step FLUX call (~10 neurons when it works; a 4006 answer costs nothing); a pass opens it again.
+PROBE_S = 3600
+CF_SOURCES = ("cloudflare", "cf_flux", "cf_sdxl", "cf_dreamshaper")
+
+
+def _write(path, q: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(q), encoding="utf-8")
+
+
 def _block(source: str) -> None:
-    """Free daily allowance used up: skip this source until 00:00 UTC (both reset daily)."""
+    """Free daily allowance used up: skip this source until 00:00 UTC (the documented reset); a Cloudflare source is
+    re-tested hourly before that (_probe)."""
     from .core.where import in_runner
     path = QUOTA if in_runner() else QUOTA_PC
     q = _read(path)
     tomorrow = dt.datetime.now(dt.timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0) + dt.timedelta(days=1)
     q[source] = tomorrow.timestamp()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(q), encoding="utf-8")
+    q[f"at:{source}"] = time.time()                    # a later passing probe (ok:) outranks this block
+    if source in CF_SOURCES:
+        q[f"probe:{source}"] = time.time() + PROBE_S
+    _write(path, q)
 
 
 def _open(source: str) -> bool:
-    return time.time() >= float(_quota().get(source, 0))
+    q = _quota()
+    if time.time() >= float(q.get(source, 0)):
+        return True
+    if float(q.get(f"ok:{source}", 0)) > float(q.get(f"at:{source}", 0)):
+        return True                                    # a test call after the last block got a picture
+    if source in CF_SOURCES and time.time() >= float(q.get(f"probe:{source}", 0)):
+        return _probe()
+    return False
+
+
+def _probe() -> bool:
+    """Does Cloudflare draw again? One 1-step FLUX call; the result counts for every Cloudflare model (the free
+    allocation is one per account). The next test is due an hour later either way."""
+    from .core.where import in_runner
+    path = QUOTA if in_runner() else QUOTA_PC
+    now, ok = time.time(), False
+    acct, token = os.environ.get("CLOUDFLARE_ACCOUNT_ID"), os.environ.get("CLOUDFLARE_API_TOKEN")
+    if acct and token:
+        try:
+            r = requests.post(f"https://api.cloudflare.com/client/v4/accounts/{acct}/ai/run/{CF_MODELS[0][1]}",
+                              headers={"Authorization": f"Bearer {token}"},
+                              json={"prompt": "a red apple on a wooden table", "steps": 1}, timeout=60)
+            ok = bool(((r.json() or {}).get("result") or {}).get("image"))
+        except (requests.RequestException, ValueError, AttributeError) as e:
+            print(f"picture quota test call: {type(e).__name__}")
+    q = _read(path)
+    for s in CF_SOURCES:
+        q[f"probe:{s}"] = now + PROBE_S
+        if ok:
+            q[f"ok:{s}"] = now
+    _write(path, q)
+    print("AI pictures: Cloudflare draws again (test call passed)" if ok else
+          "AI pictures: Cloudflare still says the free allowance is used up; next test in an hour")
+    return ok
 
 
 class NoPictures(RuntimeError):
@@ -193,9 +244,10 @@ def images_blocked() -> bool:
 
 
 def reset_at() -> float:
-    """When the first blocked source opens again (epoch seconds)."""
+    """When the first blocked source opens again (epoch seconds): its reset, or its next test call (Cloudflare)."""
     q = _quota()
-    return min([float(v) for v in q.values()] or [time.time()])
+    return min([min(float(v), float(q.get(f"probe:{k}", v))) if k in CF_SOURCES else float(v)
+                for k, v in q.items() if ":" not in k] or [time.time()])
 
 
 # Cloudflare picture models, best first. FLUX-schnell (Apache 2.0) is the look we tuned for; the two Stable Diffusion

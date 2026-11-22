@@ -785,6 +785,14 @@ def clip_slot(ch: dict, item: dict) -> bool:
         src["source"] not in s["used"] and _source_channel(src) == ch["id"] for src in _read_sources())
 
 
+def story_paused(ch: dict) -> str | None:
+    """Why this channel's story Shorts are paused (config `story_pause`), or None. 22 Nov: every Stream Clips GTA fact
+    Short names a protected franchise (GTA, Vice City; ip_guard), which the content gate holds, and policy checks
+    never relax: the PC failed its 06:30 slot at 05:34 ('Topic dropped (protected franchise: gta)' twice, then 'No
+    topic was planned'). Paused, the channel makes nothing that cannot pass; its campaign clip slots still go."""
+    return str(ch.get("story_pause") or "").strip() or None
+
+
 def snack_theme(item: dict) -> str:
     """Brain Snack's theme for a fact/quiz video: the PLANNED idea. 22 Nov: a physics game overwrote the item's topic
     with its own title, a second one overwrote the kept planned topic too, and every remake got that title + the
@@ -809,6 +817,8 @@ def make_item(plan: dict, item: dict, brain, memory=None, log=print) -> None:
         from .training_data import record
         record(item)
         return
+    if ch["type"] == "story" and story_paused(ch):
+        raise RuntimeError(f"{ch['name']}: story Shorts are paused ({story_paused(ch)}); only campaign clips are made")
     if ch["type"] == "story" and not item.get("topic") and brain is not None:
         # the week plan got fewer topics than slots (AI busy that day): pick one now instead of skipping the slot
         taken = [it.get("topic") for it in plan.get("items", []) if it.get("topic")]

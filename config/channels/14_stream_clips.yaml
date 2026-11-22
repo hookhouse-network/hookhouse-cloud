@@ -12,6 +12,10 @@ niche: GTA and gaming facts, records, comparisons and the real world behind game
 bio: "Gaming facts that hit different. GTA 6 week: every number, every comparison."
 earns_from: [youtube_ads, clipping_campaigns]
 clips_first: true       # 20 Nov: a Short slot becomes a campaign clip when Kick footage of a joined campaign waits (engine/kick.py)
+# 22 Nov: every GTA fact Short names a protected franchise (GTA, Vice City, #GTA6; engine/ip_guard.py) and the content
+# gate holds those (policy checks never relax), so none could pass: story Shorts paused, campaign clips (Dom's Kick
+# footage, titles without franchise names) still go. Remove this line only if the owner allows game names here.
+story_pause: "GTA names are protected-franchise names the content gate holds (owner decision pending)"
 schedule: {shorts_per_day: 3, long_per_week: 0}   # launch-week hype: 3 Shorts a day (US evening = 4:30-8:30 IST)
 voice: {engine: kokoro, id: am_michael, backup: {engine: kokoro, id: am_adam}}
 style:
