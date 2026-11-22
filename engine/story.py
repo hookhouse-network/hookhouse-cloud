@@ -507,8 +507,11 @@ Beats (index: narration):
 {lines}"""
 
 
-def fit_length(brain, channel: dict, script: dict, log=print) -> dict:
-    """Shorts over the channel's researched word range are tightened by the writer (removal only), then re-checked."""
+def fit_length(brain, channel: dict, script: dict, log=print, _pass: int = 0) -> dict:
+    """Shorts outside the channel's researched word range: too short -> more true detail; too long -> tightened by
+    the writer (removal only), then re-checked. 23 Nov: 6 of the last 22 cuts missed the range (152 -> 106 words for
+    125-150, 188 -> 160 for 110-135; -7 quality points each), so a cut under the range gets original lines back and a
+    cut still over it (or a rejected one) gets one more pass."""
     rng = (channel.get("spec") or {}).get("short_words", "")
     nums = [int(x) for x in re.findall(r"\d+", rng)[:2]]
     beats = script.get("beats") or []
@@ -532,22 +535,49 @@ def fit_length(brain, channel: dict, script: dict, log=print) -> dict:
     lines = "\n".join(f"{i}: {b.get('narration', '')}" for i, b in enumerate(beats))
     data, _ = brain.ask_json("writer", TRIM_PROMPT.format(n=n, target=rng, goal=goal, lines=lines), temperature=0.3)
     keep = [k for k in (data or {}).get("keep") or [] if isinstance(k, dict) and str(k.get("i", "")).isdigit()]
-    new = []
+    new = []                                    # (index in the original, beat)
     for k in keep:
         i = int(k["i"])
         if 0 <= i < len(beats) and k.get("narration"):
             nb = dict(beats[i], narration=str(k["narration"]).strip())
             if nb["narration"] != beats[i].get("narration"):
                 nb.pop("narration_roman", None)            # the Roman caption copy must follow the new wording
-            new.append(nb)
-    m = sum(len(b["narration"].split()) for b in new)
+            new.append((i, nb))
+    m = sum(len(b["narration"].split()) for _, b in new)
     if len(new) < 8 or m >= n or 0 not in [int(k["i"]) for k in keep]:
+        if _pass < 1:
+            log("  trim rejected (too few beats or lost the hook); trying once more")
+            return fit_length(brain, channel, script, log, _pass=_pass + 1)
         log("  trim rejected (too few beats or lost the hook); keeping the original")
         return script
-    out = dict(script, beats=new)
+    if m < nums[0]:
+        new = _put_back(beats, new, nums[0], nums[1])
+        cut, m = m, sum(len(b["narration"].split()) for _, b in new)
+        log(f"  the cut went to {cut} words, under {nums[0]}: original lines put back ({m})")
+    out = dict(script, beats=[b for _, b in new])
     out["_fact_check"] = {}                     # wording changed: check again before upload
     log(f"Script: now {m} words in {len(new)} beats")
+    if m > nums[1] and _pass < 1:
+        return fit_length(brain, channel, out, log, _pass=_pass + 1)
     return out
+
+
+def _put_back(beats: list, new: list, lo: int, hi: int) -> list:
+    """A cut that went under the range: original lines come back (smallest additions first, each in its own place)
+    until the script reaches lo words, never passing hi. Only words that were already in the script return."""
+    cur = dict(new)
+    m = sum(len(b["narration"].split()) for b in cur.values())
+    adds = []
+    for i, b in enumerate(beats):
+        add = len(str(b.get("narration", "")).split()) - (len(cur[i]["narration"].split()) if i in cur else 0)
+        if add > 0:
+            adds.append((add, i))
+    for add, i in sorted(adds):
+        if m >= lo:
+            break
+        if m + add <= hi:
+            cur[i], m = dict(beats[i]), m + add
+    return sorted(cur.items())
 
 
 CHAPTER_PROMPT = """This long YouTube script needs {n} chapters (one every 3-5 minutes), and the first chapter starts
