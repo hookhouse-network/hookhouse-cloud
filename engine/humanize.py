@@ -17,7 +17,14 @@ import re
 PATTERNS: list[tuple[str, str, str, int]] = [
     ("not_x_but_y", "not X but Y contrast",
      r"\bnot (?:just|only|merely)\b[^.?!]{0,90}?\bbut\b|\bit'?s not\b[^.?!]{0,70}?[,;:]\s*it'?s\b|\bisn'?t (?:just|only)\b"
-     r"|\bthis (?:does not|doesn'?t) mean\b", 3),
+     r"|\bthis (?:does not|doesn'?t) mean\b"
+     # 23 Nov (Deep Blue): "This isn't a glass sculpture; it's a living animal"
+     r"|\b(?:this|that|it) (?:isn'?t|is not|wasn'?t|was not)\b[^.?!]{0,70}?[;:]\s*(?:it|this|that)(?:'s| is| was)\b", 3),
+    # 23 Nov: the writer prompt's own example reaction ("Honestly, this is the part I can't get over.") came back word
+    # for word in 10 of 33 scripts across channels: the same line in every video is a template, not a voice
+    ("stock_reaction", "stock reaction line",
+     r"\bthe part i can'?t get over\b|\bi (?:still )?can'?t get over (?:this|that|it)\b"
+     r"|\bhonestly,? (?:this|that) (?:is|was) (?:the part|what)\b", 3),
     ("closer", "dramatic one-line closer",
      r"\blet that sink in\b|\bread that again\b|\bthat distinction matters\b|\bthat(?:'s| is) the real (?:win|story|lesson)\b"
      r"|\band that changes everything\b|\bnothing would ever be the same\b", 3),

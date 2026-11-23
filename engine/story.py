@@ -73,8 +73,9 @@ STEP 3 - BEATS (the structure top story Shorts use in 2026).
 - INTERACTIVE (Shorts): you may invite ONE guess right before a reveal ("Guess how deep it went."), then reveal it.
   Never ask for likes, follows or comments in the narration.
 - HUMAN, NOT TEMPLATE: include ONE true detail most retellings of this story miss (the reason this video exists),
-  and ONE short honest reaction line in the narrator's own voice ("Honestly, this is the part I can't get over.") -
-  never a fake identity, job title or credential, never advice.
+  and ONE short reaction in the narrator's own voice to a concrete detail of THIS story, in words that would make no
+  sense in any other video (no stock reaction phrase, no line that starts with "Honestly") - never a fake identity,
+  job title or credential, never advice.
 - SHARE-WORTHY: give viewers a reason to send it to a friend (a fact they will want to tell someone, or a "this is so
   you" moment). Never ask for likes, shares or follows in the narration.
 {long_rules}
