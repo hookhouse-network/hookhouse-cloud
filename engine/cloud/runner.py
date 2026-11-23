@@ -204,7 +204,10 @@ def _queue_sync(log=_log) -> dict | None:
     if not client.available():
         log("queue: the signed API is not set up here")
         return None
-    due = [(s, it) for s, it in _due_to_make(None, set()) if it.get("kind") != "clip"]
+    # 23 Nov shadow check: with the cloud's own pictures used up, every story item dropped out of its due list and the
+    # sync cancelled all their jobs (44 cancelled, queue empty) although the PC draws locally then. The queue now lists
+    # what is due whatever this runner's picture supply; each worker checks its own when it claims.
+    due = [(s, it) for s, it in _due_to_make(None, set(), pictures=False) if it.get("kind") != "clip"]
     return sched.sync_due(client, due, log=log)
 
 
@@ -441,11 +444,14 @@ def snapshot(kv, log=_log) -> None:
         log(f"snapshot: {e}")
 
 
-def _due_to_make(kinds: set | None, skip: set, connected_only: bool = False) -> list[tuple[str, dict]]:
+def _due_to_make(kinds: set | None, skip: set, connected_only: bool = False,
+                 pictures: bool = True) -> list[tuple[str, dict]]:
+    """pictures=False: ignore this machine's own picture supply (the shared queue serves workers that each check
+    theirs when they claim: the PC draws locally when the cloud's free pictures are used up)."""
     from .. import autopilot, weekly, storyboard
     now = autopilot._now()
     due = []
-    pictures_out = storyboard.images_blocked()
+    pictures_out = storyboard.images_blocked() if pictures else False
     window = autopilot.items(OVERDUE_D, 5)
     # 18 Nov (owner: "where are the other channel's videos"): 6 channels never got a video because the soonest slots
     # always went to the same few, and a slot that passed unmade was dropped for ever. Now a missed video (up to
@@ -980,7 +986,15 @@ def helper(once: bool = False, every_s: int = 300, log=_log, videos_only: bool =
             pick = "fallback"
             if hb is not None:                         # Phase 2 'on' mode: the shared queue decides what this PC makes
                 from . import sched as _sched
+                seen = None
+                if due:                                # 23 Nov: the PC adds what it sees as due (the tick is hours away)
+                    try:
+                        seen = _sched.top_up(hb.client, due, log=log)
+                    except Exception as e:  # noqa: BLE001 - the queue never stops video making (said, never silent)
+                        log(f"scheduler: queue top-up failed ({type(e).__name__}: {str(e)[:100]})")
                 pick = _sched.next_job(hb, {it["id"]: (s, it) for s, it in due}, log)
+                if pick == "fallback" and seen is not None and _sched.mode() == "shadow":
+                    _sched.shadow_compare(seen["queued"], [it["id"] for _s, it in due], log=log)
             if pick is None:
                 raise _SkipClaim("the queue has nothing for this PC right now")
             if pick != "fallback":

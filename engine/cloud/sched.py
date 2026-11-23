@@ -112,6 +112,78 @@ def sync_due(client: SchedClient, due: list[tuple[str, dict]], now: float | None
     return {"due": len(want), "added": added, "cancelled": cancelled}
 
 
+def item_of(key: str) -> str:
+    """The plan item a make-job key belongs to (make:<item>:<redos>:<status>[:late])."""
+    parts = str(key or "").split(":")
+    return parts[1] if len(parts) > 2 and parts[0] == "make" else ""
+
+
+def top_up(client: SchedClient, due: list[tuple[str, dict]], now: float | None = None, log=print) -> dict:
+    """23 Nov shadow check: only the cloud tick filled the queue, a few hours apart. At 05:16 the queue was empty while
+    the PC had due work (the Itihaas remake freed its claim at 03:48, after the tick), so with the scheduler on the PC
+    would have idled until the next tick. The PC now adds every item IT sees as due that has no queued or leased job
+    yet (enqueue is idempotent; a cancelled key opens again). Cancelling stays with the cloud, which has the fresh plan.
+    Returns the queued jobs it saw (+ the ones it added) for the shadow comparison."""
+    import time
+    now = now or time.time()
+    queued = [j for j in client.list("queued") if j.get("kind") == "make"]
+    have = {item_of(j.get("key")) for j in queued} | {item_of(j.get("key")) for j in client.list("leased")}
+    added = []
+    for start, it in due:
+        if it["id"] in have:
+            continue
+        j = job_for(start, it, now)
+        if client.enqueue(**j):
+            added.append(j)
+            have.add(it["id"])
+    if added:
+        log(f"queue: this PC added {len(added)} due item(s) the queue did not have")
+    return {"queued": queued + [{"key": j["key"], "cls": j["cls"], "deadline": j["deadline"]} for j in added],
+            "added": len(added)}
+
+
+def queue_pick(queued: list[dict], now: float) -> str:
+    """The item the scheduler would hand a PC first: class, then slack (deadline minus the estimate), as claim() sorts
+    (list() returns no estimate: long videos 45 min, the rest 12, as job_for sets them)."""
+    def order(j):
+        est = 45 if item_of(j.get("key")).endswith("_long") else 12
+        dl = j.get("deadline")
+        return (int(j.get("cls", 2)), float("inf") if dl is None else float(dl) - now - est * 60)
+    best = min(queued, key=order, default=None)
+    return item_of(best.get("key")) if best else ""
+
+
+SHADOW_LOG = None                                     # set below (data/pc/shadow_picks.jsonl)
+
+
+def shadow_compare(queued: list[dict], due_ids: list[str], now: float | None = None, log=print) -> dict:
+    """Shadow mode: what the queue would hand this PC next vs what the PC really makes now (due_ids[0]), one line in
+    the log and one row in data/pc/shadow_picks.jsonl (the 'a day of shadow' evidence before scheduler: on). Jobs for
+    items this PC can't make now are skipped, as next_job puts them back."""
+    import json
+    import time
+    now = now or time.time()
+    mine = [j for j in queued if item_of(j.get("key")) in set(due_ids)]
+    pick, pc_item = queue_pick(mine, now), (due_ids[0] if due_ids else "")
+    row = {"at": round(now), "queue": pick, "pc": pc_item, "same": pick == pc_item, "queued": len(queued),
+           "not_here": len(queued) - len(mine)}
+    log("shadow: " + ("the queue would hand out the same video" if row["same"] else
+                      f"the queue would hand out {pick or 'nothing'}; the PC makes {pc_item}"))
+    try:
+        path = SHADOW_LOG or _shadow_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(row) + "\n")
+    except OSError as e:
+        log(f"shadow log: {type(e).__name__}: {e}")
+    return row
+
+
+def _shadow_path():
+    from ..config import ROOT
+    return ROOT / "data" / "pc" / "shadow_picks.jsonl"
+
+
 def mode() -> str:
     """settings.yaml scheduler: off | shadow (workers heartbeat, nothing claims from it yet) | on."""
     from ..config import settings
@@ -196,23 +268,29 @@ def next_job(hb: Heartbeat | None, items: dict[str, tuple[str, dict]], log=print
     is no longer due is closed at once (the queue moves on)."""
     if hb is None or mode() != "on":
         return "fallback"
-    try:
-        jobs = hb.client.claim(hb.wid, limit=1)
-    except Exception as e:  # noqa: BLE001 - degraded mode: the old claim files (said, never silent)
-        log(f"scheduler: queue unreachable ({type(e).__name__}: {str(e)[:100]}); claim files this round")
-        return "fallback"
     import time
-    for job in jobs:
-        iid = str((job.get("payload") or {}).get("item") or "")
-        if iid not in items:                   # made or claimed elsewhere: back to the queue for 30 min (no attempt
-            hb.client.fail(job["id"], hb.wid, job["epoch"], "not due on this PC now", "quota",   # counted); the
-                           time.time() + 1800)                        # cloud's next sync cancels it if it is done
-            log(f"scheduler: job {job['key']} put back: its item is not due here right now")
-            continue
-        hb.track(job)
-        start, it = items[iid]
-        return start, it, job
+    for _try in range(PUT_BACK_MAX):           # 23 Nov: one put-back used to end the round (5 idle minutes per job
+        try:                                   # the PC couldn't make at the head of the queue)
+            jobs = hb.client.claim(hb.wid, limit=1)
+        except Exception as e:  # noqa: BLE001 - degraded mode: the old claim files (said, never silent)
+            log(f"scheduler: queue unreachable ({type(e).__name__}: {str(e)[:100]}); claim files this round")
+            return "fallback"
+        if not jobs:
+            return None
+        for job in jobs:
+            iid = str((job.get("payload") or {}).get("item") or "")
+            if iid not in items:               # made or claimed elsewhere: back to the queue for 30 min (no attempt
+                hb.client.fail(job["id"], hb.wid, job["epoch"], "not due on this PC now", "quota",   # counted); the
+                               time.time() + 1800)                    # cloud's next sync cancels it if it is done
+                log(f"scheduler: job {job['key']} put back: its item is not due here right now")
+                continue
+            hb.track(job)
+            start, it = items[iid]
+            return start, it, job
     return None
+
+
+PUT_BACK_MAX = 6
 
 
 def finish_job(hb: Heartbeat, job: dict, result: dict | None = None, error: Exception | None = None,

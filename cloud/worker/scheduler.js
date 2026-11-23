@@ -65,11 +65,20 @@ export function makeScheduler(q, run, clock = () => Date.now() / 1000, rng = Mat
       return { ok: 1, online: online(now).length };
     },
 
-    enqueue(j) {                           // idempotent by key
+    // Idempotent by key; a CANCELLED key opens again (23 Nov shadow check: the cloud cancels a job whenever its item
+    // is not due for a while (claimed, pictures used up), and with INSERT OR IGNORE that key could never come back,
+    // so the item would never have been handed out again once the scheduler was on). Leased, done and dead jobs
+    // stay as they are; the epoch is never reset (fencing).
+    enqueue(j) {
       if (!j || !j.kind || !j.key) throw new Error("bad job");
       const now = clock();
-      const n = run(`INSERT OR IGNORE INTO sjobs(kind, key, cls, deadline, est_min, requires, prefer, fallback, payload,
-                       run_after, max_attempts, created, updated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      const n = run(`INSERT INTO sjobs(kind, key, cls, deadline, est_min, requires, prefer, fallback, payload,
+                       run_after, max_attempts, created, updated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     ON CONFLICT(key) DO UPDATE SET state = 'queued', cls = excluded.cls, deadline = excluded.deadline,
+                       est_min = excluded.est_min, requires = excluded.requires, prefer = excluded.prefer,
+                       fallback = excluded.fallback, payload = excluded.payload, run_after = excluded.run_after,
+                       updated = excluded.updated
+                     WHERE sjobs.state = 'cancelled'`,
                     j.kind, j.key, Math.max(0, Math.min(4, Number(j.cls ?? 2))), j.deadline ?? null,
                     Number(j.est_min) || 10, JSON.stringify(j.requires || []), JSON.stringify(j.prefer || []),
                     JSON.stringify(j.fallback || []), JSON.stringify(j.payload || {}), Number(j.run_after) || 0,

@@ -158,9 +158,9 @@ def test_pc_takes_its_work_from_the_queue_in_on_mode(monkeypatch):
     t = JobsTwin([gone, job])
     hb = sched.Heartbeat(sched.SchedClient(client=t), "pc-test", "pc", ["ffmpeg"], log=lambda *_: None)
     items = {"a": ("s1", {"id": "a"})}
-    assert sched.next_job(hb, items, log=lambda *_: None) is None          # 'z' is not due here: put back
-    assert t.sent[-1]["op"] == "s_fail" and t.sent[-1]["kind"] == "quota" and t.sent[-1]["retry_at"]
-    start, it, j = sched.next_job(hb, items, log=lambda *_: None)
+    start, it, j = sched.next_job(hb, items, log=lambda *_: None)          # 'z' is not due here: put back, next one
+    put_back = [p for p in t.sent if p["op"] == "s_fail"]
+    assert len(put_back) == 1 and put_back[0]["job"] == 6 and put_back[0]["kind"] == "quota" and put_back[0]["retry_at"]
     assert (start, it["id"], j["id"]) == ("s1", "a", 5) and hb.jobs == {5: 2}   # its lease is kept alive
     assert sched.finish_job(hb, j, {"out_rel": "x"}, log=lambda *_: None) == "done" and hb.jobs == {}
     assert t.sent[-1] == {"op": "s_complete", "job": 5, "worker": "pc-test", "epoch": 2, "result": {"out_rel": "x"}}

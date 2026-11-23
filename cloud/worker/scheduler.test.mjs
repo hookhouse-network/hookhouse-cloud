@@ -120,7 +120,41 @@ const short = (key, deadlineIn, cls = 1, now) => ({ kind: "make", key, cls, dead
   check("a leased job cannot be cancelled", s.cancel("x").ok === false && j.key === "x");
   check("a queued job can", s.cancel("y").ok === true && s.list().jobs.length === 0);
   check("cancelled jobs are listed by state", s.list("cancelled").jobs[0].key === "y");
-  check("re-enqueue of a cancelled key stays idempotent", s.enqueue(short("y", 5 * 3600, 1, clock.t)).added === false);
+  check("a queued key stays idempotent", s.enqueue(short("z", 4 * 3600, 1, clock.t)).added === true &&
+        s.enqueue(short("z", 4 * 3600, 1, clock.t)).added === false && s.list().jobs.length === 1);
+  check("a leased key is not touched", s.enqueue(short("x", 1 * 3600, 2, clock.t)).added === false &&
+        s.list("leased").jobs[0].key === "x" && s.list("leased").jobs[0].cls === 1);
+}
+
+// 6c. 23 Nov shadow check: a cancelled key opens again when its item is due again (the cloud cancelled every story job
+// while its pictures were used up; with INSERT OR IGNORE they could never come back). Done/dead keys stay closed.
+{
+  const { s, clock } = fresh();
+  s.register({ id: "pc1", ...PC });
+  s.enqueue(short("m", 3 * 3600, 1, clock.t));
+  check("cancel", s.cancel("m").ok === true && s.list().jobs.length === 0);
+  check("the cancelled key opens again", s.enqueue(short("m", 2 * 3600, 2, clock.t)).added === true);
+  const back = s.list().jobs[0];
+  check("queued again with the new class and deadline", back && back.key === "m" && back.cls === 2 &&
+        back.deadline === clock.t + 2 * 3600 && s.list("cancelled").jobs.length === 0);
+  const j = s.claim("pc1").jobs[0];
+  check("claimable, epoch keeps counting", j && j.key === "m" && j.epoch === 1);
+  check("completes", s.complete(j.id, "pc1", j.epoch).ok === true);
+  check("a done key never opens again", s.enqueue(short("m", 2 * 3600, 1, clock.t)).added === false &&
+        s.list("done").jobs.length === 1 && s.list().jobs.length === 0);
+  s.enqueue(short("p", 3 * 3600, 1, clock.t));
+  const p = s.claim("pc1").jobs[0];
+  s.fail(p.id, "pc1", p.epoch, "bad", "permanent");
+  check("a dead key never opens again", s.enqueue(short("p", 3 * 3600, 1, clock.t)).added === false &&
+        s.list("dead").jobs.length === 1);
+  s.enqueue(short("e", 3 * 3600, 1, clock.t));
+  const e1 = s.claim("pc1").jobs[0];
+  s.release("pc1"); s.register({ id: "pc1", ...PC });
+  s.cancel("e");
+  s.enqueue(short("e", 3 * 3600, 1, clock.t));
+  const e2 = s.claim("pc1").jobs[0];
+  check("a re-opened job gets a higher epoch than any earlier lease", e2 && e2.key === "e" && e2.epoch > e1.epoch &&
+        s.complete(e1.id, "pc1", e1.epoch).ok === false);
 }
 
 // 7. Property test: 10,000 randomized runs, never two accepted completions of one job.
