@@ -19,6 +19,7 @@ import soundfile as sf
 
 from .policy import never_rules_text, topic_flags
 from .config import ROOT
+from . import human_story
 from .humanize import humanize_script, script_tells
 from .media import compose, ffmpeg, footage, sfx, stickers, visuals
 from .media.captions import BigText, HookStyle, Label, build_ass
@@ -838,7 +839,7 @@ def write_script(brain, channel: dict, topic: str, fmt: str = "short", memory=No
                     if fmt == "long" else ""),
         rules=json.dumps(channel.get("content_rules", {})) + "\n" + (channel.get("writer_rules") or "") + "\n"
         + _tuning_rules(channel["id"], fmt) + "\n" + (extra_rules + "\n" if extra_rules else "")
-        + _style_card(channel["id"])
+        + _style_card(channel["id"]) + human_story.rules_for(channel)
         + never_rules_text() + (
             "" if visuals.ai_image_available() else
             "\nAI images are switched OFF right now: never use visual \"ai\". Use photo, footage or text, and give "
@@ -1015,6 +1016,8 @@ def build_description(channel: dict, script: dict, credits: list[str], chapters:
         lines += ["", "Credits (images, footage, music):"] + [f"• {c}" for c in dict.fromkeys(credits)]
     if rules.get("disclaimer") and rules["disclaimer"].lower() not in (script.get("summary") or "").lower():
         lines += ["", rules["disclaimer"]]
+    if human_story.acted(script):                       # 23 Nov: spoken lines (quotes on record or acted scenes)
+        lines += ["", "Retold from the sources below; spoken lines are voiced by AI, and some are dramatized."]
     ai_pics = any("AI-generated" in str(c) for c in credits or [])
     lines += ["", "Narration uses an AI voice; some visuals are AI-generated." if ai_pics else
               "Narration uses an AI voice.", "",
@@ -1907,7 +1910,30 @@ def render(channel: dict, script: dict, out_dir: Path, fmt: str = "short", log=p
                 log(f"  Indic Parler-TTS unavailable ({str(e)[:160]}); using Kokoro")
                 parler_raw = None
 
+    # 23 Nov (owner's human-story template): each speaking person gets a voice of their own; the narrator keeps the
+    # channel's. A speaking line is read by that voice whatever engine reads the narrator.
+    spk_voice = human_story.voices(script, lang, google_voice.voice_for(channel) if use_google else voice["id"],
+                                   "google" if use_google else "kokoro") if human_story.acted(script) else {}
+    if spk_voice:
+        log("  voices: narrator + " + ", ".join(f"{k} ({v})" for k, v in spk_voice.items()))
+
     def read(k: int, b: dict, path: Path, spd: float, pause: float) -> float:
+        who = human_story.speaker(b)
+        if who in spk_voice:
+            v = spk_voice[who]
+            if v.startswith("hi-IN-"):
+                try:
+                    from .media.say import normalise
+                    google_voice.synthesize(normalise(b["narration"], lang, engine="google"), path, v, speed=spd)
+                    a, sr_ = sf.read(path, dtype="float32")
+                    if pause:
+                        a = np.concatenate([a, np.zeros(int(sr_ * pause), dtype=np.float32)])
+                    sf.write(path, a, sr_)
+                    return len(a) / sr_
+                except Exception as e:  # noqa: BLE001 - the line is read by a local voice instead
+                    log(f"  Google voice {v} failed on beat {k + 1} ({str(e)[:100]}); a local voice reads it")
+                    v = human_story.voices(script, lang, voice["id"], "kokoro").get(who, voice["id"])
+            return synthesize(b["narration"], path, v, lang, speed=spd, pause_s=pause, trim=True)
         if parler_raw:
             from .media import parler_voice
             return parler_voice.line(parler_raw[k], path, spd, pause)
