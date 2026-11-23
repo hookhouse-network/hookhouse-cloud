@@ -36,8 +36,9 @@ cf_picture_models: [flux]
 # idle + plugged in, low priority, capped, benchmarked first"; engine/media/local_sd.py). 22 Nov: Cloudflare retired
 # its two unbilled picture models on 20 Nov. DreamShaper 8 LCM (CreativeML OpenRAIL-M) via stable-diffusion.cpp on
 # the CPU: ~2 minutes a picture at below-normal priority (benchmark in local_sd.py). A video starts on them only
-# after idle_min minutes without keyboard/mouse; max_day pictures a day (~2 h of CPU). enabled: false switches it off.
-local_pictures: {enabled: true, max_day: 60, idle_min: 3, threads: 6, steps: 4, timeout_s: 600}
+# after idle_min minutes without keyboard/mouse; max_day pictures a day. enabled: false switches it off.
+# Owner 23 Nov: "120 yes" (was 60, ~2 h of CPU; the PC sat idle every afternoon once both picture sources were used).
+local_pictures: {enabled: true, max_day: 120, idle_min: 3, threads: 6, steps: 4, timeout_s: 600}
 
 # P3 script judge (22 Nov): the potential gate's rubric on the script BEFORE voice, pictures and render; below the bar
 # the script is rewritten with the judge's fixes (up to `rounds` times) and the best draft is kept. Since the strict

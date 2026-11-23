@@ -301,12 +301,8 @@ def _prompt(ch: dict, it: dict, meta: dict, ctype: str, criteria: list[str], evi
         '"..."], "summary": "one sentence"}')
 
 
-def judge(it: dict, ch: dict, meta: dict, brain, evidence: str = "") -> dict:
-    """{scores, fixes, summary, criteria}. Raises when the answer is missing or incomplete (= not judged)."""
-    cfg = _cfg()
-    ctype = _ctype(ch, meta, it)
-    criteria = _criteria(cfg, ctype)
-    data, res = brain.ask_json("checker", _prompt(ch, it, meta, ctype, criteria, evidence), temperature=0.0)
+def _one_verdict(data, res, criteria: list[str]) -> dict:
+    """One judge answer checked: every criterion scored 0-10. Raises when it is missing or incomplete."""
     scores = (data or {}).get("scores") if isinstance(data, dict) else None
     if not isinstance(scores, dict):
         raise ValueError("the judge gave no scores")
@@ -324,8 +320,57 @@ def judge(it: dict, ch: dict, meta: dict, brain, evidence: str = "") -> dict:
     # 23 Nov: the same script scored human_feel 4-5 from gpt-oss-120b (Groq, first in the checker route) and 6-7 from
     # Gemini Flash-Lite (the fallback while Groq rests): which model judged decided S10 for most videos, and no verdict
     # said which one it was. Every verdict now records its model (ledger checkpoint), so verdicts can be audited.
-    return {"scores": clean, "fixes": fixes, "summary": str(data.get("summary") or "")[:300], "criteria": criteria,
+    return {"scores": clean, "fixes": fixes, "summary": str(data.get("summary") or "")[:300],
             "model": str(getattr(res, "provider", "") or "")}
+
+
+def judge_panel(cfg: dict) -> list[str]:
+    """gates.yaml potential.judge_panel: the models that judge every video together (empty = the checker route)."""
+    return [str(m).strip() for m in (cfg.get("judge_panel") or []) if str(m).strip()]
+
+
+def _pinned(brain, name: str):
+    """The same brain (providers, cooldowns) with the checker task routed to one model only."""
+    import copy
+    b = copy.copy(brain)
+    b.routes = dict(getattr(brain, "routes", None) or {}, checker=[name])
+    return b
+
+
+def judge(it: dict, ch: dict, meta: dict, brain, evidence: str = "") -> dict:
+    """{scores, fixes, summary, criteria, model}. Raises when the answer is missing or incomplete (= not judged).
+    gates.yaml potential.judge_panel (owner 23 Nov: "panel"): each listed model judges once and the scores are averaged
+    per criterion. The same script scored human_feel 5, 7, 6, 6, 7 from one model and 7, 7, 6, 6, 7 from another
+    across one day, so a single answer near the bar of 6 decided a verdict partly by chance; the average of two
+    different models is steadier and tracks human ratings better than one judge (Verga et al. 2024, 'Replacing
+    Judges with Juries'). A member that rests or fails gives its turn to the next one, so a verdict always averages
+    as many answers as the panel has members; it fails only when no member answers. Empty = the checker route."""
+    cfg = _cfg()
+    ctype = _ctype(ch, meta, it)
+    criteria = _criteria(cfg, ctype)
+    prompt = _prompt(ch, it, meta, ctype, criteria, evidence)
+    panel = judge_panel(cfg)
+    if not panel:
+        data, res = brain.ask_json("checker", prompt, temperature=0.0)
+        return dict(_one_verdict(data, res, criteria), criteria=criteria)
+    got, errors = [], []
+    for slot in range(len(panel)):
+        for name in panel[slot:] + panel[:slot]:          # its own model first, then the others in turn
+            try:
+                data, res = _pinned(brain, name).ask_json("checker", prompt, temperature=0.0)
+                v = _one_verdict(data, res, criteria)
+            except Exception as e:  # noqa: BLE001 - resting / no key / broken answer: the next member answers
+                errors.append(f"{name}: {type(e).__name__}: {str(e)[:80]}")
+                continue
+            got.append(dict(v, model=v["model"] or name))
+            break
+    if not got:
+        raise ValueError("no judge on the panel answered: " + "; ".join(errors[-len(panel):]))
+    fixes = list(dict.fromkeys(f for v in got for f in v["fixes"]))[:5]
+    return {"scores": {c: round(sum(v["scores"][c] for v in got) / len(got), 2) for c in criteria},
+            "fixes": fixes, "summary": got[0]["summary"], "criteria": criteria,
+            "model": "+".join(v["model"] for v in got),
+            "panel": [{"model": v["model"], "scores": v["scores"]} for v in got]}
 
 
 def judge_script(script: dict, ch: dict, topic: str, brain, kind: str = "") -> dict:

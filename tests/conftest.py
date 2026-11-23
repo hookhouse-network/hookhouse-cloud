@@ -66,6 +66,14 @@ def _no_real_puppets(monkeypatch, tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def _one_judge_answer(monkeypatch):
+    """23 Nov: the live judge panel (gates.yaml potential.judge_panel) is off in tests: the judge tests fake ONE answer;
+    tests/test_judge_panel.py checks the panel itself."""
+    import engine.potential_gate as pgm
+    monkeypatch.setattr(pgm, "judge_panel", lambda cfg: [])
+
+
+@pytest.fixture(autouse=True)
 def _no_real_picture_quota(monkeypatch, tmp_path):
     """Tests never read or write today's real free-picture limits (a blocked day made the scheduler skip videos)."""
     import engine.storyboard as sbm
