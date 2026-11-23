@@ -131,7 +131,12 @@ def plan(brain, script: dict, channel: dict, fmt: str = "short", log=print, chun
         if b.get("see"):
             b["_prompt"] = prompt_for(b, bible, style)
             b["_era"] = bible.get("era", "")
-            if b["shot"] == "scene":
+            if isinstance(b.get("chart"), dict) and b["chart"].get("type"):
+                # 23 Nov: the writer's animated chart (map, depth dive, size scale, compare, timeline) was overwritten
+                # here in 9 of 9 beats in a week: 4 became AI pictures, 4 word cards, 1 a stock photo; none reached the
+                # screen. It stays a chart; if its checks fail, the maker draws this shot instead (the _prompt above).
+                b["visual"] = "chart"
+            elif b["shot"] == "scene":
                 b["visual"] = "scene"
             elif b["shot"] == "number" and (b.get("big_text") or re.search(r"\d", b.get("narration", ""))):
                 b["visual"] = "text"

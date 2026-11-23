@@ -132,7 +132,10 @@ def test_story_chart_falls_back_to_a_picture_when_checks_fail(tmp_path):
     assert story._chart_visual(beat, 3.0, tmp_path, 0, set(), (360, 640), {"id": "money_cheat_codes"},
                                logs.append) is None
     assert "never said" in logs[0]
-    used = {"chart:done"}                                                   # one chart per video
+    used = {"chart:compare"}                                                # one chart of each type per video
+    assert story._chart_visual(dict(beat, narration="9 dollars vs 5 dollars"), 3.0, tmp_path, 1, used, (360, 640),
+                               {"id": "money_cheat_codes"}) is None
+    used = {"chart:map", "chart:depth", "chart:timeline"}                  # at most CHARTS_MAX (3) per video
     assert story._chart_visual(dict(beat, narration="9 dollars vs 5 dollars"), 3.0, tmp_path, 1, used, (360, 640),
                                {"id": "money_cheat_codes"}) is None
 

@@ -100,7 +100,8 @@ VISUAL for each beat (pick what fits best; the picture changes every 2-3 seconds
   words, place = its exact English Wikipedia article title (e.g. "Point Pleasant, West Virginia"); the globe turns to
   it and drops a pin. Best for the beat that first says where it happened.
   Every number on the chart must be said in that beat or the 2 beats before it. Also give a photo query as a backup.
-Use "text" at most 2 times and "chart" at most once. Never 3 beats of the same visual type in a row.
+Use "text" at most 2 times and "chart" up to 3 times (each a different type, only where the narration really
+compares, dates, sizes, dives or names the place). Never 3 beats of the same visual type in a row.
 emoji: leave "" on almost every beat (emoji spam looks dated); at most 1 in the whole video.
 emphasis: 1-2 key words copied exactly from that beat's narration.
 moment: "reveal" or "twist" for the 1-3 biggest moments, else "normal".
@@ -1278,10 +1279,13 @@ PROMPT_WORDS = {"The", "A", "An", "In", "On", "At", "Of", "With", "And", "Cinema
 
 def _chart_visual(beat: dict, seconds: float, work: Path, i: int, used: set, size: tuple[int, int],
                   channel: dict | None, log=print, said: str = "") -> dict | None:
-    """An animated chart drawn by our own code (html_scene): one per video. Every number on it must be spoken in
-    this beat or the two before it (`said`), so the screen never shows a number the viewer didn't hear."""
+    """An animated chart drawn by our own code (html_scene): up to CHARTS_MAX per video, each of a different type
+    (23 Nov: one per video; the owner wants designed scenes wherever a beat needs them). Every number on it must be
+    spoken in this beat or the two before it (`said`), so the screen never shows a number the viewer didn't hear."""
     from .media import html_scene
-    if channel is None or "chart:done" in used:
+    kind = str((beat.get("chart") or {}).get("type") or "") if isinstance(beat.get("chart"), dict) else ""
+    if channel is None or sum(1 for u in used if str(u).startswith("chart:")) >= CHARTS_MAX \
+            or f"chart:{kind}" in used:
         return None
     chart, why = html_scene.check_chart(beat.get("chart"), said or beat.get("narration", ""))
     if chart and chart["type"] == "map":            # the point comes from Wikipedia, never from the writer
@@ -1294,9 +1298,12 @@ def _chart_visual(beat: dict, seconds: float, work: Path, i: int, used: set, siz
     except Exception as e:  # noqa: BLE001 - a missing browser must not stop the video
         log(f"  beat {i + 1}: chart recording failed ({e}); using a picture")
         return None
-    used.add("chart:done")
+    used.add(f"chart:{chart['type']}")
     return {"kind": "video", "path": path, "frame": "full", "credit": "", "source": "chart", "graphic": True,
             "match": 1.0}
+
+
+CHARTS_MAX = 3                                     # animated charts per video, each of a different type
 
 
 _SEE_STOP = {"a", "an", "the", "of", "in", "on", "at", "with", "and", "or", "to", "from", "by", "for", "is", "are", "his",
