@@ -32,8 +32,10 @@ flux_steps: 4
 fresh_topics: {enabled: true, window_h: 36}
 # Cloudflare picture models, best first (engine/storyboard.py CF_CATALOG): klein = FLUX.2 [klein] 4B (Apache 2.0, a
 # 576x1024 picture in the Short's own shape for ~104 neurons, ~96 a day); flux = FLUX.1-schnell (a 1024x1024 square
-# for 172.8 neurons, ~57 a day). 23 Nov: klein goes first only after a side-by-side check on real beats.
-cf_picture_models: [flux]
+# for 172.8 neurons, ~57 a day). 23 Nov 15:20: klein first after the side-by-side check on 6 real beats
+# (checker average 8.0 vs 7.3 for the cropped schnell picture, no letters; results in docs/plan_status.yaml);
+# [flux] switches back.
+cf_picture_models: [klein, flux]
 
 # Local pictures on the PC when the cloud ones are used up (owner 20 Nov: "SD1.5-family models only as a fallback,
 # idle + plugged in, low priority, capped, benchmarked first"; engine/media/local_sd.py). 22 Nov: Cloudflare retired

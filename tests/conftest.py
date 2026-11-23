@@ -79,6 +79,9 @@ def _no_real_picture_quota(monkeypatch, tmp_path):
     import engine.storyboard as sbm
     monkeypatch.setattr(sbm, "QUOTA", tmp_path / "image_quota_test.json")
     monkeypatch.setattr(sbm, "QUOTA_PC", tmp_path / "image_quota_pc_test.json")
+    # 23 Nov: nor the live Cloudflare model order (settings.yaml cf_picture_models): the picture tests fake one
+    # model's request format; tests/test_cf_klein.py checks the order itself
+    monkeypatch.setattr(sbm, "cf_models", lambda: list(sbm.CF_MODELS))
     monkeypatch.setenv("HF_TOKEN", "test")
     import engine.media.local_sd as lsd                 # 22 Nov: never the PC's own picture model or its daily count
     monkeypatch.setattr(lsd, "MODEL", tmp_path / "no_local_model.safetensors")

@@ -16,6 +16,12 @@ from engine import storyboard as sb
 
 KLEIN = "@cf/black-forest-labs/flux-2-klein-4b"
 FLUX = "@cf/black-forest-labs/flux-1-schnell"
+REAL_CF_MODELS = sb.cf_models                      # conftest pins the order for every other test
+
+
+@pytest.fixture(autouse=True)
+def _real_model_order(monkeypatch):
+    monkeypatch.setattr(sb, "cf_models", REAL_CF_MODELS)
 
 
 def _jpeg(size) -> str:
