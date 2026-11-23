@@ -67,6 +67,11 @@ brain:
   routes:
     # owner 15 Nov: tonight's render failed when Gemini's daily limit ran out and Groq refused one big request.
     # Each model below has its OWN free limit, so the chain is long: Gemini 3 models, Groq 2 models, then backups.
+    # 23 Nov: 30 of 58 scripts since 20 Nov were written by Flash-Lite, because the writer route reaches it 4th while
+    # gemini-3.6/3.7-flash (their own free quotas) sat 7th/8th unused, and 20 small writing jobs (titles, trims,
+    # storyboard shots, rewrites) use the same route. The main script (story.write_script) has its own route:
+    # every full model before any Lite one. The small jobs keep the writer route.
+    script:   [gemini37, gemini36, gemini35, gemini, gemini3, groq, cerebras, github, gemini_lite, gemini31_lite, gemini35_lite, groq20, gemma31, gemma26, groq_qwen, nvidia, openrouter, cf_oss, cf_llama, claude_cli]
     writer:   [gemini, gemini35, groq, gemini_lite, groq20, gemini3, gemini36, gemini37, gemini31_lite, gemini35_lite, gemma31, gemma26, groq_qwen, cerebras, github, nvidia, openrouter, cf_oss, cf_llama, claude_cli]   # scripts, hooks, titles
     editor:   [gemini, gemini35, groq, gemini_lite, groq20, gemini3, gemini36, gemini37, gemini31_lite, gemini35_lite, gemma31, gemma26, groq_qwen, cerebras, github, nvidia, openrouter, cf_oss, cf_llama, claude_cli]   # picks clip moments
     checker:  [groq, gemini_lite, gemini35, groq20, gemini, gemini3, gemini36, gemini37, gemini31_lite, gemini35_lite, gemma31, gemma26, groq_qwen, cerebras, github, nvidia, openrouter, cf_oss, cf_llama, claude_cli]   # rules / fact checks

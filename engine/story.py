@@ -846,7 +846,10 @@ def write_script(brain, channel: dict, topic: str, fmt: str = "short", memory=No
             "EVERY beat a concrete 1-5 word English query for a real object, place, document or era scene from this "
             "story (e.g. \"salt mine tunnel\", \"1980 oil drilling rig\"), never an abstract word."),
         memory=mem_text or "(no history yet)")
-    script, result = brain.ask_json("writer", prompt, system=WRITER_SYSTEM, temperature=0.8)
+    # 23 Nov: the main script has its own route (settings.yaml brain.routes.script: every full model before any
+    # Lite one); the 20 small writing jobs keep "writer" and no longer use up the strong models first
+    task = "script" if "script" in (getattr(brain, "routes", None) or {}) else "writer"
+    script, result = brain.ask_json(task, prompt, system=WRITER_SYSTEM, temperature=0.8)
     script["_written_by"] = result.provider
     return normalize_script(script)
 
