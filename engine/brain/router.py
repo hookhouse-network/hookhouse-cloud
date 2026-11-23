@@ -64,6 +64,16 @@ def extract_json(text: str):
     raise BrainError(f"Unbalanced JSON in reply: {text[:200]}")
 
 
+def rest_minutes(e, defaults: dict) -> float:
+    """How long a provider rests after an error: what the provider itself said (plus a minute), never longer than
+    the kind's default (daily_quota 720 = the longest); the kind's default when it said nothing."""
+    default = float(defaults.get(e.kind, 5))
+    retry_s = getattr(e, "retry_s", None)
+    if retry_s is None or retry_s < 0:
+        return default
+    return min(default if e.kind == "daily_quota" else max(default, 720.0), retry_s / 60.0 + 1.0)
+
+
 class Cooldowns:
     """Remembers which providers are resting (rate limit / daily quota) across runs."""
 
@@ -106,14 +116,14 @@ class Brain:
                 out[name] = "ready"
         return out
 
-    def ask(self, task: str, prompt: str, system: str = "", temperature: float = 0.7) -> BrainResult:
+    def ask(self, task: str, prompt: str, system: str = "", temperature: float = 0.7, skip=()) -> BrainResult:
         route = self.routes.get(task)
         if not route:
             raise BrainError(f"Unknown task '{task}'. Known: {list(self.routes)}")
         tried, errors = [], []
         for name in route:
             p = self.providers.get(name)
-            if p is None or not p.available() or self.cooldowns.resting(name):
+            if name in skip or p is None or not p.available() or self.cooldowns.resting(name):
                 continue
             tried.append(name)
             try:
@@ -125,20 +135,31 @@ class Brain:
                 errors.append(str(e))
                 if e.kind in ("unavailable", "too_big"):   # too big for this model's limit: just try the next one
                     continue
-                self.cooldowns.rest(name, self.cooldown_minutes.get(e.kind, 5))
+                self.cooldowns.rest(name, rest_minutes(e, self.cooldown_minutes))
         if not tried:
             raise BrainError(f"No AI model available for '{task}'. Add API keys to .env "
                              f"(status: {self.status()})")
         raise BrainError(f"All models failed for '{task}': " + " | ".join(errors))
 
-    def ask_json(self, task: str, prompt: str, system: str = "", temperature: float = 0.4, retries: int = 1):
-        """Ask for JSON; if a model replies with broken JSON, ask again once."""
-        last_err = None
+    def ask_json(self, task: str, prompt: str, system: str = "", temperature: float = 0.4, retries: int = 2):
+        """Ask for JSON. A model that replies with broken JSON is skipped and the next model on the route is asked
+        (24 Nov: the retry went back to the same model, which cut its script off mid-JSON again, and Clutch Tales
+        lost its slot); only when no other model is left is the same one asked again."""
+        errs, skip = [], set()
+        note = "\n\nIMPORTANT: Reply with valid JSON only, no other text."
         for _ in range(retries + 1):
-            result = self.ask(task, prompt, system=system, temperature=temperature)
+            try:
+                result = self.ask(task, prompt, system=system, temperature=temperature, skip=skip)
+            except BrainError:
+                if not skip:
+                    raise
+                skip = set()                     # no other model left: the same one once more (as before 24 Nov)
+                result = self.ask(task, prompt, system=system, temperature=temperature)
             try:
                 return result.json(), result
             except (BrainError, json.JSONDecodeError) as e:
-                last_err = e
-                prompt = prompt + "\n\nIMPORTANT: Reply with valid JSON only, no other text."
-        raise BrainError(f"Could not get valid JSON for '{task}': {last_err}")
+                errs.append(f"{result.provider}: {e}")
+                skip.add(result.provider)
+                if note not in prompt:
+                    prompt += note
+        raise BrainError(f"Could not get valid JSON for '{task}': " + " | ".join(errs))

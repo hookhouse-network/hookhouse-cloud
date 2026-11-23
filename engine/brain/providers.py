@@ -6,6 +6,7 @@ skip the provider for the day, or just try the next one.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 
@@ -15,11 +16,13 @@ TIMEOUT = 120
 
 
 class ProviderError(Exception):
-    """kind: rate_limit | daily_quota | timeout | error | unavailable | too_big | busy"""
+    """kind: rate_limit | daily_quota | timeout | error | unavailable | too_big | busy. retry_s: how long the provider
+    itself said to wait (None = unknown: the router uses the kind's default rest)."""
 
-    def __init__(self, kind: str, message: str):
+    def __init__(self, kind: str, message: str, retry_s: float | None = None):
         super().__init__(message)
         self.kind = kind
+        self.retry_s = retry_s
 
 
 def _classify_429(text: str) -> str:
@@ -28,9 +31,33 @@ def _classify_429(text: str) -> str:
     return "daily_quota" if any(m in t for m in daily_markers) else "rate_limit"
 
 
+_UNITS = {"h": 3600.0, "m": 60.0, "s": 1.0, "ms": 0.001}
+
+
+def retry_after(resp) -> float | None:
+    """Seconds the provider says to wait: the Retry-After header, Google's RetryInfo ("retryDelay": "41249s") or
+    Groq's message ("Please try again in 7m12.5s"). 24 Nov: Groq's gpt-oss-120b was rested 12 hours for a "tokens per
+    day" limit (Groq counts a rolling 24 hours and frees tokens within minutes) and answered normally at 02:00 while
+    the PC wrote scripts with weaker models."""
+    try:
+        h = (getattr(resp, "headers", None) or {}).get("retry-after")
+        if h and str(h).strip().replace(".", "", 1).isdigit():
+            return float(h)
+    except (AttributeError, TypeError, ValueError):
+        pass
+    text = getattr(resp, "text", "") or ""
+    m = re.search(r'"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"', text)
+    if m:
+        return float(m.group(1))
+    m = re.search(r"try again in ((?:\d+(?:\.\d+)?(?:h|ms|m|s))+)", text, re.I)
+    if m:
+        return sum(float(n) * _UNITS[u.lower()] for n, u in re.findall(r"(\d+(?:\.\d+)?)(ms|h|m|s)", m.group(1), re.I))
+    return None
+
+
 def _raise_for_status(resp: requests.Response, name: str) -> None:
     if resp.status_code == 429:
-        raise ProviderError(_classify_429(resp.text), f"{name}: 429 {resp.text[:300]}")
+        raise ProviderError(_classify_429(resp.text), f"{name}: 429 {resp.text[:300]}", retry_s=retry_after(resp))
     if resp.status_code == 413 or "request too large" in resp.text.lower():
         raise ProviderError("too_big", f"{name}: request too large for its free per-minute limit")
     if resp.status_code == 503:
@@ -75,11 +102,21 @@ class GeminiProvider(Provider):
             raise ProviderError("error", f"{self.name}: {e}") from e
         _raise_for_status(resp, self.name)
         data = resp.json()
+        _cut_off(((data.get("candidates") or [{}])[0] or {}).get("finishReason"), self.name)
         try:
             parts = data["candidates"][0]["content"]["parts"]
             return "".join(p.get("text", "") for p in parts).strip()
         except (KeyError, IndexError) as e:
             raise ProviderError("error", f"{self.name}: unexpected reply {str(data)[:300]}") from e
+
+
+def _cut_off(reason, name: str) -> None:
+    """24 Nov: a script reply was cut off mid-JSON at a model's output limit ("Unbalanced JSON in reply"); the retry
+    went to the same model and Clutch Tales lost its slot. A reply the model itself reports as cut off (Gemini
+    finishReason MAX_TOKENS, chat-completions finish_reason "length") is "too_big" for this model: the router asks the
+    next model at once, with no rest."""
+    if str(reason or "").upper() in ("MAX_TOKENS", "LENGTH"):
+        raise ProviderError("too_big", f"{name}: reply cut off at the model's output limit")
 
 
 class OpenAICompatibleProvider(Provider):
@@ -109,6 +146,7 @@ class OpenAICompatibleProvider(Provider):
             raise ProviderError("error", f"{self.name}: {e}") from e
         _raise_for_status(resp, self.name)
         data = resp.json()
+        _cut_off(((data.get("choices") or [{}])[0] or {}).get("finish_reason"), self.name)
         try:
             return (data["choices"][0]["message"]["content"] or "").strip()
         except (KeyError, IndexError) as e:
