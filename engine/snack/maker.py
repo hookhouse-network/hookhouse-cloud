@@ -32,14 +32,17 @@ PC_FORMATS = {"colorsort"}          # HyperFrames formats (P3r, S3): only where 
 
 def ready_formats() -> set[str]:
     """Formats this machine can make now. HyperFrames formats need the CLI (the PC) and the settings switch
-    `hyperframes_formats` (the off-switch); the cloud runner never picks them."""
+    `hyperframes_formats` (the off-switch); the cloud runner never picks them. Formats listed in the settings'
+    `snack_retired_formats` are never picked (24 Nov S6: the 23 Nov review retired the character battles)."""
     try:
         from ..config import settings
         from ..media import hyperframes
-        on = settings().get("hyperframes_formats", True) and hyperframes.available()
+        cfg = settings()
+        on = cfg.get("hyperframes_formats", True) and hyperframes.available()
+        retired = {str(f) for f in cfg.get("snack_retired_formats") or []}
     except Exception:  # noqa: BLE001 - unknown = the classic formats only
-        on = False
-    return READY | (PC_FORMATS if on else set())
+        on, retired = False, set()
+    return (READY | (PC_FORMATS if on else set())) - retired
 MELODY_NAMES = {
     "mountain_king": "Grieg, In the Hall of the Mountain King (1875)",
     "ode_to_joy": "Beethoven, Ode to Joy (1824)",
@@ -319,7 +322,13 @@ def describe(spec: dict, info: dict) -> str:
                 f"question is read out with a countdown, the answer is revealed and the ladder climbs a step. "
                 f"Ends asking you to comment your score. {total:.0f} s.")
     if fmt == "readfast":
+        from .readfast import hook_of
         fact = str((spec.get("fact") or {}).get("fact") or "").strip()
+        hook = hook_of(spec.get("fact") or {})
+        if hook:                                    # 24 Nov: the fact's own teaser opens it (readfast.hook_of)
+            return (f"0:00 \"{hook}\" fills the screen in big yellow letters, a small dare under it: read it if you "
+                    f"can. Then the fact flashes one word at a time, faster and faster ({info.get('words', 'many')} "
+                    f"words); a glowing ball bounces on every word." + (f" The fact: {fact}" if fact else ""))
         return (f"0:00 \"READ IT IF YOU CAN\" fills the screen in big yellow letters. Then a surprising fact flashes "
                 f"one word at a time, faster and faster ({info.get('words', 'many')} words), daring you to keep "
                 f"reading; a glowing ball bounces on every word." + (f" The fact: {fact}" if fact else ""))
@@ -348,7 +357,8 @@ def screen_hook(spec: dict) -> str:
         quiz = spec.get("quiz") or {}
         return str(quiz.get("hook") or f"Only 1% get all {len(quiz.get('questions') or [])}. Ready?")
     if fmt == "readfast":
-        return "READ IT IF YOU CAN"
+        from .readfast import hook_of
+        return hook_of(spec.get("fact") or {}) or "READ IT IF YOU CAN"
     if fmt == "colorsort":
         return str(spec.get("hook") or "Watch it sort itself")
     return ""

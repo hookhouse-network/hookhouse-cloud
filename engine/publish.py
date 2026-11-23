@@ -1079,8 +1079,12 @@ def upload_item(it: dict, dry_run: bool = True, session=HTTP, platforms=("youtub
                 def _threads():
                     # 18 Nov: Threads answered "could not process the video: UNKNOWN" for Instagram's CDN link.
                     # Our own signed link (the one that fixed Instagram) first; the CDN link only as the fallback.
-                    from .threads import ig_video_url, post_video, text_for
+                    from .threads import creds, ig_video_url, post_video, text_for
                     text = text_for(meta, yt_id)
+                    if not creds(it["channel"]):
+                        # 24 Nov: a channel with no Threads account only plans the post (like Instagram does);
+                        # it used to fall through to "Instagram gave no video link" and queue a high heal item
+                        return post_video(it["channel"], "", text, session=session, dry_run=True, item_id=it["id"])
                     link = share_link(reel_file) if _live(session) else None
                     if link:
                         url, cleanup = link

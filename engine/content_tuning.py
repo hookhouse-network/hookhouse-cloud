@@ -167,7 +167,8 @@ def _findings(s: dict) -> list[tuple[str, str]]:
     if s["like_rate"] is not None and s["views"] >= 200 and s["like_rate"] < LIKE_RATE_OK:
         out.append((f"only {s['like_rate']:.1f} likes per 100 views (healthy: 3-5)",
                     "The payoff must hit emotionally: a twist people want to argue about, a laugh, or a lump in the "
-                    "throat. Ask for one guess before the reveal so viewers answer in the comments."))
+                    "throat. Leave viewers something to answer in the comments (a choice the person made, a number "
+                    "nobody expected) without telling them to comment."))
     if s["videos"] and s["zero"] == s["videos"]:
         out.append(("videos got no views at all: YouTube isn't showing them",
                     "Check the channel status; meanwhile trend-first topics with a searchable title (the words people "

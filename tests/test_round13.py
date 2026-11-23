@@ -343,6 +343,7 @@ def test_threads_follows_the_instagram_reel_in_the_same_post(tmp_path, monkeypat
         a.done, a.result = True, {"thread_id": "t1"}
         return a
     monkeypatch.setattr(threads, "post_video", fake_post)
+    monkeypatch.setattr(threads, "creds", lambda cid: {"user_id": "u1", "access_token": "tok"})   # connected
     it = {"id": "i1", "channel": "unsolved_after_dark", "channel_name": "U", "out_dir": str(out), "publish_at": "",
           "youtube_id": "yt9"}
     acts = pub.upload_item(it, dry_run=False, platforms=("instagram", "threads"))

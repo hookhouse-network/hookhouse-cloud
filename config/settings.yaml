@@ -17,6 +17,16 @@ scheduler: shadow
 # P3r (owner 21 Nov): picture-free formats rendered by HyperFrames on the PC (Brain Snack "colorsort" first).
 # Only machines with HyperFrames installed pick them; set false to switch them off everywhere.
 hyperframes_formats: true
+# 24 Nov S6 (the 23 Nov 21:00 review of Brain Snack): the character battles ("Coco vs Mochi: who wins?") got 189
+# Instagram views, 0.09x the channel's median, 0 likes, and a viewer called the fight unfair; the review: stop them.
+# History fast-facts got 2,050-2,790 views. Remove a format from this list to bring it back.
+snack_retired_formats: [versus]
+# Legends told as legends (engine/legends.py, 24 Nov): one checker call per script finds legends stated as history
+# (only what the sources themselves call a legend) and marks each episode once ("legend says", "कहते हैं"), or frames
+# a whole folk tale once. Human-story channels always; other channels when listed here (or channels: all). The 24 Nov
+# measurement: right on the Hindi folk/legend drafts, wrong on English fact Shorts (hypotheses and documented facts
+# called legends), so no fact channel is listed. enabled: false switches it off everywhere.
+legend_check: {enabled: true, channels: []}
 
 # P3r characters (owner 21 Nov: "introduce some humans"): human friends (config/characters.yaml) join the kids Shorts
 # where their faces can be made (DiceBear + browser, the PC). Set false for the toon friends only.

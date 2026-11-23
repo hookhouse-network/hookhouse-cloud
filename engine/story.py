@@ -59,10 +59,12 @@ STEP 3 - BEATS (the structure top story Shorts use in 2026).
   no "what if I told you", no "imagine", and never open with a date, a year or a full name (viewers swipe before the
   point arrives). hook_text shows the same promise on screen from the first frame.
   (22 Nov: the viral judge's #1 fix on 17 of 17 held videos was a punchier hook in the first 1-2 seconds.)
-- Beats 2-3 = "You see," / "It started..." backstory: who, where, when (by 4-8 seconds).
+- Beats 2-3 = the backstory in plain words: who, where, when (by 4-8 seconds). Every line starts its own way, never
+  with "You see", "It started" or "It all started".
 - Middle = escalation; every 6-10 seconds a new question, number or reveal. Around 40-60% a "But..." twist.
 - End = the payoff, ideally ironic or surprising. NO call to action, no "follow for more", no "subscribe".
-  The last line should flow back into the first line so the Short loops.
+  The last line should flow back into the first line so the Short loops: it finishes beat 1's thought in new words,
+  never a stock line such as "which brings us back".
 - One short sentence per beat (5-12 words, about 2-3 seconds). Simple spoken words, active verbs.
 - Exact numbers, names, dates. Compare big numbers with things people know.
 - Length: {words}, {beats} beats.
@@ -71,8 +73,9 @@ STEP 3 - BEATS (the structure top story Shorts use in 2026).
 - SEARCH: "search_phrase" = the 2-5 words a viewer would type to find this story (the name + event/place, e.g.
   "Miracle on Ice 1980"). Say it in beat 1 or 2, start the title with it, and use it in the first sentence of "summary"
   and the first line of "instagram_caption" (YouTube and Instagram search read titles, captions and the narration).
-- INTERACTIVE (Shorts): you may invite ONE guess right before a reveal ("Guess how deep it went."), then reveal it.
-  Never ask for likes, follows or comments in the narration.
+- INTERACTIVE (Shorts): before ONE reveal you may let the viewer form a guess by stating what everyone expected (in
+  words only this story could use), then reveal the truth. Never a line that starts with "Guess", never "did you
+  know", never ask for likes, follows or comments in the narration.
 - HUMAN, NOT TEMPLATE: include ONE true detail most retellings of this story miss (the reason this video exists),
   and ONE short reaction in the narrator's own voice to a concrete detail of THIS story, in words that would make no
   sense in any other video (no stock reaction phrase, no line that starts with "Honestly") - never a fake identity,
@@ -2589,6 +2592,9 @@ def _write_fresh(brain, channel: dict, topic: str | None, fmt: str, memory, log,
         script = fit_length(brain, channel, script, log)
     script = phrase_early(brain, script, log)      # before the fact-check, so the new wording is checked too
     script = humanize_script(brain, script, log)   # S10: AI-sounding lines restated plainly, then fact-checked
+    script = human_story.cold_open(brain, script, channel, log)   # human-story: a cold open, not a question
+    from . import legends                          # legends told as legends (switch: settings legend_check)
+    script = legends.from_sources(brain, script, channel, log)
     if channel.get("content_rules", {}).get("fact_check"):
         script = check_and_fix(brain, channel, script, topic, fmt, memory, log)
     return script

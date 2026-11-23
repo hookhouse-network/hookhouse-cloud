@@ -118,3 +118,51 @@ def voices(script: dict, language: str, narrator: str, engine: str = "kokoro") -
 def acted(script: dict) -> bool:
     """True when the script has spoken lines (the description then says it is a dramatized retelling)."""
     return any(speaker(b) for b in script.get("beats") or [])
+
+
+COLD_OPEN_PROMPT = """Rewrite the FIRST line of a short story video. It is a question to the viewer; the storytelling
+template wants a COLD OPEN instead: the person speaks in the first person, present tense, at the moment of the
+greatest pressure, OR the narrator drops the viewer into that moment, mid-action.
+Current first line: "{line}"
+Second line (keep it as it is): "{line2}"
+Rules: the same language and script, at most 10 words, no question mark, LITERALLY TRUE to the story (no legend told as
+fact, no number, no new fact), keep these search words if the current line has them: {words}.
+Return JSON only: {{"line": "...", "speaker": "narrator or the speaking person's name"}}"""
+
+
+def cold_open(brain, script: dict, channel: dict, log=print) -> dict:
+    """24 Nov R&D: the strong writer still opened the Haldighati draft with a question ("Why did Chetak wear an
+    elephant trunk?") although STRUCTURE asks for a cold open. One targeted rewrite of line 1 for human-story
+    channels; kept only when it is no question and at most 12 words. Never raises."""
+    import copy
+    import re
+    beats = script.get("beats") or []
+    if not enabled(channel) or brain is None or not beats:
+        return script
+    first = str(beats[0].get("narration") or "").strip()
+    if not first.endswith("?"):
+        return script
+    words = [w for w in re.findall(r"\w+", str(script.get("search_phrase") or "")) if len(w) > 3 and w in first][:3]
+    try:
+        data, _ = brain.ask_json("writer", COLD_OPEN_PROMPT.format(
+            line=first, line2=str(beats[1].get("narration") or "") if len(beats) > 1 else "",
+            words=", ".join(words) or "none"), temperature=0.5)
+    except Exception as e:  # noqa: BLE001 - the question stays; the judge still scores the hook
+        log(f"Cold open: not rewritten ({type(e).__name__})")
+        return script
+    new = str((data if isinstance(data, dict) else {}).get("line") or "").strip()
+    if not new or new.endswith("?") or "?" in new or len(new.split()) > 12 or any(w not in new for w in words):
+        log("Cold open: the rewrite did not fit; the question stays")
+        return script
+    out = copy.deepcopy(script)
+    out["beats"][0]["narration"] = new
+    sp = str((data or {}).get("speaker") or "").strip()
+    if sp and sp.lower() != "narrator" and sp in (out.get("cast_voices") or {}):
+        out["beats"][0]["speaker"] = sp                           # the person speaks it, in their cast voice
+    elif sp or "speaker" in out["beats"][0]:
+        out["beats"][0]["speaker"] = "narrator"                   # an unknown speaker has no voice: the narrator
+    if out.get("hook_text") and str(script.get("hook_text") or "").strip().endswith("?"):
+        out["hook_text"] = new
+    out["_fact_check"] = {}                                       # wording changed: checked again
+    log(f"Cold open: '{first}' -> '{new}'")
+    return out

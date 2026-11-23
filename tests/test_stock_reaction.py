@@ -21,7 +21,7 @@ def test_this_isnt_x_its_y_is_a_tell():
 def test_plain_story_lines_are_not_tells():
     for line in ("The eyes actually rotate to look upward for silhouettes of prey.",
                  "It wasn't the engine, it was the fuel line.",          # a spoken correction with a comma stays
-                 "Guess how big Earth looked from there.",
+                 # (24 Nov: "Guess how ..." lines are a template now: tests/test_template_lines.py)
                  "Forty times farther than the Sun, for one photo."):
         assert not _ids(line), line
 

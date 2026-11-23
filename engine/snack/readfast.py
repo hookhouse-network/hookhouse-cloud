@@ -4,6 +4,7 @@ next word. It ends with "What word did you lose it at?" (a comment prompt) and l
 from __future__ import annotations
 
 import math
+import re
 
 import cv2
 import numpy as np
@@ -15,8 +16,35 @@ CX, CY, R = 540, 960, 450
 FACT_PROMPT = """Write one surprising, TRUE fact for the YouTube Shorts channel "Brain Snack" (teens and adults).
 {topic_line}
 Rules: 28-40 words, simple words, no names of living private people, no brands. It must be checkable on Wikipedia.
-Return JSON only: {{"fact": "...", "claims": ["the fact's key claim(s)"], "sources": ["Wikipedia article titles"],
-"title_options": ["3 short titles"], "hashtags": ["#facts", "..."]}}"""
+"hook" = the words on screen at 0:00, 3-7 words: the most surprising part of THIS fact as a teaser statement or a
+direct question that makes a stranger need the rest (the fact itself delivers the payoff); plain words, never "did you
+know", "guess" or "read it if you can".
+Return JSON only: {{"fact": "...", "hook": "...", "claims": ["the fact's key claim(s)"],
+"sources": ["Wikipedia article titles"], "title_options": ["3 short titles"], "hashtags": ["#facts", "..."]}}"""
+DARE = "READ IT IF YOU CAN"
+_WEAK_HOOK = re.compile(r"\bdid you know\b|\bguess\b|\bread (?:it|this) if\b|\bif you can\b", re.I)
+
+
+def hook_of(fact: dict) -> str:
+    """The fact's own teaser for the 0:00 card (24 Nov: the fixed "READ IT IF YOU CAN" card is what the judge called
+    the vague, templated opening of the held Brain Snack videos; the 23 Nov review's best Instagram Shorts were the
+    ones whose subject showed first, e.g. 'The Day of Two Noons'). "" = no usable hook (the dare card stays)."""
+    hook = re.sub(r"\s+", " ", str((fact or {}).get("hook") or "")).strip().strip('"')
+    n = len(hook.split())
+    if not 2 <= n <= 8 or len(hook) > 48 or _WEAK_HOOK.search(hook):
+        return ""
+    return hook
+
+
+def wrap(text: str, width: int = 12) -> str:
+    """Greedy word wrap for a big card (lines of at most `width` characters where the words allow)."""
+    lines: list[str] = []
+    for w in text.split():
+        if lines and len(lines[-1]) + 1 + len(w) <= width:
+            lines[-1] += " " + w
+        else:
+            lines.append(w)
+    return "\n".join(lines)
 
 
 def write_fact(brain, topic: str | None = None) -> dict:
@@ -54,7 +82,8 @@ def render(spec: dict, fact: dict, writer, fps: int, log=print) -> dict:
     rng = np.random.default_rng(spec["seed"])
     words = fact["fact"].split()
     durs = schedule(len(words))
-    lead = 1.4                                         # "Read it if you can" card first
+    hook = hook_of(fact)
+    lead = 1.9 if hook else 1.4                        # the fact's teaser (or the dare) card first
     times = [lead]
     for d in durs:
         times.append(times[-1] + d)
@@ -67,7 +96,15 @@ def render(spec: dict, fact: dict, writer, fps: int, log=print) -> dict:
     trail = np.zeros((H, W, 3), np.uint8)
     mask = np.zeros((H, W), np.uint8)
     cv2.circle(mask, (CX, CY), R - 2, 255, -1)
-    intro = text_sprite("READ IT IF\nYOU CAN", "Poppins Black", 120, fill="#FFE600", stroke=10)
+    dare = None
+    if hook:                                           # the teaser big, the dare small under it
+        card = wrap(hook.upper())
+        longest = max(len(ln) for ln in card.split("\n"))
+        intro = text_sprite(card, "Poppins Black", 120 if longest <= 10 else max(78, int(120 * 10 / longest)),
+                            fill="#FFE600", stroke=10)
+        dare = text_sprite(DARE.lower(), "Poppins ExtraBold", 54, stroke=6)
+    else:
+        intro = text_sprite("READ IT IF\nYOU CAN", "Poppins Black", 120, fill="#FFE600", stroke=10)
     end1 = text_sprite("What word did you\nlose it at?", "Poppins Black", 74, stroke=8)
     # 22 Nov S6: was "Send it to a friend: who reads further?". Instagram does not recommend posts that ask for
     # shares; a second try is an honest invite (and rewatches add watch time, its first ranking signal).
@@ -102,6 +139,8 @@ def render(spec: dict, fact: dict, writer, fps: int, log=print) -> dict:
         cv2.circle(frame, (int(pos[0]), int(pos[1])), 22, (255, 255, 255), -1, cv2.LINE_AA)
         if t < lead:
             blit(frame, intro, W / 2, CY, scale=1.0)   # full size from frame 1, steady (no pulsing)
+            if dare is not None:
+                blit(frame, dare, W / 2, max(CY + intro.shape[0] / 2 + 70, CY + R + 70), scale=1.0)  # under the ring
         elif t < times[-1] + end_hold:
             k = min(int(np.searchsorted(times, t, side="right") - 1), len(words) - 1)
             word = words[k].strip()
@@ -114,8 +153,9 @@ def render(spec: dict, fact: dict, writer, fps: int, log=print) -> dict:
         writer.write(frame)
     for i, tt in enumerate(times[:-1]):
         events.append((tt, i))
-    return {"total": total, "bounces": events, "end": times[-1], "cover_at": times[len(times) // 3],
-            "words": len(words)}
+    # the cover (Instagram grid, Shorts shelf): the teaser card when there is one, not a single flashing word
+    return {"total": total, "bounces": events, "end": times[-1],
+            "cover_at": lead / 2 if hook else times[len(times) // 3], "words": len(words)}
 
 
 def soundtrack(info: dict, spec: dict) -> np.ndarray:

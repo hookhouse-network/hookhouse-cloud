@@ -25,9 +25,17 @@ PATTERNS: list[tuple[str, str, str, int]] = [
     ("stock_reaction", "stock reaction line",
      r"\bthe part i can'?t get over\b|\bi (?:still )?can'?t get over (?:this|that|it)\b"
      r"|\bhonestly,? (?:this|that) (?:is|was) (?:the part|what)\b", 3),
+    # 24 Nov: the writer prompt's own example lines came back as templates: a line opening "Guess how/what..." in 16
+    # of 29 English scripts since 18 Nov, "You see," in 6 and "It started" in 6. `^` = the start of one line (tells()
+    # runs per line in humanize_script; the gate's density check reads the joined captions, so only a video that
+    # OPENS this way counts there)
+    ("template_line", "template line from a script formula",
+     r"^\W*guess (?:how|what|why|who|where|when|which)\b|^\W*you see,|^\W*it (?:all )?started\b"
+     r"|\bdid you know\b|\bwhich brings us (?:right )?back\b", 3),
     ("closer", "dramatic one-line closer",
      r"\blet that sink in\b|\bread that again\b|\bthat distinction matters\b|\bthat(?:'s| is) the real (?:win|story|lesson)\b"
-     r"|\band that changes everything\b|\bnothing would ever be the same\b", 3),
+     r"|\band that changes everything\b|\bnothing would ever be the same\b"
+     r"|\bwhich (?:makes|leaves) (?:you|us) (?:wonder|wondering|thinking)\b", 3),    # 24 Nov A/B: a last line
     ("deep_saying", "saying that sounds deep",
      r"\bthe real question is\b|\bat its core\b|\bwhat really matters\b|\bfundamentally\b|\bthe deeper (?:issue|truth)\b"
      r"|\bthe heart of the matter\b", 3),
