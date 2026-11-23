@@ -27,6 +27,9 @@ kids_puppets: true
 # (~57 pictures/day), not 58 as first read from the pricing docs. Schnell is distilled for 1-4 steps (Cloudflare's
 # default is 4). 22 Nov: story videos ran out of pictures every day.
 flux_steps: 4
+# Fresh topics (owner 23 Nov: "too old trending topics"): every planned story slot made in the next window_h hours
+# is offered that day's on-brand trends once (engine/fresh_topics.py); enabled: false keeps the weekly topics.
+fresh_topics: {enabled: true, window_h: 36}
 # Cloudflare picture models, best first (engine/storyboard.py CF_CATALOG): klein = FLUX.2 [klein] 4B (Apache 2.0, a
 # 576x1024 picture in the Short's own shape for ~104 neurons, ~96 a day); flux = FLUX.1-schnell (a 1024x1024 square
 # for 172.8 neurons, ~57 a day). 23 Nov: klein goes first only after a side-by-side check on real beats.

@@ -693,6 +693,9 @@ def tick(log=_log, light: bool = False) -> None:
              ("live_stats", lambda: _live_due() and __import__("engine.stats_fetch", fromlist=["live"]).live(log=log)),
              ("plan", lambda: autopilot._ensure_plan(autopilot.default_brain, log)),
              ("replan", lambda: run_replans(log)),       # config/replan.yaml, each request once (19 Nov)
+             # 23 Nov (owner: "too old trending topics"): slots made in the next 36 h get today's on-brand trends
+             ("fresh_topics", lambda: log("fresh topics: %d slot(s) switched" % __import__(
+                 "engine.fresh_topics", fromlist=["x"]).freshen_due(autopilot.default_brain()[0], log=log))),
              ("queue", lambda: _queue_sync(log)),         # Phase 2: the shared job queue mirrors what is due
              # 19 Nov: book pages from leftover free picture quota at night (API calls only, a few per tick)
              ("book_pages", lambda: log("book pages: " + __import__("engine.cloud.book_farm", fromlist=["x"])
