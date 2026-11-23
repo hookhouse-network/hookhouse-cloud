@@ -821,7 +821,7 @@ def write_script(brain, channel: dict, topic: str, fmt: str = "short", memory=No
             f["beats"] = f"{lo[0] // 11}-{lo[1] // 9}"
         # longer targets: first draft at the default 1,800-2,300 words; make() expands it step by step
     mem_text = memory.context_block(topic, channel["id"]) if memory else ""
-    prompt = WRITER_PROMPT.format(
+    prompt = human_story.writer_template(WRITER_PROMPT, channel).format(   # human-story channels: their own STEP 3
         fmt="vertical YouTube Short" if fmt == "short" else "long horizontal YouTube video with chapters",
         channel=channel["name"], niche=channel["niche"], topic=topic,
         audience="United States viewers" if channel["market"] == "US" else "Indian viewers",
@@ -839,7 +839,7 @@ def write_script(brain, channel: dict, topic: str, fmt: str = "short", memory=No
                     if fmt == "long" else ""),
         rules=json.dumps(channel.get("content_rules", {})) + "\n" + (channel.get("writer_rules") or "") + "\n"
         + _tuning_rules(channel["id"], fmt) + "\n" + (extra_rules + "\n" if extra_rules else "")
-        + _style_card(channel["id"]) + human_story.rules_for(channel)
+        + _style_card(channel["id"])
         + never_rules_text() + (
             "" if visuals.ai_image_available() else
             "\nAI images are switched OFF right now: never use visual \"ai\". Use photo, footage or text, and give "

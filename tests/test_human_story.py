@@ -15,9 +15,14 @@ def _script():
         {"narration": "Nobody in that room had an answer.", "speaker": ""}]}
 
 
-def test_only_opted_in_channels_get_the_telling():
-    assert "STORY TELLING" in human_story.rules_for(ON) and human_story.rules_for(OFF) == ""
-    assert "{{" not in human_story.RULES                    # passed as a value, never formatted
+def test_only_opted_in_channels_get_the_story_structure():
+    on = human_story.writer_template(story.WRITER_PROMPT, ON)
+    assert "STEP 3 - THE STORY" in on and "STEP 3 - BEATS" not in on and "STEP 4 -" in on
+    assert "MrBeast rule: beat 1" not in on and "LITERALLY" in on   # the fact-Short beats are gone, the truth rule in
+    assert human_story._BEAT_KEYS in story.WRITER_PROMPT         # the output example the swap adds "speaker" to
+    assert '"speaker": "narrator|<speaking person>"' in on and '"cast_voices"' in on and "legend says" in on
+    assert human_story.writer_template(story.WRITER_PROMPT, OFF) == story.WRITER_PROMPT
+    assert human_story.writer_template("no sections here", ON) == "no sections here"
 
 
 def test_every_speaker_gets_a_voice_of_their_own_never_the_narrators():
@@ -56,6 +61,7 @@ def test_the_writer_gets_the_telling_for_an_opted_in_channel(monkeypatch):
                                                      "speaker": "Jim Lovell"}]}, Res()
     ch = dict(ON, niche="space history", market="US", content_rules={}, voice={"id": "bf_emma"})
     s = story.write_script(Brain(), ch, "Apollo 13")
-    assert "STORY TELLING" in seen[0] and s["beats"][0]["speaker"] == "Jim Lovell"
+    assert "STEP 3 - THE STORY" in seen[0] and s["beats"][0]["speaker"] == "Jim Lovell"
+    assert '"cast_voices": {"<name>"' in seen[0]                # literal braces survive the formatting
     story.write_script(Brain(), dict(ch, style={}), "Apollo 13")
-    assert "STORY TELLING" not in seen[1]
+    assert "STEP 3 - BEATS" in seen[1] and "STEP 3 - THE STORY" not in seen[1]
