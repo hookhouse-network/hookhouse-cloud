@@ -2595,7 +2595,7 @@ def _judge_loop(brain, channel: dict, script: dict, topic: str | None, fmt: str,
             if potential_gate.HUMAN in low:                # S10: say what human-made means, not only the fixes
                 notes += "\n" + potential_gate.human_note(potential_gate._ctype(channel, {}, {}), fmt)
             log(f"Script judge: below {v['need']:g} on " + ", ".join(f"{c} {s:g}" for c, s in low.items())
-                + f"; rewriting with its fixes ({r + 1}/{rounds})")
+                + (f" (judge: {v['model']})" if v.get("model") else "") + f"; rewriting with its fixes ({r + 1}/{rounds})")
         else:
             wrong = "; ".join(str(x) for x in (script.get("_fact_check") or {}).get("problems") or [])
             notes = ("A strict head of content passed the last draft of this script, but the sources contradict these "

@@ -306,7 +306,7 @@ def judge(it: dict, ch: dict, meta: dict, brain, evidence: str = "") -> dict:
     cfg = _cfg()
     ctype = _ctype(ch, meta, it)
     criteria = _criteria(cfg, ctype)
-    data, _res = brain.ask_json("checker", _prompt(ch, it, meta, ctype, criteria, evidence), temperature=0.0)
+    data, res = brain.ask_json("checker", _prompt(ch, it, meta, ctype, criteria, evidence), temperature=0.0)
     scores = (data or {}).get("scores") if isinstance(data, dict) else None
     if not isinstance(scores, dict):
         raise ValueError("the judge gave no scores")
@@ -321,7 +321,11 @@ def judge(it: dict, ch: dict, meta: dict, brain, evidence: str = "") -> dict:
             raise ValueError(f"the judge gave '{c}' an invalid score {v}")
         clean[c] = v
     fixes = [str(x)[:200] for x in (data.get("fixes") or []) if str(x).strip()][:5]
-    return {"scores": clean, "fixes": fixes, "summary": str(data.get("summary") or "")[:300], "criteria": criteria}
+    # 23 Nov: the same script scored human_feel 4-5 from gpt-oss-120b (Groq, first in the checker route) and 6-7 from
+    # Gemini Flash-Lite (the fallback while Groq rests): which model judged decided S10 for most videos, and no verdict
+    # said which one it was. Every verdict now records its model (ledger checkpoint), so verdicts can be audited.
+    return {"scores": clean, "fixes": fixes, "summary": str(data.get("summary") or "")[:300], "criteria": criteria,
+            "model": str(getattr(res, "provider", "") or "")}
 
 
 def judge_script(script: dict, ch: dict, topic: str, brain, kind: str = "") -> dict:
