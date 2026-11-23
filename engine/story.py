@@ -1300,12 +1300,22 @@ def _chart_visual(beat: dict, seconds: float, work: Path, i: int, used: set, siz
 
 _SEE_STOP = {"a", "an", "the", "of", "in", "on", "at", "with", "and", "or", "to", "from", "by", "for", "is", "are", "his",
              "her", "their", "its", "close", "up", "close-up", "shot", "wide", "view", "scene", "showing", "shows", "while",
-             "as", "into", "over", "under", "behind", "front", "background", "foreground", "dramatic", "cinematic"}
+             "as", "into", "over", "under", "behind", "front", "background", "foreground", "dramatic", "cinematic",
+             # 23 Nov: camera directions and picture formats are not things a photo library holds ("low-angle vintage
+             # server racks", "extreme digital countdown timer", "tight medium flight controller" found stock junk)
+             "through", "toward", "towards", "low-angle", "high-angle", "angle", "low", "high", "aerial", "overhead",
+             "top-down", "bird's-eye", "eye-level", "side-profile", "profile", "front-facing", "medium", "tight",
+             "extreme", "macro", "closeup", "establishing", "camera", "pans", "zooms", "tracking", "pulls", "focus",
+             "focusing", "frame", "framing", "slow-motion", "animation", "animated", "stylized", "high-contrast",
+             "high-detail", "photoreal", "photorealistic", "grainy", "black-and-white", "cutaway", "cross-section",
+             "diagram", "graphic", "infographic", "technical", "real", "photo", "photograph", "footage", "highlighting",
+             "captured", "depicting"}
 
 
 def _see_query(see: str, words: int = 4) -> str:
     """A storyboard scene description ("A diver's torch lights a huge octopus in the dark") -> stock-library keywords
-    ("diver torch lights huge"), used when the beat has no search query (19 Nov: AI pictures ran out, library empty)."""
+    ("diver torch lights huge"), used when the beat has no search query (19 Nov: AI pictures ran out, library empty).
+    Camera directions and picture formats are dropped: the library is searched for the subject."""
     toks = [w for w in re.findall(r"[A-Za-z][A-Za-z'-]+", see or "") if w.lower() not in _SEE_STOP and len(w) > 2]
     return " ".join(re.sub(r"'s$", "", w).lower() for w in toks[:words])   # only a possessive 's goes
 

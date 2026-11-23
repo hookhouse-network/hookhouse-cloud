@@ -40,3 +40,14 @@ def test_scene_description_becomes_search_words():
     from engine.story import _see_query
     assert _see_query("Close-up of a cricket ball hitting the stumps under floodlights") == "cricket ball hitting stumps"
     assert _see_query("") == ""
+
+
+def test_camera_directions_are_not_searched_for():
+    """23 Nov: shot directions became the library search ("low-angle vintage server racks", "extreme digital
+    countdown timer") and matched stock junk; the subject is searched instead."""
+    from engine.story import _see_query
+    assert _see_query("Low-angle shot of vintage server racks in mission control") == "vintage server racks mission"
+    assert _see_query("High-angle close-up of glaring solar light grazing the hull") == "glaring solar light grazing"
+    assert _see_query("Extreme macro anatomical cross-section animation showing tiny pale bones") == \
+        "anatomical tiny pale bones"
+    assert _see_query("Grainy black-and-white archive photograph of a diver") == "archive diver"
