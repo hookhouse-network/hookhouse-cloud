@@ -745,9 +745,27 @@ def _make_clip(plan: dict, item: dict, brain, ch: dict, memory, log) -> tuple[st
     raise RuntimeError("The spare clips were gone; the next run cuts new ones")
 
 
+def cloud_freshened(item: dict, today: str | None = None) -> bool:
+    """The topic was already chosen from current news or trends in the cloud: the morning news pick (news_topics:
+    'news') or the fresh-topic check within 36 h of the slot (fresh_topics: 'fresh_day', today or the 2 days before).
+    24 Nov: re-picking at make time replaced Clutch Tales' news topic ("Victor Wembanyama goes off for 50 points and
+    19 boards") with "Tom Jackson's Legendary NFL Journey", and on the PC, whose plan copy is read-only, every retry
+    re-picked again (Agüero's 2012 goal, then the 2017 Super Bowl), so the reused pictures no longer fit either."""
+    if item.get("news"):
+        return True
+    from datetime import date, timedelta
+    try:
+        fd = date.fromisoformat(str(item.get("fresh_day") or ""))
+        now = date.fromisoformat(today) if today else date.today()
+    except ValueError:
+        return False
+    return timedelta(0) <= now - fd <= timedelta(days=2)
+
+
 def _refresh_topic(plan: dict, item: dict, ch: dict, brain, memory=None, log=print) -> None:
     """Right before a Short is made: today's trends vs the topic planned days ago; the stronger one is made (owner
-    19 Nov: "our content looks outdated, not trending"). The planned topic stays in the plan as planned_topic."""
+    19 Nov: "our content looks outdated, not trending"). The planned topic stays in the plan as planned_topic.
+    Not for a topic the cloud already freshened (cloud_freshened)."""
     try:
         from .trends import trend_hints
         fresh = trend_hints(brain, log=log).get(ch["id"], [])
@@ -947,7 +965,11 @@ def make_item(plan: dict, item: dict, brain, memory=None, log=print) -> None:
         item.pop("gate_note", None)                    # the old video's findings belong to the old topic
     elif ch["type"] == "story" and item.get("kind") != "long" and item.get("topic") and brain is not None \
             and item.get("status") != "redo" and not item.get("refreshed") and item.get("role") not in ("hub", "spoke"):
-        _refresh_topic(plan, item, ch, brain, memory, log)
+        if cloud_freshened(item):
+            log(f"Topic for {ch['name']}: kept (" + (f"news: {str(item['news'])[:80]}" if item.get("news") else
+                                                     f"checked against the trends on {item.get('fresh_day')}") + ")")
+        else:
+            _refresh_topic(plan, item, ch, brain, memory, log)
     topic = item.get("topic") or ""
     if item.get("angle"):
         topic = f"{topic} (angle: {item['angle']})"

@@ -169,7 +169,9 @@ brain:
       base_url: https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/v1
       model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
       key_env: CLOUDFLARE_API_TOKEN
-    cerebras:                   # Cerebras free tier: big daily allowance, no card (17 Nov)
+    # 24 Nov vetting: Cerebras's open free tier ended in 2026; its $5 trial now needs a payment method (owner rule: no
+    # card, even for free tiers), so no key is requested. The entry stays harmless ("no key") until that changes.
+    cerebras:                   # Cerebras free tier: big daily allowance, no card (17 Nov; outdated, see above)
       kind: openai_compatible
       base_url: https://api.cerebras.ai/v1
       model: gpt-oss-120b

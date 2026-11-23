@@ -23,6 +23,17 @@ FEEDS = {
     "clutch_tales": [("NBA OR NFL OR MLB when:2d", "en-US", "US", "en")],
     "cosmos_unboxed": [("NASA OR ISRO OR SpaceX when:2d", "en-US", "US", "en")],
     "money_cheat_codes": [("stock market OR AI company earnings when:2d", "en-US", "US", "en")],
+    # 24 Nov (owner 23 Nov: "you are taking too old trending topics"): over the last two weeks' plans only 42% of story
+    # slots had a real "why now" (Wild Instinct 0 of 16, Deep Blue 31%, Unsolved 37%, Ending Decoded 43%). Queries
+    # tried on the live feed first (24 Nov 02:50): e.g. "Impossible volcanic eruption spotted in deepest part of the
+    # ocean", "New species of flying frog discovered", "150-year mystery of a Westminster Abbey skeleton may be
+    # solved", the weekend box office. "unsolved mystery" returned live missing-person cases: not used.
+    "wild_instinct": [("new species discovered OR animal behavior study OR wildlife scientists when:2d", "en-US", "US", "en")],
+    "deep_blue_files": [("deep sea OR ocean discovery OR shipwreck OR marine biologists when:2d", "en-US", "US", "en")],
+    "unsolved_after_dark": [("mystery archaeologists when:3d", "en-US", "US", "en"),
+                            ("historical mystery solved when:3d", "en-US", "US", "en")],
+    "ending_decoded": [("box office weekend OR movie ending explained OR streaming top 10 movies when:2d", "en-US", "US",
+                        "en")],
 }
 REFRESH_PER_DAY = 2
 AHEAD_H = 48
@@ -34,7 +45,8 @@ Latest headlines (last 48 hours):
 
 Pick the ONE headline with the strongest pull for this audience right now and turn it into a video topic in the channel's
 format: today's news is the hook, the video tells the true, dramatic story behind it (a record, a rivalry, a comeback,
-the history that explains it). No rumours, nothing unverified, no real match footage or film clips.
+the history that explains it). No rumours, nothing unverified, no real match footage or film clips. Never a live
+case: no person who is still missing, no ongoing investigation or trial, no crime with recent victims.
 Avoid these recent topics: {avoid}
 Reply with JSON only: {{"topic": "...", "angle": "...", "why": "...", "headline": "the headline you used"}}"""
 

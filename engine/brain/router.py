@@ -94,9 +94,48 @@ class Cooldowns:
         self.path.write_text(json.dumps(self.state, indent=2), encoding="utf-8")
 
 
+class Usage:
+    """Calls, characters in/out and errors per day (IST), task and model: the measurement for P5's model tiers.
+    24 Nov: the strong models ran out of their daily quota by 01:20 while about 20 small jobs share their route, so the
+    routes are re-planned from these numbers. The PC keeps its own file in data/pc (the cloud's data/state replaces
+    the PC's on every loop); the cloud's lives in data/state (its memory bundle). Never stops a call."""
+
+    def __init__(self, path: Path, keep_days: int = 8):
+        self.path, self.keep_days = path, keep_days
+
+    def add(self, task: str, provider: str, chars_in: int = 0, chars_out: int = 0, error: str = "") -> None:
+        try:
+            d = json.loads(self.path.read_text(encoding="utf-8")) if self.path.exists() else {}
+        except (OSError, ValueError):
+            d = {}
+        row = d.setdefault(time.strftime("%Y-%m-%d"), {}).setdefault(f"{task}|{provider}",
+                                                                       {"calls": 0, "in": 0, "out": 0})
+        if error:
+            row.setdefault("errors", {})[error] = row.get("errors", {}).get(error, 0) + 1
+        else:
+            row["calls"] += 1
+            row["in"] += int(chars_in)
+            row["out"] += int(chars_out)
+        for day in sorted(d)[:-self.keep_days]:
+            d.pop(day, None)
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = self.path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(d, indent=1, sort_keys=True), encoding="utf-8")
+            tmp.replace(self.path)
+        except OSError:
+            pass
+
+
+def usage_path() -> Path:
+    import os
+    return data_path("data/state/brain_usage.json" if os.environ.get("GITHUB_ACTIONS") else "data/pc/brain_usage.json")
+
+
 class Brain:
     def __init__(self, providers: dict[str, Provider] | None = None, routes: dict | None = None,
-                 cooldown_minutes: dict | None = None, cooldown_file: Path | None = None):
+                 cooldown_minutes: dict | None = None, cooldown_file: Path | None = None,
+                 usage_file: Path | None = None):
         cfg = settings()["brain"]
         if providers is None:
             providers = {name: build(name, pcfg) for name, pcfg in cfg["providers"].items()}
@@ -104,6 +143,9 @@ class Brain:
         self.routes = routes or cfg["routes"]
         self.cooldown_minutes = cooldown_minutes or cfg["cooldown_minutes"]
         self.cooldowns = Cooldowns(cooldown_file or data_path("data/state/brain_cooldowns.json"))
+        # a test's own cooldown file keeps its usage next to it (never the real record)
+        self.usage = Usage(usage_file or (Path(cooldown_file).parent / "brain_usage.json" if cooldown_file
+                                          else usage_path()))
 
     def status(self) -> dict[str, str]:
         out = {}
@@ -130,9 +172,11 @@ class Brain:
                 text = p.complete(prompt, system=system, temperature=temperature)
                 if not text:
                     raise ProviderError("error", f"{name}: empty reply")
+                self.usage.add(task, name, len(prompt) + len(system), len(text))
                 return BrainResult(text=text, provider=name, tried=tried)
             except ProviderError as e:
                 errors.append(str(e))
+                self.usage.add(task, name, error=e.kind)
                 if e.kind in ("unavailable", "too_big"):   # too big for this model's limit: just try the next one
                     continue
                 self.cooldowns.rest(name, rest_minutes(e, self.cooldown_minutes))

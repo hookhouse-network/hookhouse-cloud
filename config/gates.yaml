@@ -49,6 +49,10 @@ potential:                    # engine/potential_gate.py: the "viral + earning" 
   # each (the same script scored 5-7 from one model across a day). A resting member gives its turn to the next one.
   # [] = one answer from the checker route, as before.
   judge_panel: [groq, gemini_lite]
+  # 24 Nov: who takes a resting member's turn, so a verdict still averages two DIFFERENT models (the same model never
+  # counts twice). High-quota models first, the strong gemini-3-flash last (the scripts need it); never the Cloudflare
+  # models (they share the picture allowance). [] = the members only, as before.
+  judge_backups: [gemini31_lite, gemini35_lite, groq20, gemini3]
 
 auto_approve:                 # engine/auto_approve.py (owner 20 Nov: "yes you can consider auto-approval")
   enabled: true

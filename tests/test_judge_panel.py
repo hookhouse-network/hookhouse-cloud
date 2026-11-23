@@ -36,6 +36,7 @@ class Brain:
 def panel(monkeypatch):
     members = ["groq", "gemini_lite"]
     monkeypatch.setattr(pg, "judge_panel", lambda cfg: REAL_PANEL({"judge_panel": members}))
+    monkeypatch.setattr(pg, "judge_backups", lambda cfg: [])          # the backups test sets its own
     return members
 
 
@@ -57,10 +58,32 @@ def test_each_member_judges_once_and_the_scores_are_averaged(panel):
     assert [p["model"] for p in v["panel"]] == ["groq", "gemini_lite"] and v["panel"][0]["scores"][pg.HUMAN] == 5
 
 
-def test_a_resting_member_gives_its_turn_to_the_next_one(panel):
+def test_a_resting_member_gives_its_turn_to_a_different_model(panel, monkeypatch):
+    # 24 Nov: 'gemini_lite+gemini_lite' was one model's temperature-0 answer counted twice; a backup takes the turn
+    monkeypatch.setattr(pg, "judge_backups", lambda cfg: ["gemini31_lite", "gemini3"])
+    b = Brain({"groq": 5, "gemini_lite": 7, "gemini31_lite": 6, "gemini3": 8}, resting={"groq"})
+    v = _judge(b)
+    assert v["model"] == "gemini_lite+gemini31_lite" and v["scores"][pg.HUMAN] == 6.5
+    assert b.asked.count("groq") == 1                   # a resting member is not asked again for the second turn
+
+
+def test_both_members_resting_still_get_a_verdict_from_the_backups(panel, monkeypatch):
+    monkeypatch.setattr(pg, "judge_backups", lambda cfg: ["gemini31_lite", "gemini3"])
+    b = Brain({"groq": 5, "gemini_lite": 7, "gemini31_lite": 6, "gemini3": 8}, resting={"groq", "gemini_lite"})
+    v = _judge(b)
+    assert v["model"] == "gemini31_lite+gemini3" and v["scores"][pg.HUMAN] == 7.0
+
+
+def test_the_same_model_never_counts_twice(panel):
     b = Brain({"groq": 5, "gemini_lite": 7}, resting={"groq"})
     v = _judge(b)
-    assert v["model"] == "gemini_lite+gemini_lite" and v["scores"][pg.HUMAN] == 7.0   # still two answers averaged
+    assert v["model"] == "gemini_lite" and v["scores"][pg.HUMAN] == 7.0        # one real answer, not two copies
+
+
+def test_the_live_backups_are_high_quota_models_and_never_cloudflare():
+    from engine.content_gate import config
+    live = pg.judge_backups(config().get("potential") or {})
+    assert live and live[-1] == "gemini3" and not any(m.startswith("cf_") for m in live)
 
 
 def test_no_answer_at_all_is_not_judged(panel):

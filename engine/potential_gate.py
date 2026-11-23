@@ -329,6 +329,13 @@ def judge_panel(cfg: dict) -> list[str]:
     return [str(m).strip() for m in (cfg.get("judge_panel") or []) if str(m).strip()]
 
 
+def judge_backups(cfg: dict) -> list[str]:
+    """gates.yaml potential.judge_backups: who takes a resting panel member's turn (24 Nov: with gpt-oss-120b benched,
+    'gemini_lite+gemini_lite' meant one model's temperature-0 answer counted twice, and with both members resting at
+    01:24 and 02:26 no script got a verdict at all while gemini-3-flash and three Lite models were ready)."""
+    return [str(m).strip() for m in (cfg.get("judge_backups") or []) if str(m).strip()]
+
+
 def _pinned(brain, name: str):
     """The same brain (providers, cooldowns) with the checker task routed to one model only."""
     import copy
@@ -343,8 +350,9 @@ def judge(it: dict, ch: dict, meta: dict, brain, evidence: str = "") -> dict:
     per criterion. The same script scored human_feel 5, 7, 6, 6, 7 from one model and 7, 7, 6, 6, 7 from another
     across one day, so a single answer near the bar of 6 decided a verdict partly by chance; the average of two
     different models is steadier and tracks human ratings better than one judge (Verga et al. 2024, 'Replacing
-    Judges with Juries'). A member that rests or fails gives its turn to the next one, so a verdict always averages
-    as many answers as the panel has members; it fails only when no member answers. Empty = the checker route."""
+    Judges with Juries'). A member that rests or fails gives its turn to the other members, then to the backups
+    (judge_backups), and the same model never counts twice, so a verdict averages different models whenever enough
+    of them answer; it fails only when nobody answers. Empty = the checker route."""
     cfg = _cfg()
     ctype = _ctype(ch, meta, it)
     criteria = _criteria(cfg, ctype)
@@ -353,19 +361,25 @@ def judge(it: dict, ch: dict, meta: dict, brain, evidence: str = "") -> dict:
     if not panel:
         data, res = brain.ask_json("checker", prompt, temperature=0.0)
         return dict(_one_verdict(data, res, criteria), criteria=criteria)
-    got, errors = [], []
+    got, errors, used, failed = [], [], set(), set()
+    backups = [m for m in judge_backups(cfg) if m not in panel]
     for slot in range(len(panel)):
-        for name in panel[slot:] + panel[:slot]:          # its own model first, then the others in turn
+        # its own model first, then the other members, then the backups; never the same model twice
+        for name in panel[slot:] + panel[:slot] + backups:
+            if name in used or name in failed:
+                continue
             try:
                 data, res = _pinned(brain, name).ask_json("checker", prompt, temperature=0.0)
                 v = _one_verdict(data, res, criteria)
-            except Exception as e:  # noqa: BLE001 - resting / no key / broken answer: the next member answers
+            except Exception as e:  # noqa: BLE001 - resting / no key / broken answer: the next one answers
                 errors.append(f"{name}: {type(e).__name__}: {str(e)[:80]}")
+                failed.add(name)
                 continue
             got.append(dict(v, model=v["model"] or name))
+            used.add(name)
             break
     if not got:
-        raise ValueError("no judge on the panel answered: " + "; ".join(errors[-len(panel):]))
+        raise ValueError("no judge on the panel answered: " + "; ".join(errors[-6:]))
     fixes = list(dict.fromkeys(f for v in got for f in v["fixes"]))[:5]
     return {"scores": {c: round(sum(v["scores"][c] for v in got) / len(got), 2) for c in criteria},
             "fixes": fixes, "summary": got[0]["summary"], "criteria": criteria,
