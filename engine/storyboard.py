@@ -32,7 +32,11 @@ ACTIONS = ("push_in", "pan_left", "pan_right", "drift_up")
 TYPES = ("scene", "real", "number")
 NO_TEXT = "no text, no letters, no words, no captions, no signs, no logos, no watermark"
 EYES_MODEL = "gemini-3.5-flash-lite"
-PASS = 7                                           # eyes score (0-10) a picture needs
+# 23 Nov: in a burst of test calls 21 of 36 came back unchecked (Gemini: 503 "currently experiencing high demand"), and
+# an unchecked picture counts as fine without anyone looking (match 0.85). A busy answer is now asked again twice.
+EYES_BUSY = (429, 500, 502, 503, 504)
+EYES_RETRY_S = (4, 12)
+PASS = 7                                          # eyes score (0-10) a picture needs
 
 PLAN_PROMPT = """You are the storyboard artist for a {channel} video ({fmt}). The narration is split into numbered beats.
 For EVERY beat decide what the viewer SEES at that exact moment, so the story is clear even with the sound off.
@@ -439,18 +443,32 @@ def eyes(path: Path, narration: str, see: str, era: str = "") -> dict:
          'Rate how well the picture shows this moment for a viewer (0-10). Report any visible letters/text/garbled '
          'writing, and anything clearly wrong (wrong era, wrong place, extra limbs, wrong object). JSON only: '
          '{"shows": "8 words", "score": 0, "text": false, "wrong": "none"}')
+    body = {"contents": [{"parts": [{"inline_data": {"mime_type": "image/jpeg",
+                                                     "data": base64.b64encode(buf.getvalue()).decode()}},
+                                    {"text": q}]}],
+            "generationConfig": {"responseMimeType": "application/json", "temperature": 0}}
+    r = None
+    for wait in (0,) + EYES_RETRY_S:
+        if wait:
+            time.sleep(wait)
+        try:
+            r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{EYES_MODEL}:generateContent",
+                              headers={"x-goog-api-key": key}, timeout=60, json=body)
+        except requests.RequestException:
+            r = None
+            continue
+        code = getattr(r, "status_code", 200)
+        if code not in EYES_BUSY or "PerDay" in str(getattr(r, "text", "")):   # a used-up daily quota: waiting won't help
+            break
     try:
-        r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{EYES_MODEL}:generateContent",
-                          headers={"x-goog-api-key": key}, timeout=60,
-                          json={"contents": [{"parts": [{"inline_data": {"mime_type": "image/jpeg",
-                                                                         "data": base64.b64encode(buf.getvalue()).decode()}},
-                                                        {"text": q}]}],
-                                "generationConfig": {"responseMimeType": "application/json", "temperature": 0}})
+        if r is None or getattr(r, "status_code", 200) != 200:
+            raise RuntimeError(f"eyes check unavailable ({getattr(r, 'status_code', 'no answer')})")
         j = json.loads(r.json()["candidates"][0]["content"]["parts"][0]["text"])
         if isinstance(j, list):                    # sometimes [{...}]
             j = next((x for x in j if isinstance(x, dict)), {})
         score = int(float(j.get("score") or 0))
-    except Exception:  # noqa: BLE001 - checker down / odd answer: don't block
+    except Exception as e:  # noqa: BLE001 - checker down / odd answer: don't block (said, never silent)
+        print(f"  eyes check skipped: {str(e)[:80] or type(e).__name__}; the picture is kept unchecked", flush=True)
         return {"score": -1, "text": False, "wrong": "", "ok": True}
     wrong = str(j.get("wrong") or "").strip()
     wrong = "" if wrong.lower() in ("none", "no", "n/a", "") else wrong
