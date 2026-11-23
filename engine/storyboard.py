@@ -174,9 +174,9 @@ def _quota() -> dict:
 # Community reports and a cloudflare-docs issue (#34137) describe the same: 4006 for hours after the reset, the first
 # success ~24 h after the last use (a rolling window, it seems). Blocking until the next 00:00 UTC then locked the
 # pictures out for a whole day after one failed call. A blocked Cloudflare source is now re-tested at most once an
-# hour by ONE 1-step FLUX call (~10 neurons when it works; a 4006 answer costs nothing); a pass opens it again.
+# hour by ONE tiny call to the first picture model (a 4006 answer costs nothing); a pass opens it again.
 PROBE_S = 3600
-CF_SOURCES = ("cloudflare", "cf_flux", "cf_sdxl", "cf_dreamshaper")
+CF_SOURCES = ("cloudflare", "cf_flux", "cf_klein", "cf_sdxl", "cf_dreamshaper")
 
 
 def _write(path, q: dict) -> None:
@@ -210,17 +210,17 @@ def _open(source: str) -> bool:
 
 
 def _probe() -> bool:
-    """Does Cloudflare draw again? One 1-step FLUX call; the result counts for every Cloudflare model (the free
-    allocation is one per account). The next test is due an hour later either way."""
+    """Does Cloudflare draw again? One tiny call to the first picture model (klein: a 256x256 picture, 1 tile, ~26
+    neurons; FLUX-schnell: 1 step, 57.6 neurons); the result counts for every Cloudflare model (the free allocation
+    is one per account). The next test is due an hour later either way."""
     from .core.where import in_runner
     path = QUOTA if in_runner() else QUOTA_PC
     now, ok = time.time(), False
     acct, token = os.environ.get("CLOUDFLARE_ACCOUNT_ID"), os.environ.get("CLOUDFLARE_API_TOKEN")
     if acct and token:
         try:
-            r = requests.post(f"https://api.cloudflare.com/client/v4/accounts/{acct}/ai/run/{CF_MODELS[0][1]}",
-                              headers={"Authorization": f"Bearer {token}"},
-                              json={"prompt": "a red apple on a wooden table", "steps": 1}, timeout=60)
+            short, model = cf_models()[0]
+            r = _cf_post(short, model, "a red apple on a wooden table", 1, PROBE_SIZE, steps=1, timeout=60)
             ok = bool(((r.json() or {}).get("result") or {}).get("image"))
         except (requests.RequestException, ValueError, AttributeError) as e:
             print(f"picture quota test call: {type(e).__name__}")
@@ -284,21 +284,67 @@ def reset_at() -> float:
                 for k, v in q.items() if ":" not in k and float(v) > now] or [now])
 
 
-# Cloudflare picture models, best first. FLUX-schnell (Apache 2.0) is the look we tuned for. 22 Nov: the two Stable
-# Diffusion backups (SDXL-Lightning, DreamShaper-8-LCM) were unbilled (0 neurons) and drew whenever FLUX's 10,000 free
-# daily neurons were gone, but Cloudflare RETIRED both on 20 Nov (HTTP 410, code 5028 'Model has been deprecated'), the
-# day our posting stopped; every call since failed quietly. Every model left in the catalog costs neurons from the
-# same allocation (FLUX-schnell at 4 steps ~58 a picture is the cheapest), so FLUX is the only Cloudflare model now.
-# The names cf_sdxl/cf_dreamshaper stay in CF_SOURCES for old quota files.
-CF_MODELS = [("flux", "@cf/black-forest-labs/flux-1-schnell")]
+# Cloudflare picture models. FLUX-schnell (Apache 2.0) is the look we tuned for. 22 Nov: the two Stable Diffusion
+# backups (SDXL-Lightning, DreamShaper-8-LCM) were unbilled (0 neurons) and drew whenever FLUX's 10,000 free daily
+# neurons were gone, but Cloudflare RETIRED both on 20 Nov (HTTP 410, code 5028 'Model has been deprecated'), the day
+# our posting stopped; every call since failed quietly. The names cf_sdxl/cf_dreamshaper stay in CF_SOURCES for old
+# quota files.
+# 23 Nov, measured in Cloudflare's own usage records (GraphQL aiInferenceAdaptiveGroups, 20-23 Nov): a FLUX-schnell
+# picture costs 172.8 neurons, not ~58. Its step price is charged per 512x512 tile: a 1024x1024 picture is 4 tiles x
+# (4.8 + 4 steps x 9.6). So the 10,000 free daily neurons draw only ~57 pictures (4-5 Shorts), and a Short crops that
+# square to ~576x1024. FLUX.2 [klein] 4B (Apache 2.0; in Cloudflare's catalog since 15 Jan 2026) costs 26.05 neurons
+# per output tile with its 4 steps included, billed on the longer side. A 576x1024 vertical picture is 4 tiles, about
+# 104 neurons (~96 pictures a day), drawn in the Short's own 9:16 shape. settings.yaml cf_picture_models sets the order.
+CF_CATALOG = {"klein": "@cf/black-forest-labs/flux-2-klein-4b", "flux": "@cf/black-forest-labs/flux-1-schnell"}
+CF_MODELS = [("flux", CF_CATALOG["flux"])]        # the default order when settings.yaml names none
+KLEIN_SIZE = {"vertical": (576, 1024), "landscape": (1024, 576)}   # longer side 1024: 4 billed tiles
+PROBE_SIZE = (256, 256)                           # klein's test call: 1 tile, ~26 neurons when it draws
 DAILY_GONE = re.compile(r"4006|daily free allocation|neurons", re.I)
 RETIRED = re.compile(r"5028|deprecated", re.I)
+_CF_SAID: set = set()                             # odd Cloudflare answers already logged (once per model and code)
+
+
+def cf_models() -> list[tuple[str, str]]:
+    """The Cloudflare picture models to try, best first: settings.yaml cf_picture_models (names from CF_CATALOG);
+    unknown names are skipped, and an empty or broken setting keeps CF_MODELS."""
+    from .config import settings
+    try:
+        order = [str(m).strip() for m in (settings().get("cf_picture_models") or [])]
+    except Exception:  # noqa: BLE001 - a broken setting never stops the pictures
+        order = []
+    return [(m, CF_CATALOG[m]) for m in dict.fromkeys(order) if m in CF_CATALOG] or list(CF_MODELS)
+
+
+def _cf_post(short: str, model: str, prompt: str, seed: int, size: tuple[int, int], steps: int = 4,
+             timeout: int = 120):
+    """One Cloudflare picture request in the model's own format. FLUX.2 [klein] takes multipart form data even for a
+    prompt alone (Cloudflare changelog, 15 Jan 2026), with a size and a seed; FLUX-schnell takes JSON with only
+    prompt + steps (its schema has no seed and no size)."""
+    acct, token = os.environ.get("CLOUDFLARE_ACCOUNT_ID"), os.environ.get("CLOUDFLARE_API_TOKEN")
+    url = f"https://api.cloudflare.com/client/v4/accounts/{acct}/ai/run/{model}"
+    head = {"Authorization": f"Bearer {token}"}
+    if short == "klein":
+        form = {"prompt": (None, prompt[:2048]), "width": (None, str(size[0])), "height": (None, str(size[1])),
+                "seed": (None, str(seed % 2_000_000_000))}
+        return requests.post(url, headers=head, files=form, timeout=timeout)
+    return requests.post(url, headers=head, json={"prompt": prompt[:2048], "steps": steps}, timeout=timeout)
+
+
+def _full_size(data: bytes, short: str) -> bytes:
+    """A klein picture is 576 px on its short side; the renderer shows anything under 650 px as a small framed card
+    (story._v3_frame), so it is enlarged once to 1080 px (Lanczos + a light sharpen, like the PC's own pictures).
+    A FLUX-schnell square is kept as it is."""
+    if short != "klein":
+        return data
+    from .media import local_sd
+    return local_sd._enlarge(data)
 
 
 def _retired(model: str, status: int, errs: str) -> None:
     """A Cloudflare model answered 'deprecated' (410/5028): say it loudly and queue a code fix. 20 Nov the two backup
     models were retired and nothing noticed for two days."""
-    msg = f"Cloudflare retired the picture model {model} (HTTP {status}: {errs[:160]}); pick another in CF_MODELS"
+    msg = (f"Cloudflare retired the picture model {model} (HTTP {status}: {errs[:160]}); pick another in CF_CATALOG "
+           "(settings.yaml cf_picture_models)")
     print(f"AI pictures: {msg}")
     try:
         from . import heal
@@ -311,24 +357,21 @@ def _cloudflare(prompt: str, seed: int, size: tuple[int, int] = (1080, 1920)) ->
     acct, token = os.environ.get("CLOUDFLARE_ACCOUNT_ID"), os.environ.get("CLOUDFLARE_API_TOKEN")
     if not (acct and token) or not _open("cloudflare"):
         return None
-    w, h = (768, 1344) if size[1] > size[0] else (1344, 768)
+    models = cf_models()
     gone = 0
-    for short, model in CF_MODELS:
+    for short, model in models:
         if not _open(f"cf_{short}"):
             gone += 1
             continue
-        # FLUX's schema allows only prompt + steps (no seed, no size): 4 steps is schnell's design and halves the
-        # neurons per picture. Other models take a size and a seed.
-        body = {"prompt": prompt[:2048], "steps": 4} if short == "flux" else \
-            {"prompt": prompt[:2048], "width": w, "height": h, "seed": seed % 2_000_000_000}
+        # FLUX-schnell: prompt + 4 steps (schnell's design), always a 1024x1024 square. klein: the frame's own shape.
+        want = KLEIN_SIZE["vertical" if size[1] > size[0] else "landscape"] if short == "klein" else (1024, 1024)
         for attempt in range(3):
             try:
-                r = requests.post(f"https://api.cloudflare.com/client/v4/accounts/{acct}/ai/run/{model}",
-                                  headers={"Authorization": f"Bearer {token}"}, json=body, timeout=120)
+                r = _cf_post(short, model, prompt, seed, want)
             except requests.RequestException:
                 break
             if "image" in (r.headers.get("content-type") or ""):
-                return r.content                       # the SD models answer with the picture itself
+                return _full_size(r.content, short)    # a model that answers with the picture itself
             try:
                 j = r.json()
             except ValueError:
@@ -348,9 +391,14 @@ def _cloudflare(prompt: str, seed: int, size: tuple[int, int] = (1080, 1920)) ->
                 continue
             img = (j.get("result") or {}).get("image")
             if img:
-                return base64.b64decode(img)
+                return _full_size(base64.b64decode(img), short)
+            said = (short, r.status_code)              # any other answer: the next model draws; said once, never silent
+            if said not in _CF_SAID:
+                _CF_SAID.add(said)
+                print(f"AI pictures: Cloudflare {short} gave no picture (HTTP {r.status_code}: {errs[:160]}); "
+                      "trying the next model", flush=True)
             break
-    if gone == len(CF_MODELS):
+    if gone == len(models):
         _block("cloudflare")
     return None
 
