@@ -503,11 +503,24 @@ def _expand_once(brain, script: dict, target: int, minimum: int, log=print) -> d
 
 
 TRIM_PROMPT = """This YouTube Short script has {n} words; the research target for this channel is {target}.
-Tighten it to about {goal} words: drop the weakest beats and shorten long sentences. Keep beat 0 (the hook), the
-payoff and the last line (it loops back to the start). NEVER add facts, names, numbers or dates; only remove or
-shorten. Same language. Return ONLY JSON: {{"keep": [{{"i": 0, "narration": "same or shortened text"}}]}}
+Tighten it to about {goal} words. Shorten long sentences first; drop a beat only when the story loses nothing without
+it. Always keep beat 0 (the hook), the line that resolves the setup (the answer, the twist, the punchline) and the last
+line (it loops back to the start){must}. NEVER add facts, names, numbers or dates; only remove or shorten. Same
+language. Return ONLY JSON: {{"keep": [{{"i": 0, "narration": "same or shortened text"}}]}}
 Beats (index: narration):
 {lines}"""
+
+# 23 Nov (Itihaas 1123 remake 2, the last): the trim (160 -> 122 words) deleted the girl's answer ("my father gave birth
+# today") and the punchline ("if a bull gives milk, why can't a man give birth?"), kept the loop line, and the story
+# no longer made sense: quality 100, but the judge read it as stilted, AI-like Hindi (human_feel 4, clarity 4) and the
+# video was held. Spoken lines in quotes carry a dialogue story: the trim may shorten them, never delete them.
+_SPEECH = re.compile(r'["“”«»]\s*\S[^"“”«»]{2,}["“”«»]'
+                     r"|(?:^|[\s(—–:-])['‘]\S[^'‘’]{2,}['’](?=[\s,.!?;:—–।)-]|$)")
+
+
+def _speech(text: str) -> bool:
+    """Does this line hold someone's spoken words in quotes? (English apostrophes such as don't / fish's are not.)"""
+    return bool(_SPEECH.search(text or ""))
 
 
 def fit_length(brain, channel: dict, script: dict, log=print, _pass: int = 0) -> dict:
@@ -536,16 +549,24 @@ def fit_length(brain, channel: dict, script: dict, log=print, _pass: int = 0) ->
     goal = (nums[0] + nums[1]) // 2
     log(f"Script: {n} words is over this channel's research range ({rng}); tightening to ~{goal}")
     lines = "\n".join(f"{i}: {b.get('narration', '')}" for i, b in enumerate(beats))
-    data, _ = brain.ask_json("writer", TRIM_PROMPT.format(n=n, target=rng, goal=goal, lines=lines), temperature=0.3)
+    spoken = [i for i, b in enumerate(beats) if _speech(b.get("narration", ""))]
+    must = (f", and every beat with spoken lines: {', '.join(map(str, spoken))} (who says what carries the story: "
+            "shorten them if needed, never drop one)") if spoken else ""
+    data, _ = brain.ask_json("writer", TRIM_PROMPT.format(n=n, target=rng, goal=goal, lines=lines, must=must),
+                             temperature=0.3)
     keep = [k for k in (data or {}).get("keep") or [] if isinstance(k, dict) and str(k.get("i", "")).isdigit()]
     new = []                                    # (index in the original, beat)
     for k in keep:
         i = int(k["i"])
-        if 0 <= i < len(beats) and k.get("narration"):
+        if 0 <= i < len(beats) and k.get("narration") and i not in {j for j, _ in new}:
             nb = dict(beats[i], narration=str(k["narration"]).strip())
             if nb["narration"] != beats[i].get("narration"):
                 nb.pop("narration_roman", None)            # the Roman caption copy must follow the new wording
             new.append((i, nb))
+    lost = [i for i in spoken if i not in {j for j, _ in new}]
+    if lost and new:                            # the writer dropped them anyway: they come back as they were
+        new = sorted(new + [(i, dict(beats[i])) for i in lost], key=lambda x: x[0])
+        log(f"  the cut dropped spoken lines the story needs (beats {', '.join(map(str, lost))}): put back")
     m = sum(len(b["narration"].split()) for _, b in new)
     if len(new) < 8 or m >= n or 0 not in [int(k["i"]) for k in keep]:
         if _pass < 1:
