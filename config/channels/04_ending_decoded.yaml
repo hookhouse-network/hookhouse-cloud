@@ -11,7 +11,8 @@ earns_from: [youtube_ads]
 schedule: {shorts_per_day: 1, long_per_week: 1}
 voice: {engine: kokoro, id: af_heart, backup: {engine: kokoro, id: af_nicole}}
 style:
-  ai_style: "noir detective aesthetic, evidence board and paper textures, hard side lighting, deep shadows, original characters only, no real actors"   # one consistent AI look per channel
+  # 24 Nov: "no real actors" dropped: an image model cannot read "no", the words only ask for actors' faces
+  ai_style: "noir detective aesthetic, evidence board and paper textures, hard side lighting, deep shadows, original characters only"   # one consistent AI look per channel
   palette: ["#111111", "#E50914", "#F5F5F1"]
   caption_color: "#FFFFFF"
   highlight_color: "#E50914"

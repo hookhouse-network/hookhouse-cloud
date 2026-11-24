@@ -12,7 +12,10 @@ schedule: {shorts_per_day: 1, long_per_week: 1}
 voice: {engine: kokoro, id: hm_psi, speed: 1.05, pauses: {before_reveal: 0.45, after_question: 0.3}, backup: {engine: kokoro, id: hm_omega}}
 style:
   graphics_alt: poster        # research graphics kit: vary cards (numbers keep the main design)
-  ai_style: "vintage Indian sports poster illustration, warm film tones, stylised stadium crowd, painterly, generic cricketers with no real player's likeness"   # one consistent AI look per channel
+  # 24 Nov: "generic cricketers with no real player's likeness" was added to EVERY picture prompt; an image model cannot
+  # read "no", so it drew cricketers' faces even for "two captain's armbands lying on a bench" (7 of 11 scenes became
+  # word cards under the sports likeness rule). The faceless framing comes from the storyboard rule (no_faces).
+  ai_style: "vintage Indian sports poster illustration, warm film tones, stylised stadium crowd, painterly"   # one consistent AI look per channel
   palette: ["#0B3D2E", "#1E88E5", "#FFFFFF"]
   caption_color: "#FFFFFF"
   highlight_color: "#FFD400"

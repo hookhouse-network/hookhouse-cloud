@@ -763,6 +763,33 @@ def cloud_freshened(item: dict, today: str | None = None) -> bool:
 
 
 FEELINGS = ("funny", "emotional", "nostalgic", "shocking", "satisfying", "relatable", "awe")
+MADE_STATUSES = ("making", "made", "approved", "scheduled", "posted", "redo")
+
+
+def _plain(topic: str) -> str:
+    """Lower-case words, Devanagari kept whole (uniq._norm drops it: two Hindi topics would both be '')."""
+    return " ".join(re.findall(r"[\wऀ-ॿ]+", str(topic or "").lower()))
+
+
+def _subject(topic: str) -> str:
+    return " ".join([w for w in _plain(topic).split() if len(w) > 3][:2])
+
+
+def topic_repeats(topic: str, others) -> str | None:
+    """The other topic of this channel that `topic` repeats (75%+ the same wording, or the same first two key words),
+    or None. 24 Nov: two Itihaas slots (24 Nov 12:30, 25 Nov 08:00) both switched to the day's trend "Jhalkari Bai -
+    the fearless Koli warrior of 1857", because fresh_topics asks each slot alone; the second video would be held as a
+    title repeat. Different people in the same title pattern stay apart ("Rani Lakshmibai: the fearless queen of
+    Jhansi in 1857" is 57% the same)."""
+    import difflib
+    a, key = _plain(topic), _subject(topic)
+    if len(a) < 12:
+        return None
+    for other in others:
+        b = _plain(other)
+        if len(b) >= 12 and (difflib.SequenceMatcher(None, a, b).ratio() >= 0.75 or (key and key == _subject(other))):
+            return str(other)
+    return None
 
 
 def why_now(item: dict) -> str:
@@ -795,17 +822,18 @@ def now_line(item: dict) -> str:
     return f"\nWhy now: {hook}" if hook else ""
 
 
-def _refresh_topic(plan: dict, item: dict, ch: dict, brain, memory=None, log=print) -> None:
+def _refresh_topic(plan: dict, item: dict, ch: dict, brain, memory=None, log=print, offer_planned: bool = True) -> None:
     """Right before a Short is made: today's trends vs the topic planned days ago; the stronger one is made (owner
     19 Nov: "our content looks outdated, not trending"). The planned topic stays in the plan as planned_topic.
-    Not for a topic the cloud already freshened (cloud_freshened)."""
+    Not for a topic the cloud already freshened (cloud_freshened), unless another slot already made it
+    (offer_planned=False: the planned topic is not offered to keep)."""
     try:
         from .trends import trend_hints
         fresh = trend_hints(brain, log=log).get(ch["id"], [])
     except Exception:  # noqa: BLE001
         fresh = []
     planned = f"{item['topic']}" + (f" (angle: {item['angle']})" if item.get("angle") else "")
-    blocked = franchise_names(item)                     # planned before the shift-left filter: replace it
+    blocked = franchise_names(item) or not offer_planned    # planned before the shift-left filter / a repeat: replace
     hints = fresh + ([] if blocked else
                      [f"PLANNED EARLIER (keep it only if nothing above beats it on scroll-stop): {planned}"])
     taken = [it.get("topic") for it in plan.get("items", []) if it.get("topic") and it is not item]
@@ -1001,9 +1029,15 @@ def make_item(plan: dict, item: dict, brain, memory=None, log=print) -> None:
         item.pop("gate_note", None)                    # the old video's findings belong to the old topic
     elif ch["type"] == "story" and item.get("kind") != "long" and item.get("topic") and brain is not None \
             and item.get("status") != "redo" and not item.get("refreshed") and item.get("role") not in ("hub", "spoke"):
-        if cloud_freshened(item):
+        made = [o.get("topic") for o in plan.get("items", []) if o is not item and o.get("id") != item.get("id")
+                and o.get("channel") == item.get("channel") and o.get("status") in MADE_STATUSES]
+        twin = topic_repeats(item["topic"], made) if cloud_freshened(item) else None
+        if cloud_freshened(item) and not twin:
             log(f"Topic for {ch['name']}: kept (" + (f"news: {str(item['news'])[:80]}" if item.get("news") else
                                                      f"checked against the trends on {item.get('fresh_day')}") + ")")
+        elif twin:
+            log(f"Topic for {ch['name']}: another slot already made '{twin[:70]}'; picking another topic")
+            _refresh_topic(plan, item, ch, brain, memory, log, offer_planned=False)
         else:
             _refresh_topic(plan, item, ch, brain, memory, log)
     topic = item.get("topic") or ""

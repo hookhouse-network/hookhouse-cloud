@@ -1280,8 +1280,9 @@ def _big_face(path) -> bool:
 
 
 # 24 Nov, Cricket Ke Kisse: 4 of 13 drawn scenes showed a face, each became a word card at once, and the quality gate
-# held the video for "4/13 shots are word cards". One redraw that asks for the faces to be hidden comes first.
-NO_FACE_SUFFIX = ", seen from behind or far away, faces turned away or hidden in shadow, no visible face"
+# held the video for "4/13 shots are word cards". One redraw that frames the people faceless comes first. Positive
+# words only: the PC's model runs at guidance 1.0 (no negative prompt) and a prompt that names "face" draws one.
+NO_FACE_SUFFIX = ", seen from behind, small dark silhouettes against bright light, wide shot"
 
 
 def faceless_redraw(beat: dict, size: tuple[int, int], log=print, i: int = 0) -> dict | None:

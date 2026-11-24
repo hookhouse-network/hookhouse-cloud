@@ -12,7 +12,9 @@ schedule: {shorts_per_day: 1, long_per_week: 1}
 voice: {engine: kokoro, id: am_adam, pauses: {before_reveal: 0.4}, backup: {engine: kokoro, id: am_onyx}}
 style:
   graphics_alt: casefile        # research graphics kit: vary cards (numbers keep the main design)
-  ai_style: "stylised semi-realistic sports illustration, stadium floodlights, strong rim light, motion energy, painterly digital art, generic athletes with no real person's likeness"   # one consistent AI look per channel
+  # 24 Nov: "generic athletes with no real person's likeness" asked every picture for athletes and a likeness (an image
+  # model cannot read "no"); the faceless framing comes from the storyboard rule (no_faces)
+  ai_style: "stylised semi-realistic sports illustration, stadium floodlights, strong rim light, motion energy, painterly digital art"   # one consistent AI look per channel
   palette: ["#0A1F44", "#FFB000", "#FFFFFF"]
   caption_color: "#FFFFFF"
   highlight_color: "#FFC21A"

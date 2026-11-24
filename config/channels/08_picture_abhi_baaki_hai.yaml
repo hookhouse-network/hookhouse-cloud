@@ -12,7 +12,8 @@ schedule: {shorts_per_day: 1, long_per_week: 1}
 voice: {engine: kokoro, id: hf_alpha, speed: 1.05, pauses: {before_reveal: 0.3, after_question: 0.3}, backup: {engine: kokoro, id: hf_beta}}
 style:
   graphics_alt: parchment        # research graphics kit: vary cards (numbers keep the main design)
-  ai_style: "retro hand-painted Indian cinema poster art, warm colours, art deco cinema halls and film reels, no real actor likeness"   # one consistent AI look per channel
+  # 24 Nov: "no real actor likeness" dropped: an image model cannot read "no", the words only ask for an actor's face
+  ai_style: "retro hand-painted Indian cinema poster art, warm colours, art deco cinema halls and film reels"   # one consistent AI look per channel
   palette: ["#1A0B2E", "#FF2E93", "#FFD700"]
   caption_color: "#FFFFFF"
   highlight_color: "#FFD700"
