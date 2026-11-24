@@ -15,7 +15,9 @@ style:
   # 24 Nov: "generic cricketers with no real player's likeness" was added to EVERY picture prompt; an image model cannot
   # read "no", so it drew cricketers' faces even for "two captain's armbands lying on a bench" (7 of 11 scenes became
   # word cards under the sports likeness rule). The faceless framing comes from the storyboard rule (no_faces).
-  ai_style: "vintage Indian sports poster illustration, warm film tones, stylised stadium crowd, painterly"   # one consistent AI look per channel
+  # Owner 24 Nov: anime style A from the look test (data/tmp/loop/anime_ab, checker 9/10); the sport is named in each
+  # shot by the storyboard rule (sport): the test's unnamed "match on TV" came out as football
+  ai_style: "cinematic anime key visual, clean cel shading, crisp line art, dramatic rim light, detailed painted background, rich warm colours"   # one consistent AI look per channel
   palette: ["#0B3D2E", "#1E88E5", "#FFFFFF"]
   caption_color: "#FFFFFF"
   highlight_color: "#FFD400"

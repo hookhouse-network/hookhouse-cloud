@@ -69,6 +69,10 @@ whose whole point is one striking number. One entry per beat, same order, i = be
 RULES = {
     "no_faces": "Real sportspeople must never be recognisable: show them from behind, in silhouette, far away or as "
                 "hands/feet/equipment close-ups; generic players only.",
+    # 24 Nov: the anime look test's "match on TV" for Cricket Ke Kisse came out as football: an image model turns an
+    # unnamed match into football (soccer)
+    "sport": "Every shot that shows play, a ground, a crowd, gear or a screen names THIS story's sport and its gear "
+             "(for cricket: a cricket ground, bat, stumps and whites; for American football: a gridiron and helmets).",
     "myth": "Hindu epics: respectful, traditional iconography (e.g. Krishna blue-skinned with peacock feather, Karna with "
             "golden kavach armour and kundal earrings fused to his body); ancient Indian palaces, forests, chariots - "
             "never Mughal domes, minarets or modern objects; no invented rituals.",
@@ -85,7 +89,7 @@ def _rules(channel: dict) -> str:
     from .ip_guard import RULE                      # 20 Nov: no franchise characters / real faces, every channel
     out = [RULE]
     if channel["id"] in ("clutch_tales", "cricket_ke_kisse"):
-        out.append(RULES["no_faces"])
+        out += [RULES["no_faces"], RULES["sport"]]
     if channel["id"] == "itihaas_ke_raaz":
         out.append(RULES["myth"])
     from .style_cards import visual_text            # S8 A16: one consistent look per channel (not random stock)

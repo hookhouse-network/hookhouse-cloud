@@ -32,9 +32,18 @@ def code_repo() -> str:
     return r
 
 
+_CLI_TOKEN = ""              # the GitHub CLI's token, once read (this process)
+
+
 def token() -> str:
+    """24 Nov: every Store asked the GitHub CLI again; under load `gh auth token` took 8 s and once timed out (20 s),
+    and the PC helper stopped with "no GitHub token". The CLI's answer is kept for the process (the helper restarts
+    with every code update anyway)."""
+    global _CLI_TOKEN
     t = (os.environ.get("STORE_TOKEN") or os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
          or os.environ.get("HOOKHOUSE_GH_TOKEN", ""))
+    if not t and _CLI_TOKEN:
+        return _CLI_TOKEN
     if not t:                                    # the PC helper: the GitHub CLI login made during cloud setup
         try:
             import subprocess
@@ -42,6 +51,7 @@ def token() -> str:
             t = subprocess.run([_gh(), "auth", "token"], capture_output=True, text=True, timeout=20).stdout.strip()
         except Exception:  # noqa: BLE001
             t = ""
+        _CLI_TOKEN = t
     if not t:
         raise StoreError("no GitHub token (GITHUB_TOKEN in Actions, GH_TOKEN on the PC)")
     return t

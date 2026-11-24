@@ -14,7 +14,9 @@ style:
   painting_search: "Raja Ravi Varma"
   visual_era: ancient          # paintings first for characters; never modern people or modern scenes
   painting_context: "Mahabharat|Ramayan|Ravi Varma|RRV|Hindu|India|Puran|Bhagavat|Gita|Kangra|Pahari|Rajput|Mysore|Tanjore|deity|epic"   # public-domain paintings (died 1906) for mythology scenes
-  ai_style: "classical Indian painting style inspired by 19th-century oil masters, warm golden light, rich deep colours, accurate traditional attire and architecture, respectful and dignified"   # one consistent AI look per channel
+  # Owner 24 Nov: anime style C from the look test (data/tmp/loop/anime_ab; FLUX.2 klein drew all three, checker 8/10),
+  # with the attire/architecture words the test pictures carried (was: classical Indian oil-painting style)
+  ai_style: "epic dark anime illustration, gritty high-contrast cel shading, intense expressions, cinematic composition, dust and embers in the air, accurate traditional Indian attire and architecture, respectful"   # one consistent AI look per channel
   palette: ["#2B1B0E", "#FF9933", "#FFF4E0"]
   caption_color: "#FFFFFF"
   highlight_color: "#FF9933"
