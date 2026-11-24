@@ -55,7 +55,7 @@ def test_fact_fix_never_makes_a_script_worse(monkeypatch):
     verdicts = iter([{"checked": True, "ok": False, "problems": ["wrong year"], "warnings": []},
                      {"checked": True, "ok": False, "problems": ["new mistake 1", "new mistake 2"], "warnings": []},
                      {"checked": True, "ok": False, "problems": ["new mistake 3", "new mistake 4"], "warnings": []}])
-    monkeypatch.setattr(story, "fact_check", lambda brain, script, deep=False: next(verdicts))
+    monkeypatch.setattr(story, "fact_check", lambda brain, script, deep=False, news="": next(verdicts))
 
     def fake_fix(brain, script, wrong, prompt=""):
         if prompt:                                                # 23 Nov: the deletion step finds nothing to cut
@@ -71,7 +71,8 @@ def test_fact_fix_never_makes_a_script_worse(monkeypatch):
 
 def test_unsupported_details_alone_do_not_trigger_a_rewrite(monkeypatch):
     monkeypatch.setattr(story, "fact_check",
-                        lambda brain, script, deep=False: {"checked": True, "ok": True, "problems": [], "warnings": ["x"]})
+                        lambda brain, script, deep=False, news="": {"checked": True, "ok": True, "problems": [],
+                                                                     "warnings": ["x"]})
     monkeypatch.setattr(story, "fix_script", lambda *a: (_ for _ in ()).throw(AssertionError("must not fix")))
     out = story.check_and_fix(None, {}, {"beats": [{"narration": "a"}]}, "t", "short", log=lambda m: None)
     assert out["_fact_check"]["warnings"] == ["x"]

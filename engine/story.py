@@ -65,7 +65,10 @@ STEP 3 - BEATS (the structure top story Shorts use in 2026).
 - End = the payoff, ideally ironic or surprising. NO call to action, no "follow for more", no "subscribe".
   The last line should flow back into the first line so the Short loops: it finishes beat 1's thought in new words,
   never a stock line such as "which brings us back".
-- One short sentence per beat (5-12 words, about 2-3 seconds). Simple spoken words, active verbs.
+- One line of speech per beat (about 2-3 seconds, 3-14 words), said the way a person tells a friend, so the lines
+  vary in length AND shape: some are a short punch or a fragment, most are one plain sentence, some carry a detail in
+  a longer line; mix in a question, a quote or an aside. Never three beats in a row of the same length or the same
+  opening. Simple spoken words, active verbs.
 - Exact numbers, names, dates. Compare big numbers with things people know.
 - Length: {words}, {beats} beats.
 - MrBeast rule: beat 1 delivers the title's promise in its own words and says the title's key words (people search
@@ -322,34 +325,86 @@ REF_STOP = {"the", "and", "that", "this", "with", "from", "what", "when", "where
             "story", "true", "real", "mystery", "case", "inside", "secret", "truth", "about", "after", "before"}
 
 
+def core_topic(topic: str) -> str:
+    """The subject of a writing brief: its first line without the angle (make_item adds "(angle: ...)", the
+    feeling, the why-now and the redo notes)."""
+    head = str(topic or "").split("\n", 1)[0]
+    return re.split(r"\s+\(angle:", head, maxsplit=1)[0].strip()
+
+
+def ref_queries(topic: str) -> list[str]:
+    """Wikipedia searches for a brief's reference article, best first. 24 Nov: Wikipedia's search needs every word
+    to match, so the whole brief (angle, feeling, why-now) found no article for any of the PC's 100 scripts, and a
+    long title alone finds few; its lead phrase ("Challenger Deep", "The Skylab 4 'mutiny'") is tried first."""
+    plain = re.sub(r"\s*\([^)]*\)", " ", core_topic(topic)).strip()          # dates and notes in brackets
+    lead = re.split(r"\s*(?:[:?!,—–|]|\s-\s)\s*", plain, maxsplit=1)[0]
+    words = [w for w in re.sub(r"[^\w\s'-]", " ", lead).split() if w.lower() not in REF_STOP | {"a", "an", "of"}]
+    out: list[str] = []
+    for q in (lead, plain, " ".join(words[:3])):    # last: the lead's first 3 words ("Komodo dragon swallows")
+        q = " ".join(re.sub(r"[^\w\s'-]", " ", q).split())
+        if _ref_words(q) and q not in out:
+            out.append(q)
+    return out
+
+
+def ref_about(title: str, topic: str) -> bool:
+    """Is a search hit ABOUT the brief's subject? 22 Nov trial: "The Fall of Daniel Jones (#2 overall pick)" found
+    Robert Griffin III and "Dhoni's 2011 final" the Dhoni biopic. Both ways: one of the topic's first two words is in
+    the title, the title's first word (the name) is in the topic, at least half the title's words are. Or (24 Nov) a
+    title of 2+ words that are all in the topic ("Pete Rose" for "The 8-Day Tragedy That Locked Pete Rose Out of
+    Baseball Forever"); a one-word title still needs the first check ("Storm" is no article for a Mariner 9 topic
+    that mentions a dust storm). "(American football)"-style qualifiers don't count. A number or Roman numeral in
+    the title must be in the topic too ("Mariner 10" is no article for Mariner 9, nor "Super Bowl LII" for LI)."""
+    topic_list = _ref_words(re.sub(r"[^\w\s'-]", " ", core_topic(topic)))
+    words = set(topic_list)
+    tw = _ref_words(re.sub(r"\s*\([^)]*\)", "", title))
+    if not tw or not words:
+        return False
+    numerals = re.compile(r"\b(?:\d+|[IVXLCDM]{2,})\b")
+    if not set(numerals.findall(re.sub(r"\s*\([^)]*\)", "", title))) <= set(numerals.findall(core_topic(topic))):
+        return False
+    both = any(w in tw for w in topic_list[:2]) and tw[0] in words and 2 * sum(w in words for w in tw) >= len(tw)
+    return both or (len(tw) >= 2 and all(w in words for w in tw))
+
+
+def _wiki_hits(query: str, n: int = 3, lang: str = "en") -> list[str]:
+    """The titles of Wikipedia's top `n` search hits for `query`."""
+    try:
+        r = visuals._get(f"https://{lang}.wikipedia.org/w/api.php", timeout=30,
+                         params={"action": "query", "format": "json", "list": "search", "srsearch": query,
+                                 "srlimit": n})
+        return [h["title"] for h in r.json().get("query", {}).get("search", [])][:n]
+    except (requests.RequestException, ValueError, KeyError, TypeError):
+        return []
+
+
 def reference_notes(topic: str, chars: int = 4000) -> dict:
     """Grounded writing (22 Nov: five fact-check failures in one day; the writer wrote from memory and named its
-    sources only afterwards). The topic's top Wikipedia article, given to the writer BEFORE it writes, with the
-    rule that every specific detail must match it. An unrelated search hit (no topic word in its title or intro)
-    is dropped. {} parts empty when nothing fits: the writer then works as before."""
+    sources only afterwards). The topic's Wikipedia article, given to the writer BEFORE it writes, with the rule that
+    every specific detail must match it. Searched with the topic's lead phrase, then the whole topic (ref_queries);
+    of the top hits, the first that is about the topic (ref_about) and is no film/novel/series article (unless the
+    topic is about one) and no disambiguation page; at most 3 articles read. {} parts empty when nothing fits: the
+    writer then works as before."""
     empty = {"text": "", "titles": [], "rule": ""}
-    q = re.sub(r"[^\w\s'-]", " ", topic or "").strip()
-    topic_list = _ref_words(q)
-    topic_words = set(topic_list)
-    if not topic_words:
+    queries = ref_queries(topic)
+    if not queries:
         return empty
-    title = _wiki_search(q)
-    if not title:
-        return empty
-    # 22 Nov trial on real topics: "The Fall of Daniel Jones (#2 overall pick)" found Robert Griffin III and
-    # "Dhoni's 2011 final" found the Dhoni biopic. The article must be ABOUT the topic's subject, both ways: one of
-    # the topic's first two words is in the title, the title's first word (the name) is in the topic, at least half
-    # the title's words are; "(American football)"-style qualifiers don't count; a film/novel/series article only
-    # counts when the topic is about one.
-    tw = _ref_words(re.sub(r"\s*\([^)]*\)", "", title))
-    if not tw or not any(w in tw for w in topic_list[:2]) or tw[0] not in topic_words \
-            or 2 * sum(w in topic_words for w in tw) < len(tw):
-        return empty
-    text = wikipedia_summaries([title], chars=chars, focus=q)
-    first = text[:200].lower()                      # the definition ("... is a 2016 ... film"); not split at ". ":
-    if not text or (REF_WORK.search(first) and not REF_WORK.search(q.lower())):     # "M.S. Dhoni" has one
-        return empty
-    return {"text": text[:chars], "titles": [title], "rule": REF_RULE + text[:chars]}
+    focus = re.sub(r"[^\w\s'-]", " ", str(topic or "").split("\n", 1)[0])     # topic + angle: the relevant paragraphs
+    seen, reads = set(), 0
+    for q in queries:
+        for title in _wiki_hits(q):
+            if title in seen or not ref_about(title, topic):
+                continue
+            seen.add(title)
+            text = wikipedia_summaries([title], chars=chars, focus=focus)
+            reads += 1
+            first = text[:200].lower()          # the definition ("... is a 2016 ... film"); not split at ". ":
+            work = REF_WORK.search(first) and not REF_WORK.search(core_topic(topic).lower())  # "M.S. Dhoni" has one
+            if text and not work and "may refer to" not in first:
+                return {"text": text[:chars], "titles": [title], "rule": REF_RULE + text[:chars]}
+            if reads >= 3:
+                return empty
+    return empty
 
 
 REF_WORK = re.compile(r"\b(film|movie|television series|tv series|web series|novel|video game|album|song)\b")
@@ -463,8 +518,8 @@ def pace_speed(speed: float, target_wpm: float, measured_wpm: float) -> float:
 EXPAND_PROMPT = """This YouTube script has {n} words of narration; it needs about {target} words (research length).
 Add about {add} words this time (not more).
 Write ADDITIONAL beats with true, specific detail (scenes, context, what the records say, the people involved) to
-insert where the story is thinnest. Never invent facts, names, numbers or dates. One short sentence per beat, same
-language and style. Never insert before beat 0 or after the last beat (the hook stays first, the ending stays last). Return ONLY JSON:
+insert where the story is thinnest. Never invent facts, names, numbers or dates. One line of speech per beat in the
+script's own voice and rhythm, same language and style. Never insert before beat 0 or after the last beat (the hook stays first, the ending stays last). Return ONLY JSON:
 {{"insert": [{{"after": 12, "beats": [{{"narration": "...", "visual": "photo|footage|ai|text", "query": "...",
 "ai_prompt": "", "label": "", "big_text": "", "sub": "", "emoji": "", "emphasis": [""], "moment": "normal",
 "chapter": ""}}]}}], "claims": ["every NEW factual claim, one per line"]}}
@@ -730,12 +785,22 @@ def phrase_early(brain, script: dict, log=print) -> dict:
     return script
 
 
+NEWS_MARK = "This week's news headline: "
+
+
+def news_in_brief(topic: str) -> str:
+    """The news headline a writing brief leads with (weekly.now_line), or ""."""
+    m = re.search(re.escape(NEWS_MARK) + r"\"(.+?)\"\.", str(topic or ""))
+    return m.group(1).strip() if m else ""
+
+
 def check_and_fix(brain, channel: dict, script: dict, topic: str, fmt: str, memory=None, log=print) -> dict:
     """Fact-check; only real mistakes get fixed (small targeted edits; one careful rewrite if no edit fits); the
     best version wins, so a fix can never make the script worse. "Unsupported" details go to the owner."""
     log("Fact-check: comparing claims with Wikipedia")
     deep = fmt == "long"
-    verdict = fact_check(brain, script, deep=deep)
+    news = news_in_brief(topic)                         # a news topic: its headline is a source too
+    verdict = fact_check(brain, script, deep=deep, news=news)
     best = (copy.deepcopy(script), verdict)
     for attempt in range(2):
         wrong = verdict.get("problems") or []
@@ -747,19 +812,19 @@ def check_and_fix(brain, channel: dict, script: dict, topic: str, fmt: str, memo
         if applied == 0 and not deep:
             script = write_script(brain, channel, f"{topic}\nFix these factual problems exactly, change nothing else "
                                   f"that is true: {wrong}", fmt, memory)
-        verdict = fact_check(brain, script, deep=deep)
+        verdict = fact_check(brain, script, deep=deep, news=news)
         if _fc_score(verdict) < _fc_score(best[1]):
             best = (copy.deepcopy(script), verdict)
     if _fc_score(verdict) > _fc_score(best[1]):
         log("Fact-check: the fix made it worse; keeping the earlier, better version")
         script, verdict = best
     if verdict.get("checked") and verdict.get("problems"):
-        script, verdict = _delete_wrong(brain, script, verdict, deep, log)
+        script, verdict = _delete_wrong(brain, script, verdict, deep, log, news=news)
     script["_fact_check"] = verdict
     return script
 
 
-def _delete_wrong(brain, script: dict, verdict: dict, deep: bool, log=print) -> tuple[dict, dict]:
+def _delete_wrong(brain, script: dict, verdict: dict, deep: bool, log=print, news: str = "") -> tuple[dict, dict]:
     """23 Nov (Deep Blue 1123, its last remake): both corrections failed, so the best draft still stated a detail the
     sources contradict; the PC rendered it for 35 minutes and the gate held it (wrong facts had caused 5 of the
     week's 24 remakes before it). A detail that cannot be corrected is deleted: deleting adds no new claim to get
@@ -771,7 +836,7 @@ def _delete_wrong(brain, script: dict, verdict: dict, deep: bool, log=print) -> 
         if not applied:
             log("Fact-check: no deletion fitted; the video gate will hold this draft")
             return script, verdict
-        after = fact_check(brain, cut, deep=deep)
+        after = fact_check(brain, cut, deep=deep, news=news)
     except Exception as e:  # noqa: BLE001 - keep the best draft; the video gate still checks it
         log(f"Fact-check: deleting failed ({type(e).__name__}: {str(e)[:80]})")
         return script, verdict
@@ -857,9 +922,10 @@ def write_script(brain, channel: dict, topic: str, fmt: str = "short", memory=No
     return normalize_script(script)
 
 
-def fact_check(brain, script: dict, deep: bool = False) -> dict:
+def fact_check(brain, script: dict, deep: bool = False, news: str = "") -> dict:
     """deep=True (long videos, many claims): read much more of each article, so true details that sit
-    further down the page are not reported as "unsupported"."""
+    further down the page are not reported as "unsupported". news: the headline of a news topic (24 Nov): this
+    week's fact is not on Wikipedia yet, so the checker reads the headline as a source too."""
     refs = wikipedia_summaries(script.get("sources", []), focus=" ".join(script.get("claims", [])),
                                chars=30000 if deep else 9000)
     if not refs and script.get("sources"):              # Wikipedia busy: one more try after a pause
@@ -868,6 +934,8 @@ def fact_check(brain, script: dict, deep: bool = False) -> dict:
                                    chars=30000 if deep else 9000)
     if not refs or not script.get("claims"):
         return {"ok": False, "problems": ["No sources found to verify the claims — check manually"], "checked": False}
+    if news:
+        refs = f"[This week's news headline, newer than the articles below] {news}\n\n{refs}"
     verdict, result = brain.ask_json("checker", CHECKER_PROMPT.format(
         claims="\n".join(f"- {c}" for c in script["claims"]), refs=refs[:90000 if deep else 40000]), temperature=0.0)
     contradicted = [str(x) for x in verdict.get("contradicted") or []]

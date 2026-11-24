@@ -762,6 +762,35 @@ def cloud_freshened(item: dict, today: str | None = None) -> bool:
     return timedelta(0) <= now - fd <= timedelta(days=2)
 
 
+FEELINGS = ("funny", "emotional", "nostalgic", "shocking", "satisfying", "relatable", "awe")
+
+
+def why_now(item: dict) -> str:
+    """Why this video is timely, in the plan's own words: the headline of a news topic, the reason a topic was
+    switched to today's trend, else the hook planned with the topic ("evergreen" is no hook). 24 Nov: news_topics and
+    fresh_topics replaced the topic but left the old topic's hook on the item, so the writer of an Nvidia video was
+    told 'why now: Trending search "Taylor Sheridan"' (the hook of the Yellowstone topic it replaced)."""
+    if item.get("news"):
+        return str(item["news"]).strip()
+    if item.get("fresh_at"):
+        return str(item.get("why") or "").strip()
+    hook = str(item.get("now_hook") or "").strip()
+    return "" if hook.lower().startswith("evergreen") else hook
+
+
+def now_line(item: dict) -> str:
+    """The writer's why-now line. 24 Nov: a news topic reached the writer without its headline (only the topic and
+    the angle), so "Nvidia stock plunges 14%, wraps up longest weekly losing streak since 2008 financial crisis"
+    became a script about the January 2025 drop. The headline now leads the brief, and the fact-check reads it as a
+    source (story.news_in_brief)."""
+    if item.get("news"):
+        from .story import NEWS_MARK
+        return (f"\n{NEWS_MARK}\"{str(item['news']).strip()}\". Open with what this headline says just happened, in "
+                "plain words, then tell the true story behind it. About this week, say only what the headline says.")
+    hook = why_now(item)
+    return f"\nWhy now: {hook}" if hook else ""
+
+
 def _refresh_topic(plan: dict, item: dict, ch: dict, brain, memory=None, log=print) -> None:
     """Right before a Short is made: today's trends vs the topic planned days ago; the stronger one is made (owner
     19 Nov: "our content looks outdated, not trending"). The planned topic stays in the plan as planned_topic.
@@ -787,6 +816,8 @@ def _refresh_topic(plan: dict, item: dict, ch: dict, brain, memory=None, log=pri
     t = got[0]
     if t["topic"].strip().lower() != str(item["topic"]).strip().lower():
         item["planned_topic"] = item["topic"]
+        item.pop("news", None)                          # the old topic's headline and trend switch no longer apply
+        item.pop("fresh_at", None)
         log(f"Fresher topic for {ch['name']}: {t['topic']} (was: {item['topic']})")
     item.update(topic=t["topic"], angle=t.get("angle") or item.get("angle"), why=t.get("why") or item.get("why"),
                 feeling=t.get("feeling"), now_hook=t.get("now_hook"))
@@ -974,8 +1005,8 @@ def make_item(plan: dict, item: dict, brain, memory=None, log=print) -> None:
     if item.get("angle"):
         topic = f"{topic} (angle: {item['angle']})"
     if item.get("feeling"):
-        topic = f"{topic}\nThe feeling this video must deliver: {item['feeling']}" + (
-            f" (why now: {item['now_hook']})" if item.get("now_hook") else "")
+        topic = f"{topic}\nThe feeling this video must deliver: {item['feeling']}"
+    topic += now_line(item)
     topic += redo_text(item, ch)
     if ch["type"] == "story":
         if not item.get("topic"):                      # never write a script about nothing

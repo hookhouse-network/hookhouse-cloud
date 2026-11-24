@@ -538,12 +538,14 @@ def scene(beat: dict, era: str, size: tuple[int, int], log=print, i: int = 0, tr
     if not prompt:
         return None
     best, base = None, seed if seed is not None else (int(hashlib.md5(prompt.encode()).hexdigest()[:6], 16) % 100000)
+    scores = []
     for t in range(tries):
         got = draw(prompt, base + t * 977, size, variant=t)
         if not got:
             break
         path, src = got
         verdict = eyes(path, beat.get("narration", ""), beat.get("see", ""), era)
+        scores.append(verdict["score"])
         if best is None or verdict["score"] > best[1]["score"]:
             best = (path, verdict, src)
         if verdict["ok"]:
@@ -552,6 +554,8 @@ def scene(beat: dict, era: str, size: tuple[int, int], log=print, i: int = 0, tr
             break
         why = "text in picture" if verdict["text"] else (verdict["wrong"] or f"score {verdict['score']}")
         log(f"  beat {i + 1}: redraw ({why})")
+    if len(scores) > 1:     # 24 Nov: does a redraw pay off? (on the PC most first drafts are redrawn, ~2 min each)
+        log(f"  beat {i + 1}: eyes scores {' -> '.join(str(s) for s in scores)} ({best[2] if best else '?'})")
     if not best:
         return None
     path, verdict, src = best

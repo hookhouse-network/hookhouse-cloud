@@ -23,7 +23,7 @@ Switch only if one of today's items makes a stronger video for this channel NOW:
 or a clear event at its centre, more likely to be watched and shared today on YouTube, Instagram and Facebook than
 the planned topic, and safe (no fresh tragedy, no politics, no allegation about a living person). Otherwise keep.
 Reply JSON only: {{"decision": "keep|switch", "topic": "the video topic", "angle": "the angle in one line",
-"why": "why now, in one line"}}"""
+"why": "why now, in one line", "feeling": "{feelings}"}}"""
 
 
 def _cfg() -> dict:
@@ -43,6 +43,7 @@ def freshen_due(brain, hints: dict | None = None, now=None, log=print) -> int:
         return 0
     from . import autopilot
     from .config import channel as channel_cfg
+    from .weekly import FEELINGS
     if hints is None:
         from . import trends
         hints = trends.trend_hints(brain, log=log)
@@ -63,15 +64,18 @@ def freshen_due(brain, hints: dict | None = None, now=None, log=print) -> int:
             data, _ = brain.ask_json("writer", PROMPT.format(
                 kind="long" if it.get("kind") == "long" else "short", channel=ch.get("name", it["channel"]),
                 niche=ch.get("niche", ""), topic=it.get("topic") or "", angle=it.get("angle") or "",
-                trends="\n".join(f"- {t}" for t in tips[:5])), temperature=0.3)
+                trends="\n".join(f"- {t}" for t in tips[:5]), feelings="|".join(FEELINGS)), temperature=0.3)
         except Exception as e:  # noqa: BLE001 - the planned topic stays (said, never silent)
             log(f"fresh topics: {it['id']} kept ({type(e).__name__}: {str(e)[:80]})")
             continue
         fields = {"fresh_day": today}
         if isinstance(data, dict) and data.get("decision") == "switch" and str(data.get("topic") or "").strip():
+            feeling = str(data.get("feeling") or "").strip().lower()
+            why = str(data.get("why") or "")[:300]
+            # 24 Nov: the new topic's own hook and feeling, never the replaced topic's
             fields.update(topic=str(data["topic"])[:200], angle=str(data.get("angle") or "")[:300],
-                          why=str(data.get("why") or "")[:300], fresh_at=time.time(),
-                          planned_topic=it.get("planned_topic") or it.get("topic"))
+                          why=why, fresh_at=time.time(), planned_topic=it.get("planned_topic") or it.get("topic"),
+                          now_hook=why or None, feeling=feeling if feeling in FEELINGS else None)
             switched += 1
             log(f"fresh topics: {it['id']}: '{it.get('topic')}' -> '{fields['topic']}' ({fields['why'][:80]})")
         autopilot.update_item(start, it["id"], **fields)

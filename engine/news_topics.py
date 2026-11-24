@@ -48,7 +48,8 @@ format: today's news is the hook, the video tells the true, dramatic story behin
 the history that explains it). No rumours, nothing unverified, no real match footage or film clips. Never a live
 case: no person who is still missing, no ongoing investigation or trial, no crime with recent victims.
 Avoid these recent topics: {avoid}
-Reply with JSON only: {{"topic": "...", "angle": "...", "why": "...", "headline": "the headline you used"}}"""
+Reply with JSON only: {{"topic": "...", "angle": "...", "why": "...", "feeling": "{feelings}",
+"headline": "the headline you used"}}"""
 
 
 def parse(xml: str, limit: int = 40) -> list[dict]:
@@ -127,7 +128,7 @@ def refresh(brain=None, log=print, session=None) -> int:
                                    audience="Indian viewers" if ch.get("market") == "IN" else "United States viewers",
                                    language="Hindi (Roman Hinglish hooks)" if ch.get("language") == "hi" else "English",
                                    format=str(ch.get("writer_rules") or ch.get("bio") or "")[:400], headlines=lines,
-                                   avoid="; ".join(avoid[:15]) or "none")
+                                   avoid="; ".join(avoid[:15]) or "none", feelings="|".join(weekly.FEELINGS))
             try:
                 pick, _res = brain.ask_json("writer", prompt, temperature=0.5)
             except Exception as e:  # noqa: BLE001 - the planned topic stays
@@ -136,10 +137,15 @@ def refresh(brain=None, log=print, session=None) -> int:
             topic = str((pick or {}).get("topic") or "").strip()
             if not topic:
                 continue
-            used.append(str(pick.get("headline") or ""))
+            headline = str(pick.get("headline") or "")[:200]
+            feeling = str(pick.get("feeling") or "").strip().lower()
+            used.append(headline)
+            # 24 Nov: the new topic's own hook and feeling, never the replaced topic's ('why now: Trending search
+            # "Taylor Sheridan"' reached the writer of an Nvidia video)
             autopilot.update_item(start, it["id"], topic=topic, angle=str(pick.get("angle") or it.get("angle") or ""),
-                                  why=str(pick.get("why") or ""), news=str(pick.get("headline") or "")[:200],
-                                  planned_topic=it.get("topic"))
+                                  why=str(pick.get("why") or ""), news=headline, planned_topic=it.get("topic"),
+                                  now_hook=f"in the news: {headline}" if headline else None,
+                                  feeling=feeling if feeling in weekly.FEELINGS else None)
             avoid.insert(0, topic)
             n += 1
             log(f"news topic for {it['id']}: {topic[:80]}")

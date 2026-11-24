@@ -37,7 +37,7 @@ def _failed_fixes():
 
 def _run(monkeypatch, verdicts, drop_answer):
     seq = iter(verdicts)
-    monkeypatch.setattr(story, "fact_check", lambda brain, script, deep=False: next(seq))
+    monkeypatch.setattr(story, "fact_check", lambda brain, script, deep=False, news="": next(seq))
     brain = Brain(_failed_fixes() + [drop_answer])
     out = story.check_and_fix(brain, {"content_rules": {"fact_check": True}}, _script(), "barreleye", "short",
                               log=lambda m: None)
@@ -71,14 +71,14 @@ def test_an_unchecked_recheck_never_replaces_a_checked_verdict(monkeypatch):
 
 def test_a_failed_deletion_call_keeps_the_best_draft(monkeypatch):
     seq = iter([_bad(WRONG), _bad("a", "b"), _bad("c", "d")])
-    monkeypatch.setattr(story, "fact_check", lambda brain, script, deep=False: next(seq))
+    monkeypatch.setattr(story, "fact_check", lambda brain, script, deep=False, news="": next(seq))
     brain = Brain(_failed_fixes())                                    # third call: no answer left -> IndexError
     out = story.check_and_fix(brain, {}, _script(), "t", "short", log=lambda m: None)
     assert out["_fact_check"]["problems"] == [WRONG] and "2004" in out["beats"][0]["narration"]
 
 
 def test_a_clean_draft_never_reaches_the_deletion_step(monkeypatch):
-    monkeypatch.setattr(story, "fact_check", lambda brain, script, deep=False: dict(CLEAN))
+    monkeypatch.setattr(story, "fact_check", lambda brain, script, deep=False, news="": dict(CLEAN))
     monkeypatch.setattr(story, "drop_wrong", lambda *a: pytest.fail("nothing to delete"))
     out = story.check_and_fix(Brain([]), {}, _script(), "t", "short", log=lambda m: None)
     assert out["_fact_check"]["ok"]

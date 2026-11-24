@@ -10,7 +10,7 @@ ARTICLE = ("The Sodder children disappearance refers to five children who vanish
 
 def test_relevant_article_becomes_the_writers_reference(monkeypatch):
     seen = []
-    monkeypatch.setattr(story, "_wiki_search", lambda q, lang="en": seen.append(q) or "Sodder children disappearance")
+    monkeypatch.setattr(story, "_wiki_hits", lambda q, n=3, lang="en": seen.append(q) or ["Sodder children disappearance"])
     monkeypatch.setattr(story, "wikipedia_summaries", lambda titles, chars=9000, focus="", **k: ARTICLE)
     ref = story.reference_notes("The Sodder children: the Christmas Eve fire of 1945 🔥", chars=4000)
     assert ref["titles"] == ["Sodder children disappearance"]
@@ -19,7 +19,7 @@ def test_relevant_article_becomes_the_writers_reference(monkeypatch):
 
 
 def test_an_unrelated_hit_is_dropped(monkeypatch):
-    monkeypatch.setattr(story, "_wiki_search", lambda q, lang="en": "Christmas tree")
+    monkeypatch.setattr(story, "_wiki_hits", lambda q, n=3, lang="en": ["Christmas tree"])
     monkeypatch.setattr(story, "wikipedia_summaries",
                         lambda titles, chars=9000, focus="", **k: "A Christmas tree is a decorated evergreen.")
     assert story.reference_notes("The Sodder children: the Christmas Eve fire of 1945")["rule"] == ""
@@ -33,7 +33,8 @@ def test_an_article_about_someone_else_or_a_film_is_dropped(monkeypatch):
                                    "overall pick in 2012. He fell out of the league after being waived.",
              "M.S. Dhoni: The Untold Story": "M.S. Dhoni: The Untold Story is a 2016 Indian Hindi-language "
                                              "biographical sports drama film about the 2011 World Cup final."}
-    monkeypatch.setattr(story, "_wiki_search", lambda q, lang="en": next(v for k, v in hits.items() if k in q.lower()))
+    monkeypatch.setattr(story, "_wiki_hits",
+                        lambda q, n=3, lang="en": [next(v for k, v in hits.items() if k in q.lower())])
     monkeypatch.setattr(story, "wikipedia_summaries", lambda titles, chars=9000, focus="", **k: texts[titles[0]])
     assert story.reference_notes("The Fall of Daniel Jones: From #2 Overall Pick to Being Waived")["rule"] == ""
     assert story.reference_notes("MS Dhoni's 2011 World Cup Final Promotion")["rule"] == ""
@@ -41,7 +42,8 @@ def test_an_article_about_someone_else_or_a_film_is_dropped(monkeypatch):
 
 
 def test_no_words_no_search(monkeypatch):
-    monkeypatch.setattr(story, "_wiki_search", lambda q, lang="en": (_ for _ in ()).throw(AssertionError("searched")))
+    monkeypatch.setattr(story, "_wiki_hits",
+                        lambda q, n=3, lang="en": (_ for _ in ()).throw(AssertionError("searched")))
     assert story.reference_notes("🔥🔥 why? how!")["titles"] == []
 
 
