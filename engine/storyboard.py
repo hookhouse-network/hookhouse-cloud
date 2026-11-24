@@ -32,6 +32,11 @@ ACTIONS = ("push_in", "pan_left", "pan_right", "drift_up")
 TYPES = ("scene", "real", "number")
 NO_TEXT = "no text, no letters, no words, no captions, no signs, no logos, no watermark"
 EYES_MODEL = "gemini-3.5-flash-lite"
+# 24 Nov: gemini-3.5-flash-lite's free daily quota ran out at ~05:30 IST, and from then until the 13:30 reset every
+# picture went out unchecked (an unchecked picture also counts as matching at the quality gate). The Gemma models have
+# their own, larger free quota and see pictures too (probe: gemma-4-26b-a4b-it gave a sensible JSON verdict).
+EYES_MODELS = (EYES_MODEL, "gemma-4-26b-a4b-it", "gemma-4-31b-it")
+_EYES_OUT: dict[str, str] = {}      # model -> the UTC day its daily quota ran out (this process): asked again tomorrow
 # 23 Nov: in a burst of test calls 21 of 36 came back unchecked (Gemini: 503 "currently experiencing high demand"), and
 # an unchecked picture counts as fine without anyone looking (match 0.85). A busy answer is now asked again twice.
 EYES_BUSY = (429, 500, 502, 503, 504)
@@ -480,6 +485,28 @@ def draw(prompt: str, seed: int, size: tuple[int, int], variant: int = 0) -> tup
 
 
 # ---------------------------------------------------------------- eyes
+def _eyes_ask(model: str, key: str, image: str, q: str):
+    """One model's answer (a busy answer or a dropped connection is asked again twice); None = no answer at all.
+    Only the Gemini models take the JSON answer mode; Gemma answers in text (a ```json block)."""
+    cfg = {"temperature": 0, **({"responseMimeType": "application/json"} if model.startswith("gemini") else {})}
+    body = {"contents": [{"parts": [{"inline_data": {"mime_type": "image/jpeg", "data": image}}, {"text": q}]}],
+            "generationConfig": cfg}
+    r = None
+    for wait in (0,) + EYES_RETRY_S:
+        if wait:
+            time.sleep(wait)
+        try:
+            r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+                              headers={"x-goog-api-key": key}, timeout=60, json=body)
+        except requests.RequestException:
+            r = None
+            continue
+        code = getattr(r, "status_code", 200)
+        if code not in EYES_BUSY or "PerDay" in str(getattr(r, "text", "")):   # a used-up daily quota: waiting won't help
+            break
+    return r
+
+
 def eyes(path: Path, narration: str, see: str, era: str = "") -> dict:
     """Free Gemini vision check. {"score": 0-10, "text": bool, "wrong": str, "ok": bool}. No key/limit -> ok with
     score -1 (unchecked) so a video is never blocked by the checker itself."""
@@ -496,27 +523,28 @@ def eyes(path: Path, narration: str, see: str, era: str = "") -> dict:
          'Rate how well the picture shows this moment for a viewer (0-10). Report any visible letters/text/garbled '
          'writing, and anything clearly wrong (wrong era, wrong place, extra limbs, wrong object). JSON only: '
          '{"shows": "8 words", "score": 0, "text": false, "wrong": "none"}')
-    body = {"contents": [{"parts": [{"inline_data": {"mime_type": "image/jpeg",
-                                                     "data": base64.b64encode(buf.getvalue()).decode()}},
-                                    {"text": q}]}],
-            "generationConfig": {"responseMimeType": "application/json", "temperature": 0}}
+    image = base64.b64encode(buf.getvalue()).decode()
+    today = dt.datetime.now(dt.timezone.utc).date().isoformat()
     r = None
-    for wait in (0,) + EYES_RETRY_S:
-        if wait:
-            time.sleep(wait)
-        try:
-            r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{EYES_MODEL}:generateContent",
-                              headers={"x-goog-api-key": key}, timeout=60, json=body)
-        except requests.RequestException:
-            r = None
+    for model in EYES_MODELS:                      # the next model checks when one is used up for today or stays busy
+        if _EYES_OUT.get(model) == today:
             continue
-        code = getattr(r, "status_code", 200)
-        if code not in EYES_BUSY or "PerDay" in str(getattr(r, "text", "")):   # a used-up daily quota: waiting won't help
+        r = _eyes_ask(model, key, image, q)
+        code = getattr(r, "status_code", None)
+        if code == 200:
+            break
+        if code == 429 and "PerDay" in str(getattr(r, "text", "")):
+            _EYES_OUT[model] = today
+            continue
+        if code is not None and code not in EYES_BUSY:     # refused (bad request): another model would refuse too
             break
     try:
         if r is None or getattr(r, "status_code", 200) != 200:
             raise RuntimeError(f"eyes check unavailable ({getattr(r, 'status_code', 'no answer')})")
-        j = json.loads(r.json()["candidates"][0]["content"]["parts"][0]["text"])
+        parts = r.json()["candidates"][0]["content"]["parts"]
+        said = "".join(str(p.get("text") or "") for p in parts)
+        found = re.search(r"[\[{].*[\]}]", said, re.S)     # Gemma wraps it in a ```json fence
+        j = json.loads(found.group(0) if found else said)
         if isinstance(j, list):                    # sometimes [{...}]
             j = next((x for x in j if isinstance(x, dict)), {})
         score = int(float(j.get("score") or 0))

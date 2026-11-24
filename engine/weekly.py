@@ -784,9 +784,13 @@ def now_line(item: dict) -> str:
     became a script about the January 2025 drop. The headline now leads the brief, and the fact-check reads it as a
     source (story.news_in_brief)."""
     if item.get("news"):
+        from datetime import date
         from .story import NEWS_MARK
-        return (f"\n{NEWS_MARK}\"{str(item['news']).strip()}\". Open with what this headline says just happened, in "
-                "plain words, then tell the true story behind it. About this week, say only what the headline says.")
+        # 24 Nov: the models don't know today's date: the writer dated this week's drop "the week ending November 22,
+        # 2024" and the fact-check "corrected" it to 2025 (it was 2026)
+        return (f"\n{NEWS_MARK}\"{str(item['news']).strip()}\". Today is {date.today():%d %B %Y}. Open with what this "
+                "headline says just happened, in plain words, then tell the true story behind it. About this week, say "
+                "only what the headline says, as \"this week\", never with a date or a year.")
     hook = why_now(item)
     return f"\nWhy now: {hook}" if hook else ""
 
@@ -956,7 +960,8 @@ def redo_text(item: dict, ch: dict) -> str:
     if item.get("status") == "redo" and item.get("note"):
         out += f"\nThe owner asked for this change: {item['note']}"
     if item.get("status") == "redo" and item.get("gate_note"):
-        out += f"\nThe last version failed the quality check; fix all of this: {item['gate_note']}"
+        from .story import NO_INVENTED_STORY
+        out += f"\nThe last version failed the quality check; fix all of this: {item['gate_note']}\n{NO_INVENTED_STORY}"
         from . import potential_gate
         if potential_gate.HUMAN_FINDING in str(item["gate_note"]):
             out += "\n" + potential_gate.human_note(potential_gate._ctype(ch, {}, item), item.get("kind") or "")

@@ -72,6 +72,22 @@ PATTERNS: list[tuple[str, str, str, int]] = [
      r"\b(?:unveil(?:ing|ed|s)?|unravel(?:ing|ed|s)?|unlock(?:ing)? the|the untold (?:story|truth)|a journey (?:through|into))\b", 3),
 ]
 _COMPILED = [(pid, label, re.compile(rx, re.I), w) for pid, label, rx, w in PATTERNS]
+# 24 Nov: the judge's fix "Inject a personal or relatable anecdote" made the writer invent one for the faceless narrator
+# ("Back in 2008, I bought a high-end laptop that bricked within a week of the crash"). Checked on NARRATOR lines only
+# (humanize_script): a character's acted line in a human-story script may well say "my father".
+PERSONAL = re.compile(
+    r"\bI (?:bought|owned|had (?:a|an|my)|went|grew up|used to|worked|lived|visited|played|met|lost my"
+    r"|remember (?:when|the day|my|being|seeing|buying|watching))\b"
+    r"|\bmy (?:dad|mom|mum|father|mother|friend|brother|sister|uncle|aunt|grandpa|grandma|grandfather|grandmother"
+    r"|wife|husband|son|daughter|boss|teacher|family|parents|kids?|childhood)\b"
+    r"|\bwhen I was (?:a kid|young|little|\d+|in)\b|\bback in \d{4},? I\b", re.I)
+PERSONAL_LABEL = "a personal story the narrator never lived (say it about the viewer instead, or drop it)"
+
+
+def personal_claims(text: str) -> list[dict]:
+    """First-person experiences a faceless narrator cannot have had ("I bought", "my dad", "when I was a kid")."""
+    return [{"id": "personal_story", "label": PERSONAL_LABEL, "match": m.group(0).strip(), "weight": 3}
+            for m in PERSONAL.finditer(text or "")]
 DASH = re.compile(r"\s[—–-]\s|—")
 AI_SOURCES = {"ai", "cloudflare", "pollinations", "flux", "hf", "zerogpu"}   # picture sources (engine/story.py)
 
@@ -112,10 +128,14 @@ fix: {fix}
 Return JSON only: {{"lines": ["<all lines, rewritten where needed, same count and order>"]}}"""
 
 
-def rewrite_lines(brain, lines: list[str], keep_words: list[str] | None = None, log=print) -> tuple[list[str], int]:
+def rewrite_lines(brain, lines: list[str], keep_words: list[str] | None = None, log=print,
+                  narrator: set[int] | None = None) -> tuple[list[str], int]:
     """One writer call for all lines that carry tells. Returns (lines, number of lines changed). The rewrite is kept
-    line by line only where it has fewer tells, keeps every number and stays within 35 % of the length."""
-    marked = {i: tells(t) for i, t in enumerate(lines)}
+    line by line only where it has fewer tells, keeps every number and stays within 35 % of the length. narrator: the
+    lines spoken by the narrator, where an invented personal story counts as a tell too (None = every line)."""
+    def found(i: int, text: str) -> list[dict]:
+        return tells(text) + (personal_claims(text) if narrator is None or i in narrator else [])
+    marked = {i: found(i, t) for i, t in enumerate(lines)}
     fix = [i for i, t in marked.items() if t]
     if not fix or brain is None:
         return lines, 0
@@ -138,7 +158,7 @@ def rewrite_lines(brain, lines: list[str], keep_words: list[str] | None = None, 
         old = lines[i]
         if not cand or cand == old:
             continue
-        if len(tells(cand)) >= len(marked[i]) or not _numbers(old) <= _numbers(cand):
+        if len(found(i, cand)) >= len(marked[i]) or not _numbers(old) <= _numbers(cand):
             continue
         if abs(len(cand) - len(old)) > 0.35 * max(len(old), 20):
             continue
@@ -163,10 +183,13 @@ def script_tells(script: dict) -> list[dict]:
 def humanize_script(brain, script: dict, log=print) -> dict:
     """Narration beats, title, hook text and description of a story script, rewritten where they carry AI tells."""
     fields, lines = _script_fields(script)
-    if not any(tells(t) for t in lines):
+    beats = script.get("beats") or []
+    narrator = {n for n, (k, i) in enumerate(fields)        # a character's acted line may say "my father"
+                if k != "beat" or str(beats[i].get("speaker") or "narrator").strip().lower() == "narrator"}
+    if not any(tells(t) or (n in narrator and personal_claims(t)) for n, t in enumerate(lines)):
         return script
     phrase = [w for w in re.findall(r"\w+", str(script.get("search_phrase") or "")) if len(w) > 3][:3]
-    new, changed = rewrite_lines(brain, lines, keep_words=phrase, log=log)
+    new, changed = rewrite_lines(brain, lines, keep_words=phrase, log=log, narrator=narrator)
     if not changed:
         return script
     import copy

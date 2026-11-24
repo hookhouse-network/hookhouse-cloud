@@ -27,6 +27,7 @@ def ok(score):
 @pytest.fixture
 def pic(tmp_path, monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "k")
+    monkeypatch.setattr(sb, "_EYES_OUT", {})
     p = tmp_path / "a.jpg"
     Image.new("RGB", (32, 32)).save(p)
     waits = []
@@ -34,11 +35,13 @@ def pic(tmp_path, monkeypatch):
     return p, waits
 
 
-def _answers(monkeypatch, answers):
+def _answers(monkeypatch, answers, urls=None):
     calls = []
 
-    def post(*a, **k):
+    def post(url, *a, **k):
         calls.append(1)
+        if urls is not None:
+            urls.append((url.split("/models/")[1].split(":")[0], "responseMimeType" in k["json"]["generationConfig"]))
         x = answers.pop(0)
         if isinstance(x, Exception):
             raise x
@@ -54,18 +57,35 @@ def test_a_busy_answer_is_asked_again(pic, monkeypatch):
     assert v["score"] == 8 and v["ok"] and len(calls) == 2 and waits == [sb.EYES_RETRY_S[0]]
 
 
-def test_three_busy_answers_leave_the_picture_unchecked_and_say_so(pic, monkeypatch, capsys):
+def test_every_model_busy_leaves_the_picture_unchecked_and_says_so(pic, monkeypatch, capsys):
     p, waits = pic
-    calls = _answers(monkeypatch, [R(503, {}), R(503, {}), R(500, {})])
+    n = len(sb.EYES_MODELS)
+    calls = _answers(monkeypatch, [R(503, {}), R(503, {}), R(500, {})] * n)
     v = sb.eyes(p, "n", "s")
-    assert v == {"score": -1, "text": False, "wrong": "", "ok": True} and len(calls) == 3
-    assert waits == list(sb.EYES_RETRY_S) and "eyes check skipped" in capsys.readouterr().out
+    assert v == {"score": -1, "text": False, "wrong": "", "ok": True} and len(calls) == 3 * n
+    assert waits == list(sb.EYES_RETRY_S) * n and "eyes check skipped" in capsys.readouterr().out
 
 
-def test_a_used_up_daily_quota_is_not_asked_again(pic, monkeypatch):
+DAY_OUT = R(429, {}, text='{"quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier"}')
+
+
+def test_a_used_up_daily_quota_hands_the_check_to_the_next_model_for_the_day(pic, monkeypatch):
+    """24 Nov: gemini-3.5-flash-lite was out from ~05:30 to the 13:30 reset and every picture went out unchecked."""
     p, waits = pic
-    calls = _answers(monkeypatch, [R(429, {}, text='{"quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier"}')])
-    assert sb.eyes(p, "n", "s")["score"] == -1 and len(calls) == 1 and waits == []
+    urls = []
+    gemma = R(200, {"candidates": [{"content": {"parts": [{"text": '```json\n{"shows": "a pitch", "score": 8, '
+                                                                    '"text": false, "wrong": "none"}\n```'}]}}]})
+    calls = _answers(monkeypatch, [DAY_OUT, gemma, ok(7)], urls)
+    assert sb.eyes(p, "n", "s")["score"] == 8 and len(calls) == 2 and waits == []      # Gemma's fenced JSON is read
+    assert urls == [(sb.EYES_MODEL, True), (sb.EYES_MODELS[1], False)]               # Gemma: no JSON answer mode
+    assert sb.eyes(p, "n", "s")["score"] == 7 and urls[-1][0] == sb.EYES_MODELS[1]   # the used-up one is skipped today
+
+
+def test_every_model_used_up_leaves_it_unchecked(pic, monkeypatch):
+    p, waits = pic
+    calls = _answers(monkeypatch, [DAY_OUT] * len(sb.EYES_MODELS))
+    assert sb.eyes(p, "n", "s")["score"] == -1 and len(calls) == len(sb.EYES_MODELS)
+    assert sb.eyes(p, "n", "s")["score"] == -1 and len(calls) == len(sb.EYES_MODELS)   # nobody asked again today
 
 
 def test_a_refused_request_is_not_asked_again(pic, monkeypatch):

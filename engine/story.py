@@ -82,7 +82,8 @@ STEP 3 - BEATS (the structure top story Shorts use in 2026).
 - HUMAN, NOT TEMPLATE: include ONE true detail most retellings of this story miss (the reason this video exists),
   and ONE short reaction in the narrator's own voice to a concrete detail of THIS story, in words that would make no
   sense in any other video (no stock reaction phrase, no line that starts with "Honestly") - never a fake identity,
-  job title or credential, never advice.
+  job title, credential or personal experience (the narrator never says "I bought", "my dad" or "when I was": a
+  relatable moment is about the viewer's own life), never advice.
 - SHARE-WORTHY: give viewers a reason to send it to a friend (a fact they will want to tell someone, or a "this is so
   you" moment). Never ask for likes, shares or follows in the narration.
 {long_rules}
@@ -789,6 +790,10 @@ def phrase_early(brain, script: dict, log=print) -> dict:
 
 
 NEWS_MARK = "This week's news headline: "
+# 24 Nov: the judge's fix "Inject a personal or relatable anecdote" made the writer invent one for the faceless narrator
+# ("Back in 2008, I bought a high-end laptop that bricked within a week of the crash"). Said wherever fixes are passed on.
+NO_INVENTED_STORY = ("Never invent a personal story or experience for the narrator (no \"I bought\", \"my dad\", \"when "
+                     "I was\"): a relatable moment is about the viewer's own life.")
 
 
 def news_in_brief(topic: str) -> str:
@@ -937,8 +942,10 @@ def fact_check(brain, script: dict, deep: bool = False, news: str = "") -> dict:
                                    chars=30000 if deep else 9000)
     if not refs or not script.get("claims"):
         return {"ok": False, "problems": ["No sources found to verify the claims — check manually"], "checked": False}
-    if news:
-        refs = f"[This week's news headline, newer than the articles below] {news}\n\n{refs}"
+    if news:                    # dated: the checker doesn't know today's date (it "corrected" 2024 to 2025 in 2026)
+        from datetime import date
+        refs = (f"[This week's news headline (today is {date.today():%d %B %Y}), newer than the articles below] "
+                f"{news}\n\n{refs}")
     verdict, result = brain.ask_json("checker", CHECKER_PROMPT.format(
         claims="\n".join(f"- {c}" for c in script["claims"]), refs=refs[:90000 if deep else 40000]), temperature=0.0)
     contradicted = [str(x) for x in verdict.get("contradicted") or []]
@@ -1270,6 +1277,24 @@ def _big_face(path) -> bool:
         return faces is not None and any(f[2] > 0.08 * small.shape[1] for f in faces)
     except Exception:  # noqa: BLE001 - no detector: keep the picture
         return False
+
+
+# 24 Nov, Cricket Ke Kisse: 4 of 13 drawn scenes showed a face, each became a word card at once, and the quality gate
+# held the video for "4/13 shots are word cards". One redraw that asks for the faces to be hidden comes first.
+NO_FACE_SUFFIX = ", seen from behind or far away, faces turned away or hidden in shadow, no visible face"
+
+
+def faceless_redraw(beat: dict, size: tuple[int, int], log=print, i: int = 0) -> dict | None:
+    """A sports scene whose picture showed a real face: one more draw of the same shot with the faces hidden.
+    The new picture only counts when it shows no big face either; None = no free picture or still a face."""
+    if not beat.get("_prompt"):
+        return None
+    from . import storyboard
+    got = storyboard.scene(dict(beat, _prompt=f"{beat['_prompt']}{NO_FACE_SUFFIX}"), beat.get("_era", ""), size, log, i,
+                           tries=1)
+    if got and got.get("kind") == "image" and got.get("path") and not _big_face(got["path"]):
+        return got
+    return None
 
 
 YEAR = re.compile(r"(?<!\d)(1[6-9]\d\d|20[0-3]\d)(?!\d)")
@@ -2158,8 +2183,10 @@ def render(channel: dict, script: dict, out_dir: Path, fmt: str = "short", log=p
                                    channel=channel, said=" ".join(x.get("narration", "") for x in beats[max(0, i - 2):i + 1]),
                                    bank=bank)
         if channel["id"] in NO_FACES and vis.get("kind") == "image" and vis.get("path") and _big_face(vis["path"]):
-            log(f"  beat {i + 1}: picture shows a real person's face (sports rule: no likeness); replacing")
-            vis = {"kind": "reuse"}
+            log(f"  beat {i + 1}: picture shows a real person's face (sports rule: no likeness); redrawing it faceless")
+            vis = faceless_redraw(b, size, log, i) or {"kind": "reuse"}
+            if vis["kind"] == "reuse":
+                log(f"  beat {i + 1}: still a face (or no free picture); replacing")
         if (vis["kind"] == "video" and not vis.get("graphic") and i < 3 and _too_plain(vis.get("path"), strict=True)):
             log(f"  beat {i + 1}: clip too dark/plain for the opening seconds; replacing")
             vis = {"kind": "reuse"}
@@ -2715,7 +2742,7 @@ def _judge_loop(brain, channel: dict, script: dict, topic: str | None, fmt: str,
             notes = (f"A strict head of content judged the last draft of this script below the bar (needs "
                      f"{v['need']:g}/10 on every point): "
                      + ", ".join(f"{c} {s:g}" for c, s in sorted(low.items(), key=lambda x: x[1]))
-                     + f". Write a new draft that fixes exactly this: {fixes}")
+                     + f". Write a new draft that fixes exactly this: {fixes}\n{NO_INVENTED_STORY}")
             if potential_gate.HUMAN in low:                # S10: say what human-made means, not only the fixes
                 notes += "\n" + potential_gate.human_note(potential_gate._ctype(channel, {}, {}), fmt)
             log(f"Script judge: below {v['need']:g} on " + ", ".join(f"{c} {s:g}" for c, s in low.items())
