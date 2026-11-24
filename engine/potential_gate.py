@@ -403,8 +403,12 @@ def judge_script(script: dict, ch: dict, topic: str, brain, kind: str = "") -> d
     evidence = ""
     if topic:
         try:
+            from .story import core_topic
             from .topic_proof import evidence_text, proof
-            evidence = evidence_text(proof(str(topic), ch))
+            # 24 Nov: the brief's first 100 characters (topic + angle) were searched, so the script judge saw other
+            # demand evidence than the video gate (which checks the plan topic) and every script cost one more
+            # YouTube search (100 units); the plan topic is the cached search the topic picker already made
+            evidence = evidence_text(proof(core_topic(str(topic)), ch))
         except Exception as e:  # noqa: BLE001 - the judge works without it, as in problems()
             evidence = f"demand: unknown ({type(e).__name__})"
     v = judge(it, ch, meta, brain, evidence)

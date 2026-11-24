@@ -24,7 +24,9 @@ def test_the_lead_phrase_is_searched_first_then_the_title_then_its_first_words()
         "Challenger Deep", "Challenger Deep What James Cameron Saw When He Touched Bottom"]
     assert story.ref_queries("The whaleship Essex, rammed and sunk by a sperm whale")[0] == "The whaleship Essex"
     q = story.ref_queries("How the Komodo dragon swallows a whole deer in one piece")
-    assert q[-1] == "Komodo dragon swallows"
+    assert q[-2:] == ["Komodo dragon swallows", "Komodo dragon"]
+    assert story.ref_queries("Why Nvidia's Stock Crashed 14% Despite Record Earnings")[-1] == "Nvidia Stock"
+    assert story.ref_queries(BRIEF)[-1] == "Mariner 9"
     assert all("feeling" not in x and "angle" not in x and "1971" not in x for x in story.ref_queries(BRIEF))
     assert story.ref_queries("🔥🔥 why? how!") == []
 
@@ -131,6 +133,22 @@ def test_the_fact_check_reads_the_headline_as_a_source(monkeypatch):
     assert v["ok"] and NEWS in b.prompts[0] and "newer than the articles" in b.prompts[0]
     story.fact_check(b, {"sources": ["Nvidia"], "claims": ["x"]})
     assert "news headline" not in b.prompts[1]
+
+
+def test_the_script_judge_measures_demand_for_the_plan_topic_like_the_video_gate(monkeypatch):
+    """The brief's first 100 characters (topic + angle) were searched on YouTube: other evidence than the video gate
+    got for the same video, and one more 100-unit search per script."""
+    from engine import potential_gate
+    asked = []
+    monkeypatch.setattr("engine.topic_proof.proof", lambda topic, ch: asked.append(topic) or {})
+    monkeypatch.setattr("engine.topic_proof.evidence_text", lambda p: "demand: test")
+    monkeypatch.setattr(potential_gate, "judge", lambda it, ch, meta, brain, evidence="": {
+        "scores": {"hook": 9, "human_feel": 8}, "fixes": [], "summary": "", "criteria": ["hook", "human_feel"]})
+    brief = (f"{ITEM['topic']} (angle: {ITEM['angle']})\nThe feeling this video must deliver: shocking"
+             f"\n{story.NEWS_MARK}\"{NEWS}\". Open with it.")
+    potential_gate.judge_script({"title": "t", "beats": [{"narration": "a"}]}, {"id": "money_cheat_codes"}, brief,
+                                brain=object())
+    assert asked == [ITEM["topic"]]
 
 
 # ---------------------------------------------------------------- a replaced topic takes its own hook along

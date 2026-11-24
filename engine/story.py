@@ -338,9 +338,12 @@ def ref_queries(topic: str) -> list[str]:
     long title alone finds few; its lead phrase ("Challenger Deep", "The Skylab 4 'mutiny'") is tried first."""
     plain = re.sub(r"\s*\([^)]*\)", " ", core_topic(topic)).strip()          # dates and notes in brackets
     lead = re.split(r"\s*(?:[:?!,—–|]|\s-\s)\s*", plain, maxsplit=1)[0]
-    words = [w for w in re.sub(r"[^\w\s'-]", " ", lead).split() if w.lower() not in REF_STOP | {"a", "an", "of"}]
+    words = [re.sub(r"['’]s$", "", w) for w in re.sub(r"[^\w\s'’-]", " ", lead).split()
+             if w.lower() not in REF_STOP | {"a", "an", "of"}]
     out: list[str] = []
-    for q in (lead, plain, " ".join(words[:3])):    # last: the lead's first 3 words ("Komodo dragon swallows")
+    # then the lead's first 3 and first 2 words ("Komodo dragon swallows"; "Nvidia Stock" finds Nvidia, the whole
+    # "Why Nvidia's Stock Crashed 14% Despite Record Earnings" only an AI-bubble article)
+    for q in (lead, plain, " ".join(words[:3]), " ".join(words[:2])):
         q = " ".join(re.sub(r"[^\w\s'-]", " ", q).split())
         if _ref_words(q) and q not in out:
             out.append(q)
