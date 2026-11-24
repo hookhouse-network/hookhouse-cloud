@@ -93,20 +93,36 @@ def test_only_once_per_version(world):
     assert {s for s, _r, _a in _states(world["led"]).values()} == {"dead", "done"}
 
 
-@pytest.mark.parametrize("problems", [[RUBRIC, AI_MADE], [AI_MADE],
+PHRASES = "potential: reads like AI-written text (\"delve\"): say it plainly like a person would"
+
+
+@pytest.mark.parametrize("problems", [[RUBRIC, PHRASES], [PHRASES],
                                       ["potential: speech starts at 2.0s (the hook must land within 0.6s)"],
                                       ["quality: score 79/100 (needs 85.0): 6/17 pictures barely match"]])
-def test_anything_besides_the_rubric_keeps_it_held(world, problems):
+def test_anything_still_blocking_keeps_it_held(world, problems):
     world["blocked"](problems)
     assert autopilot._recheck_coached(log=lambda *_: None) == 0
     assert _states(world["led"])["youtube"][0] == "dead" and ITEM in world["state"]["posted"]
+
+
+@pytest.mark.parametrize("problems", [[RUBRIC, AI_MADE], [AI_MADE]])
+def test_a_video_held_only_by_the_human_feel_judge_gets_its_fresh_check(world, problems):
+    """Owner 24 Nov ("do as you recommendations"): the human_feel judge coaches until it matches real views."""
+    world["blocked"](problems)
+    assert autopilot._recheck_coached(log=lambda *_: None) == 1
+
+
+def test_the_human_feel_judge_switched_back_to_block_keeps_it_held(world, monkeypatch):
+    world["blocked"]([AI_MADE])
+    monkeypatch.setattr(content_gate, "human_judge_coaches", lambda: False)
+    assert autopilot._recheck_coached(log=lambda *_: None) == 0
 
 
 def test_one_platform_held_for_more_keeps_the_whole_video_held(world):
     world["blocked"]([RUBRIC], platforms=("youtube",))
     with open(publish.LOG, "a", encoding="utf-8") as f:
         f.write(json.dumps({"item_id": ITEM, "platform": "facebook", "what": "BLOCKED by the content gate", "at": 960.0,
-                            "result": {"error": "🛑 blocked: " + AI_MADE}, "details": {"problems": [AI_MADE]}}) + "\n")
+                            "result": {"error": "🛑 blocked: " + PHRASES}, "details": {"problems": [PHRASES]}}) + "\n")
     assert autopilot._recheck_coached(log=lambda *_: None) == 0
 
 

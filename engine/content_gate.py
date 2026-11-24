@@ -295,16 +295,33 @@ def base_problems(it: dict, ch: dict | None = None, meta: dict | None = None, qu
                     encoding="utf-8"))["title"])
                 pot = potential(it, ch, meta, brain_fn=brain_fn)
             mode = potential_mode(it, meta)
-            soft = [f for f in pot if rubric_finding(f)] if mode != "block" else []
-            if soft:                                    # owner's choice (22 Nov, "B"): recorded, not blocking
+            clip = bool(meta.get("clip") or meta.get("campaign")) or it.get("made_as") == "clip"
+            soft = [f for f in pot if coached(f, mode, clip)]
+            if soft:                                    # owner's choices (22 Nov "B", 24 Nov): recorded, not blocking
                 _potential_waived(it, soft, mode)
-            p += [f for f in pot if f not in soft]      # hook start, title repeat, ad-friendly, AI-made, not judged
+            p += [f for f in pot if f not in soft]      # hook start, title repeat, ad-friendly, AI phrases, not judged
         except Exception as e:  # noqa: BLE001 - not judged = not passed
             p.append(f"potential: not judged yet (the judge could not run: {type(e).__name__}); it tries again")
     return list(dict.fromkeys(p))
 
 
 RUBRIC_FINDING = re.compile(r"^potential: below [\d.]+/10 on ")
+HUMAN_JUDGE_FINDING = re.compile(r"^potential: looks/sounds obviously AI-made \(human_feel ")
+
+
+def human_judge_coaches() -> bool:
+    """Owner 24 Nov ("do as you recommendations"): the S10 judge's human_feel score coaches instead of blocking until
+    its scores match real views (potential.ai_tell.judge: coach). The deterministic AI-phrase count still blocks."""
+    ai = (config().get("potential") or {}).get("ai_tell") or {}
+    return str(ai.get("judge") or "block") == "coach"
+
+
+def coached(finding: str, mode: str, clip: bool = False) -> bool:
+    """A potential finding that is recorded but does not block: the 1-10 rubric while potential_mode is not 'block'
+    (owner 22 Nov, "B"), and the human_feel judge while it coaches (owner 24 Nov) - never for campaign clips."""
+    if rubric_finding(finding) and mode != "block":
+        return True
+    return bool(HUMAN_JUDGE_FINDING.match(str(finding))) and human_judge_coaches() and not clip
 
 
 def rubric_finding(finding: str) -> bool:

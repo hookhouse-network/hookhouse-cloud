@@ -374,9 +374,10 @@ def test_the_owner_picks_how_the_viral_judge_counts(story, monkeypatch):
     assert pot(story["it"])                                                         # the week is over: it blocks
 
 
-def test_coaching_waives_only_the_rubric_bar(story, monkeypatch):
-    """Owner 22 Nov ('B'): the judge's 1-10 rubric (real hits scored 3-6) coaches until 28 Nov. Its other findings
-    still block: hook start, title repeat, ad-friendly words, the S10 'obviously AI-made' checks, 'not judged yet'."""
+def test_coaching_waives_only_the_rubric_bar_and_the_human_feel_judge(story, monkeypatch):
+    """Owner 22 Nov ('B'): the judge's 1-10 rubric (real hits scored 3-6) coaches until 28 Nov. Owner 24 Nov ("do as
+    you recommendations"): the S10 human_feel judge coaches too, until its scores match real views. Its other findings
+    still block: hook start, title repeat, ad-friendly words, the AI-phrase count, 'not judged yet'."""
     monkeypatch.setattr("engine.platforms.allowed", lambda ch, p, meta=None: True)
     base = cg.config()
     monkeypatch.setattr(cg, "config", lambda: dict(base, temporary_bar=dict(base.get("temporary_bar") or {},
@@ -394,7 +395,9 @@ def test_coaching_waives_only_the_rubric_bar(story, monkeypatch):
         assert hard in cg.verify(story["it"]), hard
     monkeypatch.setattr("engine.potential_gate.problems", lambda *a, **k: [rubric, human])
     probs = cg.verify(story["it"])
-    assert human in probs and rubric not in probs and waived[-1] == ("coach", [rubric])
+    assert human not in probs and rubric not in probs and waived[-1] == ("coach", [rubric, human])
+    monkeypatch.setattr(cg, "human_judge_coaches", lambda: False)                # switched back: S10 blocks again
+    assert human in cg.verify(story["it"]) and waived[-1] == ("coach", [rubric])
     monkeypatch.setattr("engine.potential_gate.problems", lambda *a, **k: [rubric])
     assert not [p for p in cg.verify(story["it"]) if p.startswith("potential")]
     assert cg.rubric_finding(rubric) and not cg.rubric_finding(human) and not cg.rubric_finding("below 8/10 on x")

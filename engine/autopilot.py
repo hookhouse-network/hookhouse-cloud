@@ -670,14 +670,17 @@ def _recheck_coached(log=print) -> int:
     n = 0
     for s, it in cands:
         blocks = last.get(it["id"]) or {}
-        if not blocks or not all(ps and all(content_gate.rubric_finding(p) for p in ps) for ps in blocks.values()):
-            continue                                       # something besides the rubric held it: it stays held
+        if not blocks:
+            continue
         try:
             meta = publish.item_meta(it)
         except (OSError, ValueError, KeyError):
             meta = {}
-        if content_gate.potential_mode(it, meta) == "block":
-            continue                                       # campaign clips keep the full check
+        mode = content_gate.potential_mode(it, meta)      # campaign clips: 'block', nothing coached
+        clip = bool(meta.get("clip") or meta.get("campaign")) or it.get("made_as") == "clip"
+        # 24 Nov: the human_feel judge coaches too (owner: "do as you recommendations")
+        if not all(ps and all(content_gate.coached(p, mode, clip) for p in ps) for ps in blocks.values()):
+            continue                                       # something that still blocks held it: it stays held
         ver = publish_queue._ver(it)
         dead = [j for j in publish_queue.queued(it["id"], version=ver)
                 if j["state"] == "dead" and j["key"].rsplit(":", 1)[-1] in blocks]
@@ -690,8 +693,8 @@ def _recheck_coached(log=print) -> int:
         _update_state(lambda st, i=it["id"]: st.setdefault("posted", {}).pop(i, None))
         ledger.event("potential.recheck", item=it["id"], channel=it.get("channel") or "",
                      data={"slot": slot, "platforms": back})
-        log(f"coach recheck: {it['id']} was held only by the potential rubric (it coaches until "
-            f"{content_gate.temporary_bar().get('until')}): {back} platform(s) try again at {slot}")
+        log(f"coach recheck: {it['id']} was held only by judge findings that now coach: "
+            f"{back} platform(s) try again at {slot}")
         n += 1
     return n
 

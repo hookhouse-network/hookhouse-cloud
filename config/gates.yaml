@@ -10,7 +10,9 @@ defaults:
   min_quality: 100            # owner: "each video must be 100/100, no compromise" (engine/quality.py scorecard)
   fact_check: required        # required | if_present | off
   ai_disclosure: required     # AI voice/pictures -> Meta "AI info" / YouTube synthetic flag must be set
-  auto_redo_max: 2            # quality below the bar -> remade with the gate's notes, at most this many times
+  auto_redo_max: 1            # quality below the bar -> remade with the gate's notes, at most this many times
+                              # (owner 24 Nov, "do as you recommendations": was 2; every remake spent the picture budget,
+                              # 120 local pictures were gone by 08:36 and new slots stayed unmade; then it waits)
 
 content:                      # by channel type
   story:    {fact_check: required}
@@ -43,7 +45,13 @@ potential:                    # engine/potential_gate.py: the "viral + earning" 
   rubrics: {}                 # override per content type, e.g. story: [hook, retention, emotion, ...]
   ai_tell:                    # S10 human-made feel (owner 21 Nov: "so obvious for the viewer that this is ai")
     enabled: true             # off-switch for both checks below
-    min_human: 6              # the judge's human_feel score (story, Brain Snack, kids); below = obviously AI -> remade
+    min_human: 6              # the judge's human_feel score (story, Brain Snack, kids); below = obviously AI
+    # Owner 24 Nov ("do as you recommendations"): the judge's human_feel score COACHES (recorded, sent to the writer,
+    # never blocking) until its scores match real views: on the 7 posted videos with both, its mean score correlated
+    # -0.62 with views, and it held the read-fast Brain Snack format, the network's most watched (1,311-1,353 views).
+    # The AI-phrase count below, the fact-check, copyright, ad-safety, AI label and campaign clips still block.
+    # block = as before 24 Nov.
+    judge: coach
     max_text_density: 4.0     # engine/humanize.py AI-writing tells, weighted per 100 words (needs >= 2 tells)
   # Owner 23 Nov: "panel". Every verdict (script judge and video judge) = the average of these models, one answer
   # each (the same script scored 5-7 from one model across a day). A resting member gives its turn to the next one.

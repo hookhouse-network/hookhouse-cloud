@@ -9,7 +9,10 @@ niche: Fast facts, quizzes and "would you rather" over original satisfying anima
 bio: "Your daily dose of useless genius."
 catchphrase: "Snack on that. 🧠"   # signature line: descriptions and captions (the Shorts themselves loop)
 earns_from: [youtube_ads]
-schedule: {shorts_per_day: 1, long_per_week: 0}
+# Owner 24 Nov ("do as you recommendations"): 3 a day. Its Shorts got 1,050-1,350 views each after 48 h (16-21 Nov),
+# about 10x a story Short, and need no AI pictures (the PC's scarce resource); this week gets the extra slots from
+# weekly.top_up_week, next weeks from the planner
+schedule: {shorts_per_day: 3, long_per_week: 0}
 test_channel: true
 voice: {engine: kokoro, id: af_bella, backup: {engine: kokoro, id: af_sky}}
 style:

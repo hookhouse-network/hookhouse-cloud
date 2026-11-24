@@ -165,6 +165,55 @@ def slots_for(ch: dict, start: date, days: int = 7) -> list[tuple[datetime, str]
     return sorted(out)
 
 
+TOP_UP_TYPES = ("brainrot",)            # makers that need no planned topic (Brain Snack picks its own game and idea)
+
+
+def top_up_week(now: datetime | None = None, log=print) -> int:
+    """Owner 24 Nov ("do as you recommendations": Brain Snack 2-3 Shorts a day, the channel whose Shorts get ~10x the
+    views of a story Short and need no AI pictures): a week is planned once, so a channel whose shorts_per_day rose
+    afterwards gets the missing Short slots for the rest of the current week. Only future slots (at least 2 h ahead)
+    are added, never an existing item changed; only channel types whose maker needs no planned topic. Returns how
+    many slots were added."""
+    from .allocator import shorts_per_day
+    from .config import channels
+    now = now or datetime.now(_zone())
+    start = now.date() - timedelta(days=now.weekday())
+    if not (week_dir(start) / "plan.json").exists():
+        return 0
+    added = 0
+    with _LOCK:
+        plan = load_plan(start)
+        have = {it["id"] for it in plan.get("items", [])}
+        for ch in channels():
+            if ch.get("type") not in TOP_UP_TYPES or ch.get("active") is False:
+                continue
+            spd = shorts_per_day(ch)
+            per_day: dict[str, int] = {}                  # MMDD of each planned Short (its id keeps the planned day)
+            for it in plan.get("items", []):
+                if it.get("channel") == ch["id"] and it.get("kind") == "short":
+                    per_day[str(it["id"])[:4]] = per_day.get(str(it["id"])[:4], 0) + 1
+            for when, kind in slots_for(ch, start):
+                iid = f"{when:%m%d_%H%M}_{ch['id']}_{kind}"
+                day = f"{when:%m%d}"
+                if kind != "short" or iid in have or when < now + timedelta(hours=2) or per_day.get(day, 0) >= spd:
+                    continue
+                per_day[day] = per_day.get(day, 0) + 1
+                plan["items"].append({
+                    "id": iid, "channel": ch["id"], "channel_name": ch["name"], "number": ch.get("number"),
+                    "kind": kind, "publish_at": when.isoformat(), "topic": None, "angle": None, "why": None,
+                    "role": None, "hub": None, "feeling": None, "now_hook": None, "demand": None, "owner_pick": None,
+                    "status": "planned", "out_dir": None, "file": None, "error": None, "note": None, "log": None,
+                    "topped_up": True})
+                have.add(iid)
+                added += 1
+        if added:
+            plan["items"] = sorted(plan["items"], key=lambda x: (x["publish_at"], x.get("number") or 0))
+            save_plan(plan)
+    if added:
+        log(f"week top-up: {added} new Short slot(s) for this week")
+    return added
+
+
 # ---------- plan storage ----------
 
 def week_dir(start: date | str) -> Path:

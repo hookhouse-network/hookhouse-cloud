@@ -693,6 +693,8 @@ def tick(log=_log, light: bool = False) -> None:
              ("live_stats", lambda: _live_due() and __import__("engine.stats_fetch", fromlist=["live"]).live(log=log)),
              ("plan", lambda: autopilot._ensure_plan(autopilot.default_brain, log)),
              ("replan", lambda: run_replans(log)),       # config/replan.yaml, each request once (19 Nov)
+             # 24 Nov (owner: "do as you recommendations"): a channel whose Shorts a day rose gets this week's new slots
+             ("top_up", lambda: __import__("engine.weekly", fromlist=["x"]).top_up_week(log=log)),
              # 23 Nov (owner: "too old trending topics"): slots made in the next 36 h get today's on-brand trends
              ("fresh_topics", lambda: log("fresh topics: %d slot(s) switched" % __import__(
                  "engine.fresh_topics", fromlist=["x"]).freshen_due(autopilot.default_brain()[0], log=log))),
