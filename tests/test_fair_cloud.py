@@ -250,8 +250,10 @@ def test_cricket_gets_news_driven_topics(monkeypatch):
             assert "Bumrah" in prompt
             return {"topic": "Bumrah ka record aur 1990 ki woh kahani", "angle": "a", "why": "w",
                     "headline": "Bumrah 3 wickets away from a big record"}, None
-    assert news_topics.refresh(Brain(), log=lambda *_: None, session=S()) == 2
-    assert set(updated) == {"c1", "c2"} and updated["c1"]["news"].startswith("Bumrah")     # c3 is beyond 48 h
+    # 24 Nov: one story is one topic (the sixgill shark headline had become two Deep Blue topics): with a single fresh
+    # headline only the next slot (c1) gets it; c2 keeps its planned topic; c3 is beyond 48 h
+    assert news_topics.refresh(Brain(), log=lambda *_: None, session=S()) == 1
+    assert set(updated) == {"c1"} and updated["c1"]["news"].startswith("Bumrah")
 
 
 def test_music_switches_to_a_stronger_track_at_the_climax():

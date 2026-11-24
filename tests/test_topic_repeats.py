@@ -66,6 +66,35 @@ def test_a_planned_topic_that_repeats_another_slot_is_told_to_switch(two_slots):
     assert "repeats another video of this channel" in b.prompts[0]
 
 
+def test_one_news_story_becomes_one_topic(monkeypatch):
+    """24 Nov 09:05: the 17-foot sixgill shark headline became Deep Blue's 25 AND 26 Nov topics (the model handed the
+    used headline back in other capitals, and only the exact text was left out)."""
+    from engine import news_topics
+    shark = "Massive 17-Foot Shark Comes Face-to-Face with Scientists in Incredible Encounter"
+    updates, prompts = [], []
+    monkeypatch.setattr(news_topics, "FEEDS", {"deep_blue_files": [("q", "en-US", "US", "en")]})
+    monkeypatch.setattr(news_topics, "due_items", lambda cid, now=None: [
+        ("2026-11-23", {"id": "d1", "channel": cid, "topic": "Old one"}),
+        ("2026-11-23", {"id": "d2", "channel": cid, "topic": "Old two"})])
+    monkeypatch.setattr(news_topics, "headlines", lambda cid, session=None: [
+        {"title": shark, "source": "A"}, {"title": "Tens of millions of crabs turn Christmas Island red", "source": "B"}])
+    monkeypatch.setattr("engine.config.channel", lambda cid: {"id": cid, "name": "Deep Blue Files", "market": "US"})
+    monkeypatch.setattr(weekly, "past_topics", lambda cid, limit=25: [])
+    monkeypatch.setattr(autopilot, "update_item", lambda s, iid, **f: updates.append((iid, f)) or {})
+
+    class Picker:
+        n = 0
+
+        def ask_json(self, task, prompt, temperature=0.5):
+            prompts.append(prompt)
+            Picker.n += 1
+            return {"topic": f"The Bluntnose Sixgill Shark, take {Picker.n}", "headline": shark.lower(),
+                    "feeling": "awe"}, None
+    assert news_topics.refresh(brain=Picker(), log=lambda *a: None) == 1
+    assert [u[0] for u in updates] == ["d1"]                                     # d2 kept its planned topic
+    assert shark not in prompts[1] and "Christmas Island" in prompts[1]         # and was not offered the shark again
+
+
 def test_the_make_step_replaces_a_topic_another_slot_already_made(monkeypatch):
     called, logs = [], []
     monkeypatch.setattr(weekly, "_refresh_topic", lambda *a, **k: called.append(k.get("offer_planned")))

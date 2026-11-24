@@ -110,6 +110,10 @@ def refresh(brain=None, log=print, session=None) -> int:
     if brain is None:
         brain = autopilot.default_brain()[0]
     n = 0
+    # 24 Nov: the 17-foot sixgill shark headline became Deep Blue's 25 AND 26 Nov topics and Wild Instinct's 26 Nov one:
+    # a used headline was only left out by its exact text, and the model hands it back in other capitals. Now a used
+    # story (similar wording) is left out for every channel in this run, and a pick that repeats a topic is refused.
+    used: list[str] = []
     for cid in FEEDS:
         items = due_items(cid)
         if not items:
@@ -120,10 +124,12 @@ def refresh(brain=None, log=print, session=None) -> int:
             continue
         ch = channel(cid)
         avoid = weekly.past_topics(cid, limit=25)
-        used: list[str] = []
         for start, it in items:
             lines = "\n".join(f"- {h['title']}" + (f" ({h['source']})" if h["source"] else "") for h in news
-                              if h["title"] not in used)
+                              if not weekly.topic_repeats(h["title"], used))
+            if not lines:
+                log(f"news topics {cid}: every headline is used already")
+                break
             prompt = PROMPT.format(name=ch["name"], niche=ch.get("niche", ""),
                                    audience="Indian viewers" if ch.get("market") == "IN" else "United States viewers",
                                    language="Hindi (Roman Hinglish hooks)" if ch.get("language") == "hi" else "English",
@@ -138,6 +144,10 @@ def refresh(brain=None, log=print, session=None) -> int:
             if not topic:
                 continue
             headline = str(pick.get("headline") or "")[:200]
+            dup = weekly.topic_repeats(headline, used) or weekly.topic_repeats(topic, avoid)
+            if dup:
+                log(f"news topics {cid}: {it['id']} keeps its topic (the pick repeats '{dup[:60]}')")
+                continue
             feeling = str(pick.get("feeling") or "").strip().lower()
             used.append(headline)
             # 24 Nov: the new topic's own hook and feeling, never the replaced topic's ('why now: Trending search
