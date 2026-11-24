@@ -251,6 +251,10 @@ OBJECT_COLOUR = {"apple": "red", "star": "yellow", "balloon": "purple", "duck": 
 BANNED = re.compile(r"subscrib|\bcomment|\btap\b|\bclick|\bbell\b|\blink\b|like (this|the|our) video|hit (the )?like",
                     re.I)
 
+# 24 Nov: the Short opens on the "problem" lines and the child was first asked something in line 4 ("Do we have
+# enough, friend?"); both judged versions of 1125_0500 scored human_feel 5 with the same fix: open with a direct
+# challenge to the child (Dora's ask-the-viewer-for-help). The problem part now starts with the narrator asking for
+# help, in the writer's own words (an example line would come back word for word in every episode).
 STORY_PROMPT = """Write the story parts of a FUNNY, lively episode of "Bloop & Friends", a Made-for-Kids show for ages 2-5.
 (Owner 21 Nov: the old episodes were "too static, stalling, idle, unfunny, uncatchy, boring". Make kids giggle.)
 Characters (our own): Bloop (blue water-drop, curious, a bit clumsy: says "Oopsie-doodle!" when things go wrong),
@@ -271,7 +275,9 @@ Return JSON only:
 {{"adjective": "one fun adjective for the {objs}, e.g. bouncy",
 "intro": [2-3 lines: line 1 is the surprise/mishap (e.g. Bloop: "Oopsie-doodle! The {objs} are bouncing away!"),
   then a quick excited hello to the child],
-"problem": [4-6 lines: the {objs} misbehave, the {n} empty spots, "do we have enough?", the chant, "let's count!"],
+"problem": [4-6 lines: line 1 is the narrator asking the child for help right away, a direct challenge in your own
+  words (the Short starts here), then the {objs} misbehave, the {n} empty spots, "do we have enough?", the chant,
+  "let's count!"],
 "after_count": [2-4 lines: a big happy cheer, the running gag comes back, every spot has one {obj}],
 "ending": [3-4 lines: the funny twist, then the happy ending and the lesson (counting tells us how many)],
 "goodbye": [1-2 short, upbeat lines with the chant or catchphrase (the narrator: proud of the child)],
