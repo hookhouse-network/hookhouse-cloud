@@ -3,6 +3,7 @@ free, about with follow lines (YouTube, Instagram, Threads), website = the YouTu
 python -m scripts.pinterest_profile <channel_id>"""
 import asyncio
 import json
+import re
 import sys
 import time
 
@@ -65,17 +66,32 @@ async def main(cid: str):
             time.sleep(1.5)
             if await js('!!document.querySelector("input[name=business_name]")'):
                 break
-        res = {"name": await replace("input[name=business_name]", ch["name"]),
-               "about": await replace("textarea[name=about], textarea#about", about_for(cid)),
-               "website": await replace("input[name=website_url], input#website_url", website) if website else None}
+        async def save_now():                           # 25 Nov: one save for all fields did not stick on new
+            sxy = await js('(() => { const b = [...document.querySelectorAll("button")].filter(e => (e.innerText || "")'   # accounts;
+                           '.trim() === "Save" && e.getBoundingClientRect().width > 0 && !e.disabled).pop(); if (!b) return null;'
+                           ' b.scrollIntoView({block: "center"}); const r = b.getBoundingClientRect();'  # each field alone did
+                           ' return [r.x + r.width / 2, r.y + r.height / 2]; })()')
+            if sxy:
+                await click(sxy)
+                time.sleep(4)
+        res = {"name": await replace("input[name=business_name]", ch["name"])}
+        await save_now()
+        res["about"] = await replace("textarea[name=about], textarea#about", about_for(cid))
+        await save_now()
+        if website:
+            res["website"] = await replace("input[name=website_url], input#website_url", website)
+            await save_now()
         if want_user:
             await replace("input[name=username], input#username", want_user)
             time.sleep(3)
-            taken = await js('/taken|not available|already/i.test(document.body.innerText)')
+            field = await js('(() => { const e = document.querySelector("input[name=username]"); const box = e && '
+                             '(e.closest("div[class]") || e.parentElement); return box ? box.parentElement.innerText : ""; })()')
+            taken = bool(re.search(r"taken|not available|already", field or "", re.I))   # near the field only
             res["username"] = "taken (kept the old one)" if taken else want_user
             if taken:
                 await replace("input[name=username], input#username", (want_user + "pins")[:30])
                 res["username"] = (want_user + "pins")[:30]
+            await save_now()
         avatar = ROOT / "output" / "brand" / cid / "avatar.png"
         xy = await js('(() => { const b = [...document.querySelectorAll("button,div[role=button]")].find(e => (e.innerText || "")'
                       '.trim() === "Change" && e.getBoundingClientRect().width > 0); if (!b) return null; b.scrollIntoView({block:'
@@ -105,7 +121,10 @@ async def main(cid: str):
             await click(xy)
             time.sleep(6)
         await b.cmd("Page.reload", {}, s)
-        time.sleep(10)
+        for _ in range(20):                              # the form renders late; reading too early gave None
+            time.sleep(2)
+            if await js('!!document.querySelector("input[name=business_name]")'):
+                break
         saved = await js('[document.querySelector("input[name=business_name]").value, document.querySelector("input[name=username]").value,'
                          ' (document.querySelector("input[name=website_url]") || {}).value]')
         print(f"{cid}: {res} -> saved: name={saved[0]!r} user={saved[1]!r} website={saved[2]!r}")

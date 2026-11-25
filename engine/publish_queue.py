@@ -147,6 +147,12 @@ def _post_one(item_id, js, found, led, gov, worker, counts, log) -> None:
             led.complete(j["id"], worker, {"reconciled": "already on the platform"})
             counts["skipped"] += 1
             continue
+        from .links import hold_note
+        held = hold_note(it["channel"], p)
+        if held:                                  # 25 Nov: an account under a platform check is never posted to
+            led.complete(j["id"], worker, {"skipped": f"account on hold: {held}"})
+            counts["skipped"] += 1
+            continue
         ok, retry_at, why = gov.check(p, it["channel"])
         if not ok:
             led.fail(j["id"], worker, why, kind="quota", retry_at=retry_at)

@@ -88,12 +88,38 @@ def job_for(start: str, it: dict, now: float) -> dict:
     # video gets its own key (the old job is cancelled by the sync), class P2 and a deadline a day out.
     late = when < now
     key = f"make:{it['id']}:{it.get('gate_redos') or 0}:{it.get('status')}" + (":late" if late else "")
+    cls, deadline = (2 if late or when - now >= 24 * 3600 else 1), (now + 24 * 3600 if late else when)
+    # 25 Nov shadow day (40 picks, 20 the same): the PC makes remakes first, then a connected channel's campaign clip
+    # (campaigns pay only while they run), then channels that can post; the queue went by deadline alone and handed
+    # out 1126_0500_stream_clips while the PC made the 1121 remake. The queue now carries the same order.
+    h = order_hints(it)
+    if h["redo"]:
+        cls, deadline = 1, now - 3600
+    elif h["clip"] and h["live"]:
+        cls, deadline, key = 1, now, key + ":clip"
+    elif not h["live"]:
+        cls = max(cls, 2)
     return {"kind": "make", "key": key,
-            "cls": 2 if late or when - now >= 24 * 3600 else 1, "deadline": now + 24 * 3600 if late else when,
+            "cls": cls, "deadline": deadline,
             "est_min": 45 if long_ else 12,
             "requires": ["ffmpeg"] + (["pc"] if long_ else []), "prefer": ["pc"],
             "fallback": [] if long_ else [{"kind": "gh_render", "when": "no_pc_online&slack_lt_2x"}],
             "payload": {"item": it["id"], "start": start, "channel": it.get("channel"), "kind": kind}}
+
+
+def order_hints(it: dict) -> dict:
+    """The PC's own ordering facts for an item (runner._due_to_make): a remake, a campaign clip slot, a channel with a
+    connected account. A failed check never stops the queue: not a clip, counted as live."""
+    from .. import autopilot
+    from . import runner
+    live = True
+    try:
+        c = autopilot._connected(it["channel"])
+        live = bool(c["youtube"] or c["meta"])
+    except Exception as e:  # noqa: BLE001 - unknown channel: keep its deadline order
+        runner._log(f"queue order: connection check {it.get('id')}: {type(e).__name__}: {e}")
+    clip = bool(it.get("channel")) and runner._clip_slot(it)
+    return {"redo": it.get("status") == "redo", "clip": clip, "live": live}
 
 
 def sync_due(client: SchedClient, due: list[tuple[str, dict]], now: float | None = None, log=print) -> dict:

@@ -94,6 +94,8 @@ async def main(cid: str):
         if logged:
             ck = [{k: c[k] for k in KEEP if k in c and not (k == "expires" and c[k] in (-1, None))} for c in ck]
             (ROOT / "data" / "secrets" / f"pinterest_session_{cid}.json").write_text(json.dumps(ck), encoding="utf-8")
+        if not steps or not user:                       # 25 Nov: say what the page shows when nothing went through
+            print(f"{cid}: page says: " + ((await js("document.body.innerText")) or "")[:300].replace("\n", " / "))
         print(f"{cid}: {'account created' if logged else 'not confirmed'} (steps: {', '.join(steps) or 'none'}; "
               f"user {user or '?'}; at {(await js('location.pathname')) or ''})")
         await b.cmd("Target.disposeBrowserContext", {"browserContextId": ctx})

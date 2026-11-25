@@ -44,6 +44,19 @@ def set_link(channel_id: str, **fields) -> bool:
     return False
 
 
+def hold_note(channel_id: str, platform: str) -> str:
+    """Why posting to this channel's account on this platform is on hold ("" = post normally). Set in links.yaml as
+    `<platform>_hold: "<reason>"` (25 Nov: Instagram hid @brainsnackdose until the owner confirms it's human; Threads
+    posts through the same Instagram account, so an Instagram hold holds Threads too). Remove the field to resume."""
+    try:
+        row = data().get(channel_id) or {}
+    except Exception as e:  # noqa: BLE001 - an unreadable links file never stops posting
+        print(f"hold check: {type(e).__name__}: {e}")
+        return ""
+    note = row.get(f"{platform}_hold") or (row.get("instagram_hold") if platform == "threads" else "")
+    return str(note or "")
+
+
 def _ig_connected(channel_id: str) -> bool:
     """The Instagram account really exists and is ours: connected to Meta, or marked instagram_live in links.yaml
     (created, not connected yet). A planned handle alone may belong to a stranger."""

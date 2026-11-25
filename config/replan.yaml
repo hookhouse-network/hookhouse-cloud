@@ -9,3 +9,6 @@ requests:
   - id: "2026-11-20-gta-clips-muted"            # the remakes were held for profanity before muting existed
     redo: [1121_0100_stream_clips_short, 1121_0500_stream_clips_short, 1121_0630_stream_clips_short]
     note: "remake: swear words muted; footage the gate holds is skipped"
+  - id: "2026-11-25-hot-take-letterbox"         # blocked at upload every tick: made before the letterbox crop (5d81147)
+    redo: [1122_0500_hot_take_hq_clip]
+    note: "remake: black bars cropped before reframing"
