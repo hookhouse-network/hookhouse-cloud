@@ -43,7 +43,8 @@ def test_a_block_waits_an_hour_then_one_cheap_test_call(cf):
     calls, answers = cf
     sb._block("cloudflare")
     assert not sb._open("cloudflare") and calls == []                     # no call within the hour
-    assert sb.reset_at() == pytest.approx(time.time() + sb.PROBE_S, abs=5)   # retries wait for the test, not a day
+    # retries wait for the test, not a day (26 Nov: within an hour of UTC midnight the daily reset comes first)
+    assert sb.reset_at() == pytest.approx(min(time.time() + sb.PROBE_S, float(sb._quota()["cloudflare"])), abs=5)
     _test_due_now(sb.QUOTA_PC)
     answers.append(False)
     assert not sb._open("cloudflare")

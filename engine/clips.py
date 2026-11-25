@@ -462,7 +462,9 @@ streamer's reactions; little speech). It is posted whole as a vertical Short. Wr
 - Title: the concrete thing that happens or is said, under 60 chars, no "BREAKING"/"LIVE", no clickbait the clip
   does not deliver. Name the streamer only if the transcript does.
 - Hooks: 3 on-screen hooks, max 7 words, that make a scroller stay (a question or the stakes), true to the clip.
-- No spoilers of the game's story.
+- No spoilers of the game's story, and never give away how THIS clip ends: the title and hooks tease the stakes
+  ("Can he land this plane?", "He thought this was a good idea"), never the outcome ("he crashes", "mission failed").
+  The frames below tell you what really happens so the tease is true; do not describe the ending.
 {campaign_rules}
 Return ONLY JSON: {{"hook_options": ["..."], "title": "...", "caption": "hook line + 1 line",
  "emphasis": ["3-6 words said in the clip"], "emoji": "one emoji",

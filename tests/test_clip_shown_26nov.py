@@ -41,3 +41,9 @@ def test_the_title_writer_sees_the_frames():
     m = clips.whole_clip_moment(Brain(), [], 30.0, seen=["0.7s: a plane wing", "46.0s: mission failed screen"])
     assert "What the picture shows (frames, in order): 0.7s: a plane wing; 46.0s: mission failed screen" in got["p"]
     assert m[0]["whole_clip"] and clips.whole_clip_moment(Brain(), [], 30.0) and "picture shows" not in got["p"]
+
+
+def test_the_title_writer_is_told_not_to_reveal_the_ending():
+    """26 Nov: the first frame-written headline gave the crash away; the campaign gate held it as a spoiled payoff."""
+    from engine import clips
+    assert "never the outcome" in clips.WHOLE_PROMPT and "do not describe the ending" in clips.WHOLE_PROMPT
