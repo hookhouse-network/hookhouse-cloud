@@ -157,8 +157,15 @@ def srt_text(folder: Path, stem: str | None = None) -> tuple[str, float | None]:
 def script_text(it: dict, meta: dict) -> str:
     folder = Path(it.get("out_dir") or "")
     said, _ = srt_text(folder, Path(str(it.get("file") or "")).stem or None)
+    shown = ""
+    try:                                          # 26 Nov: a clip's picture in words (engine/clip_shown.py)
+        from .campaign_gate import clip_entry
+        entry = clip_entry(it)[0] or {}
+        shown = str(entry.get("shown") or "").strip()
+    except (OSError, ValueError) as e:
+        print(f"potential: clip record unreadable for {it.get('id')}: {e}")
     if said:
-        return said[:4000]
+        return ((f"SHOWN: {shown}\nSAID: " if shown else "") + said)[:4000]
     sj = folder / "script.json"
     if sj.exists():
         try:

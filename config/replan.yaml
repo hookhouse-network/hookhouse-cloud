@@ -18,3 +18,6 @@ requests:
   - id: "2026-11-25-gta-clips-speech-first"     # all 3 held only for 'speech starts at 1.6-4.9s' (the flash had no words)
     redo: [1121_0100_stream_clips_short, 1121_0500_stream_clips_short, 1121_0630_stream_clips_short]
     note: "remake: the payoff flash starts on the streamer's line (991e2dc)"
+  - id: "2026-11-26-gta-clips-shown"            # held by the judge (caption_hook 2-3): it read only the captions
+    redo: [1121_0100_stream_clips_short, 1121_0500_stream_clips_short, 1121_0630_stream_clips_short]
+    note: "remake: the clip record says what it shows (layout, headline, payoff flash, frames); silent payoffs flash the reaction"

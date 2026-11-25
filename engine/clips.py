@@ -885,6 +885,12 @@ def make_clips(brain, source: str, channel: dict, campaign: dict | None = None, 
             spoken = " ".join(w.text for w in words if m["start"] <= w.start < m["end"])
             meta.update(made_at=time.time(), logo_shown=bool(campaign.get("logo_path")), has_added_music=False,
                         transcript=spoken[:3000], gate_cache={})
+            try:                                    # 26 Nov: the potential judge reads text only (clip_shown.py)
+                from .clip_shown import describe
+                meta["shown"] = describe(path, m, campaign, words, duration=meta["duration_s"])
+                meta["teaser"] = m.get("teaser")
+            except Exception as e:  # noqa: BLE001 - the description only helps the judge (said, never silent)
+                log(f"  clip description for the judge failed: {type(e).__name__}: {e}")
             try:
                 from . import campaign_safety as cs
                 meta["edit_hash"] = cs.video_hash(path)
