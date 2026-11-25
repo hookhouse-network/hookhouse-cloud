@@ -41,6 +41,8 @@ CREDIT = "Own (DreamShaper 8 LCM, CreativeML OpenRAIL-M; drawn on our PC)"
 DEFAULTS = {"enabled": False, "max_day": 60, "idle_min": 3, "threads": 6, "steps": 4, "timeout_s": 600}
 _LOCK = threading.Lock()                     # one picture at a time: two would only fight for the same CPU cores
 _SAID: set[str] = set()                      # reasons already written to the log (once each until it draws again)
+DROPPED: list[str] = []                      # 25 Nov: why local drawing dropped out during the current video (the
+# renderer clears it per video; story._picture_stop stops a video that turned into word cards because of it)
 
 
 def cfg() -> dict:
@@ -134,6 +136,7 @@ def draw(prompt: str, seed: int, size: tuple[int, int] = (1080, 1920)) -> bytes 
     """One local picture as PNG bytes, or None (not allowed now, or the drawing failed)."""
     reason = why_not()
     if reason:
+        DROPPED.append(reason)
         if reason not in _SAID:                       # 22 Nov: the PC went on battery mid-video and every scene
             _SAID.add(reason)                         # became a graphic without a word in the log
             print(f"local pictures: not now ({reason})", flush=True)
@@ -158,6 +161,7 @@ def draw(prompt: str, seed: int, size: tuple[int, int] = (1080, 1920)) -> bytes 
                                timeout=int(c["timeout_s"]), creationflags=flags)
         except (subprocess.TimeoutExpired, OSError) as e:
             print(f"local picture failed: {type(e).__name__}", flush=True)
+            DROPPED.append(type(e).__name__)
             return None
         if p.returncode != 0 or not out.exists() or out.stat().st_size < 10_000:
             tail = ((p.stderr or "") + (p.stdout or "")).strip().splitlines()[-1:] or [""]

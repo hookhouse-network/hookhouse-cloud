@@ -1946,9 +1946,16 @@ def _picture_stop(beats: list[dict], out_dir: Path) -> None:
     from . import quality, storyboard
     shots = [{"see": b.get("see", ""), **(b.get("_visual") or {})} for b in beats]
     cards = quality.card_count(shots)
-    if shots and cards / len(shots) > quality.CARD_MAX and storyboard.images_blocked():
+    # 25 Nov: Clutch Tales went on battery mid-video (local drawing off) and Cricket's local pictures timed out, so 8
+    # of 15 shots became word cards, yet the stop did not fire (a cloud source still counted as open): the video was
+    # finished, blocked by the gate and its one remake spent. Local drawing that dropped out during THIS video
+    # (battery, daily cap, timeout) clears by itself, so that video waits too.
+    from .media import local_sd
+    dropped = sorted(set(local_sd.DROPPED))
+    if shots and cards / len(shots) > quality.CARD_MAX and (storyboard.images_blocked() or dropped):
         e = storyboard.NoPictures(f"{cards}/{len(shots)} shots would be word cards (the gate allows "
-                                  f"{quality.CARD_MAX:.0%}): free picture limit reached; this video is made after the "
+                                  f"{quality.CARD_MAX:.0%}): " + (f"local pictures dropped out ({', '.join(dropped)}); "
+                                  if dropped else "free picture limit reached; ") + "this video is made after the "
                                   "daily reset")
         e.out_dir = out_dir
         raise e
@@ -1957,6 +1964,8 @@ def _picture_stop(beats: list[dict], out_dir: Path) -> None:
 def render(channel: dict, script: dict, out_dir: Path, fmt: str = "short", log=print,
            bank: list | None = None) -> dict:
     bank = list(bank or [])                        # P3b: the last version's pictures (each reused at most once)
+    from .media import local_sd
+    local_sd.DROPPED.clear()                       # only this video's drop-outs count for the picture stop
     script = normalize_script(script)
     f = FORMATS[fmt]
     size = f["size"]

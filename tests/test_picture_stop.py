@@ -45,6 +45,8 @@ def test_cosmos_23_nov_is_stopped_and_carries_its_folder(tmp_path, monkeypatch):
 
 
 def test_with_pictures_available_the_render_goes_on(tmp_path, monkeypatch):
+    from engine.media import local_sd
+    monkeypatch.setattr(local_sd, "DROPPED", [])
     monkeypatch.setattr(storyboard, "images_blocked", lambda: False)
     assert story._picture_stop(_beats(3, 13), tmp_path) is None                # the gate decides (redo)
     designed = [{"see": "the number", "_visual": {"kind": "image", "source": "graphic"}}] + _beats(0, 3)
@@ -118,3 +120,23 @@ def test_a_stopped_try_keeps_its_pictures_and_its_script(tmp_path, monkeypatch):
     assert [b["see"] for b in weekly.shot_bank(item)] == ["Saturn's rings edge-on"]
     assert weekly.shot_bank(item)[0]["match"] == "0.9"
     assert weekly.checkpoint(item)["script"]["title"] == script["title"]        # the retry resumes the same script
+
+
+def test_local_drawing_that_dropped_out_mid_video_stops_it(tmp_path, monkeypatch):
+    """25 Nov: Clutch Tales went on battery mid-video and Cricket's local pictures timed out: 8/15 word cards were
+    finished anyway (a cloud source still counted as open), blocked by the gate, and the remake spent."""
+    from engine.media import local_sd
+    monkeypatch.setattr(storyboard, "images_blocked", lambda: False)
+    monkeypatch.setattr(local_sd, "DROPPED", ["the PC runs on its battery", "the PC runs on its battery"])
+    with pytest.raises(storyboard.NoPictures) as e:
+        story._picture_stop(_beats(8, 15), tmp_path)
+    assert "local pictures dropped out (the PC runs on its battery)" in str(e.value)
+    monkeypatch.setattr(local_sd, "DROPPED", ["TimeoutExpired"])
+    assert story._picture_stop(_beats(2, 15), tmp_path) is None                # few cards: the video goes on
+
+
+def test_a_failed_local_draw_is_remembered(monkeypatch):
+    from engine.media import local_sd
+    monkeypatch.setattr(local_sd, "DROPPED", [])
+    monkeypatch.setattr(local_sd, "why_not", lambda start=False: "the PC runs on its battery")
+    assert local_sd.draw("a lake", 1) is None and local_sd.DROPPED == ["the PC runs on its battery"]
