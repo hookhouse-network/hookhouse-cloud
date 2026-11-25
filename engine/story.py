@@ -2740,11 +2740,18 @@ def _judge_loop(brain, channel: dict, script: dict, topic: str | None, fmt: str,
         except Exception as e:  # noqa: BLE001 - no verdict: the video gate still judges after the render
             log(f"Script judge: no verdict ({type(e).__name__}: {str(e)[:80]}); the video gate decides later")
             return best if best_key is not None else script
-        low = v["low"]
+        low = dict(v["low"])
         weakest = min(v["scores"].values()) if v["scores"] else 0
         facts = _facts_pass(script)
         human = potential_gate.HUMAN not in low     # S10 'obviously AI-made' blocks every video, even under B
-        key = (facts, human, weakest)               # 23 Nov: a draft the fact gate or S10 holds never wins
+        s1 = []                                     # 26 Nov: S1 structure (hook, open loops, turn, loop ending)
+        if fmt == "short" and channel.get("language", "en") == "en" and cfg.get("s1", True):
+            from .script_structure import findings
+            s1 = findings(script, float((channel.get("spec") or {}).get("short_wpm") or 165))
+            if s1:
+                low["structure"] = 6.0
+                v = dict(v, fixes=s1 + list(v.get("fixes") or []))
+        key = (facts, human, not s1, weakest)       # 23 Nov: a draft the fact gate or S10 holds never wins
         if best_key is None or key > best_key:
             best, best_key = script, key
         shown = ", ".join(f"{c} {s:g}" for c, s in sorted(v["scores"].items(), key=lambda x: x[1]))
@@ -2769,7 +2776,7 @@ def _judge_loop(brain, channel: dict, script: dict, topic: str | None, fmt: str,
                      f"details: {wrong}. Write it again without them and keep everything that is true.")
             log(f"Script judge: passes ({shown}) but its facts fail the check; rewriting without them ({r + 1}/{rounds})")
         script = _write_fresh(brain, channel, topic, fmt, memory, log, plan, notes=notes)
-    log(f"Script judge: best draft kept (weakest point {best_key[2]:g}" + ("" if best_key[0] else ", facts still wrong")
+    log(f"Script judge: best draft kept (weakest point {best_key[3]:g}" + ("" if best_key[0] else ", facts still wrong")
         + ("" if best_key[1] else ", still reads AI-made") + "); the video gate decides after the render")
     return best
 
