@@ -540,6 +540,73 @@ def _mute_af(spans, start: float) -> str:
     return mute_filter([tuple(x) for x in spans], offset=start)
 
 
+TEASER_S = 1.5         # 25 Nov: stream clips open with a flash of their payoff (the judge: "hook 3.5, nothing in 2 s")
+STREAM_CAPTION_MIN_Y = CAM_PANE_H + 420   # 25 Nov: captions under the seam covered the streamer's Kick badge
+
+
+def _audio_rms(wav: Path, step: float = 0.1) -> np.ndarray:
+    """RMS loudness per `step` seconds of a 16-bit PCM wav (all channels mixed)."""
+    import wave
+    with wave.open(str(wav), "rb") as f:
+        ch, rate, n = f.getnchannels(), f.getframerate(), f.getnframes()
+        data = np.frombuffer(f.readframes(n), dtype=np.int16).astype(np.float32)
+    if ch > 1:
+        data = data[: len(data) // ch * ch].reshape(-1, ch).mean(axis=1)
+    hop = max(1, int(rate * step))
+    k = len(data) // hop
+    return np.sqrt((data[: k * hop].reshape(k, hop) ** 2).mean(axis=1)) if k else np.zeros(0)
+
+
+def payoff_start(rms: np.ndarray, thumbs: list, start: float, end: float, step: float = 0.1) -> float | None:
+    """Where the clip's payoff flash should start (source seconds): the loudest + busiest moment in its later part
+    (the reaction / explosion), a little before the peak. None when the clip is short or has no clear peak."""
+    dur = end - start
+    if dur < 12 or len(rms) < 10:
+        return None
+    n = int(dur / step)
+    a = np.zeros(n)
+    a[: min(n, len(rms))] = rms[:n]
+    m = np.zeros(n)
+    for (t0, x), (t1, y) in zip(thumbs, thumbs[1:]):
+        i = int((t1 - start) / step)
+        if 0 <= i < n:
+            m[i] = float(np.abs(y - x).mean())
+    for k in range(1, n):                              # thumbs are sparser than the grid: hold the last value
+        if m[k] == 0:
+            m[k] = m[k - 1]
+
+    def norm(v):
+        hi = np.percentile(v, 95)
+        return np.clip(v / hi, 0, 1.5) if hi > 0 else v
+    win = max(1, int(0.5 / step))
+    score = np.convolve(norm(a) + 0.6 * norm(m), np.ones(win) / win, mode="same")
+    lo, hi = int(max(4.0, 0.35 * dur) / step), int((dur - 1.0 - TEASER_S) / step)
+    if hi <= lo:
+        return None
+    pk = lo + int(np.argmax(score[lo:hi]))
+    if score[pk] < 1.3 * float(np.median(score)):
+        return None                                    # no moment stands out: no teaser
+    return start + max(lo * step, pk * step - 0.6)
+
+
+def blur_burned_subtitles(game: np.ndarray) -> np.ndarray:
+    """Blur the game's own subtitle line (white text, bottom middle of the game picture). 25 Nov: we mute the swear
+    words, but GTA's subtitles still showed them on screen."""
+    h, w = game.shape[:2]
+    y0, y1, x0, x1 = int(0.80 * h), int(0.97 * h), int(0.08 * w), int(0.92 * w)
+    band = game[y0:y1, x0:x1]
+    white = band.min(axis=2) > 225
+    if int(white.sum()) < 150:
+        return game
+    ys, xs = np.nonzero(white)
+    by0, by1 = max(0, ys.min() - 14), min(band.shape[0], ys.max() + 15)
+    bx0, bx1 = max(0, xs.min() - 14), min(band.shape[1], xs.max() + 15)
+    out = game.copy()
+    reg = out[y0 + by0:y0 + by1, x0 + bx0:x0 + bx1]
+    out[y0 + by0:y0 + by1, x0 + bx0:x0 + bx1] = cv2.GaussianBlur(reg, (0, 0), 9)
+    return out
+
+
 def headline_box(text: str, size: int = 68, width: int = OUT_W, max_lines: int = 3) -> np.ndarray:
     """Streamer-clip headline (20 Nov, the campaign's best Dasgas Shorts: 9K views): black bold text on a full-width
     white band at the seam between webcam and game, on screen for the WHOLE clip. BGRA."""
@@ -737,8 +804,26 @@ def render_clip_v3(video: Path, moment: dict, words: list, out_path: Path, style
     tm = TimeMap(segs)
     total = tm.duration
     spk = speakers_per_word(clip_words, tracks)
+    work = out_path.parent / f"{out_path.stem}_work"
+    work.mkdir(parents=True, exist_ok=True)
+    raw = work / "audio_src.wav"
+    ffmpeg.run(["-ss", f"{start:.3f}", "-t", f"{end - start + 0.5:.3f}", "-i", str(video.resolve()), "-vn",
+                "-ac", "2", "-ar", "48000"]
+               + (["-af", _mute_af(moment.get("mute"), start)] if moment.get("mute") else []) + [str(raw)])
+    teaser, p0 = 0.0, None                       # stream clips open with a flash of their payoff
+    max_len = float(((campaign or {}).get("length_seconds") or {}).get("max") or 60)
+    if stream and total + TEASER_S <= max_len:
+        try:
+            p0 = payoff_start(_audio_rms(raw), scene.thumbs, start, end)
+        except (OSError, ValueError) as e:
+            log(f"  v3: payoff teaser skipped ({type(e).__name__}: {e})")
+        if p0 is not None:
+            teaser = TEASER_S
+            log(f"  v3: opens with the payoff ({p0 - start:.1f}-{p0 - start + teaser:.1f}s of the clip) as a "
+                f"{teaser:.1f}s teaser")
+    total += teaser
     from .clips import Word
-    out_words = [Word(x.text, tm.to_out(x.start), tm.to_out(x.end)) for x in clip_words]
+    out_words = [Word(x.text, tm.to_out(x.start) + teaser, tm.to_out(x.end) + teaser) for x in clip_words]
     shots = ([{"t0": 0.0, "t1": total, "layout": "S", "speaker": 0}] if stream
              else make_shots(out_words, spk, len(tracks), total))
     emphasis = {re.sub(r"[^\w]", "", e.lower()) for e in moment.get("emphasis", []) if e}
@@ -746,15 +831,13 @@ def render_clip_v3(video: Path, moment: dict, words: list, out_path: Path, style
     log(f"  v3: {len(tracks)} face track(s), {len(shots)} shot(s) {[s['layout'] for s in shots]}, "
         f"{len(punches)} punch-in(s), {end - start:.1f}s -> {total:.1f}s "
         + ("(pauses kept: the picture moves)" if moving else "after tightening pauses"))
-    work = out_path.parent / f"{out_path.stem}_work"
-    work.mkdir(parents=True, exist_ok=True)
     accent = style.get("accent_color") or "#FF6A3D"
     # streamer-clip campaigns (20 Nov, owner: "design per the campaign's reference shorts"): a white headline band on
     # the seam for the whole clip, captions under it, the credit in the webcam's corner, no separate 2.6 s hook
     head_txt = (moment.get("title") or hook or "") if stream and (campaign or {}).get("headline_box") else ""
     head_img = headline_box(head_txt) if head_txt else None
     head_y = CAM_PANE_H - int(head_img.shape[0] * 0.4) if head_img is not None else 0
-    cap_y = head_y + head_img.shape[0] + 90 if head_img is not None else None
+    cap_y = max(head_y + head_img.shape[0] + 90, STREAM_CAPTION_MIN_Y) if head_img is not None else None
     build_captions(out_words, shots, work / "captions.ass", accent=accent, stream_y=cap_y)
     disclosure = (campaign or {}).get("disclosure_text") or ""
     pill_img = pill(disclosure) if disclosure else None
@@ -778,18 +861,15 @@ def render_clip_v3(video: Path, moment: dict, words: list, out_path: Path, style
         log(f"  v3: source has a burned-in name tag from {bottom:.0%} of the height: cropping above it")
 
     # audio: cut the same segments, high-pass, then two-pass loudness
-    raw = work / "audio_src.wav"
-    ffmpeg.run(["-ss", f"{start:.3f}", "-t", f"{end - start + 0.5:.3f}", "-i", str(video.resolve()), "-vn",
-                "-ac", "2", "-ar", "48000"]
-               + (["-af", _mute_af(moment.get("mute"), start)] if moment.get("mute") else []) + [str(raw)])
     filt = []
-    for k, (a, b) in enumerate(segs):
+    a_segs = ([(p0, p0 + teaser)] if teaser else []) + list(segs)
+    for k, (a, b) in enumerate(a_segs):
         ln = b - a
         filt.append(f"[0:a]atrim=start={a - start:.3f}:end={b - start:.3f},asetpts=PTS-STARTPTS,"
                     f"afade=t=in:d=0.01,afade=t=out:st={max(0.0, ln - 0.012):.3f}:d=0.012[s{k}]")
     # 21 Nov: Kick streams carry stretches of digital silence (muted music, a quiet streamer) that the scorecard calls
     # "dead silence: sounds broken"; a constant room-tone floor (~-55 dBFS RMS, far under speech) keeps it natural
-    filt.append("".join(f"[s{k}]" for k in range(len(segs))) + f"concat=n={len(segs)}:v=0:a=1,highpass=f=80,"
+    filt.append("".join(f"[s{k}]" for k in range(len(a_segs))) + f"concat=n={len(a_segs)}:v=0:a=1,highpass=f=80,"
                 f"{ROOM_TONE_AF}[out]")
     cut = work / "audio_cut.wav"
     ffmpeg.run(["-i", str(raw), "-filter_complex", ";".join(filt), "-map", "[out]", str(cut)])
@@ -819,7 +899,7 @@ def render_clip_v3(video: Path, moment: dict, words: list, out_path: Path, style
     boxes_cache: dict = {}
     for i in range(n_out):
         t_out = i / FPS
-        t_src = tm.to_src(t_out)
+        t_src = p0 + t_out if t_out < teaser else tm.to_src(t_out - teaser)
         if t_src < cur_t - 0.5 or t_src > cur_t + 2.0:  # big jump: seek
             cap.set(cv2.CAP_PROP_POS_MSEC, t_src * 1000)
             ok, frame = cap.read()
@@ -843,6 +923,7 @@ def render_clip_v3(video: Path, moment: dict, words: list, out_path: Path, style
             if OUT_W / max(cw, 1) >= 1.5:                 # a small webcam blown up: gentle sharpening
                 top = _sharpen(top)
             game = cv2.resize(frame[gy0:gy0 + gh, gx0:gx0 + gw], (OUT_W, GAME_PANE_H), interpolation=cv2.INTER_LANCZOS4)
+            game = blur_burned_subtitles(game)
             out = np.vstack([top, game])
             cv2.line(out, (0, CAM_PANE_H - 1), (OUT_W, CAM_PANE_H - 1), (20, 20, 20), 4)
         elif shot["layout"] == "A" or len(tracks) < 2:
@@ -893,7 +974,8 @@ def render_clip_v3(video: Path, moment: dict, words: list, out_path: Path, style
     moment["shots"] = shots
     if stream:
         moment["stream"] = stream
-    moment["tightened_s"] = round((end - start) - total, 2)
+    moment["tightened_s"] = round((end - start) - (total - teaser), 2)
+    moment["teaser"] = [round(p0 - start, 2), teaser] if teaser else None
     (work / "plan.json").write_text(json.dumps({"segments": segs, "shots": shots, "punches": punches}, indent=1),
                                     encoding="utf-8")
     return out_path

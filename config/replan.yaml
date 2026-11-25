@@ -12,3 +12,6 @@ requests:
   - id: "2026-11-25-hot-take-letterbox"         # blocked at upload every tick: made before the letterbox crop (5d81147)
     redo: [1122_0500_hot_take_hq_clip]
     note: "remake: black bars cropped before reframing"
+  - id: "2026-11-25-gta-clips-opening"          # judge held them: hook 3.5 / caption_hook 2.5 (nothing in the first 2 s)
+    redo: [1121_0100_stream_clips_short, 1121_0500_stream_clips_short, 1121_0630_stream_clips_short]
+    note: "remake: opens with a 1.5 s payoff teaser, game subtitles blurred, captions below the Kick badge"
