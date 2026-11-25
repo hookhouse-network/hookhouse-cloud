@@ -591,7 +591,13 @@ def payoff_start(rms: np.ndarray, thumbs: list, start: float, end: float, step: 
     # 25 Nov: the potential gate held a remake for "speech starts at 1.6s (the hook must land within 1.0s)": the flash
     # was all explosion. It now starts on the streamer's line nearest the peak (within 1.5 s before to 0.3 s after)
     peak = start + pk * step
-    near = [w for w in (words or []) if peak - 1.5 <= w.start <= peak + 0.3 and start + lo * step <= w.start - 0.2]
+    ok = [w for w in (words or []) if start + lo * step <= w.start - 0.2 and w.start - 0.2 + TEASER_S <= end - 1.0]
+    near = [w for w in ok if peak - 1.5 <= w.start <= peak + 0.3]
+    after = [w for w in ok if peak + 0.3 < w.start <= peak + 8.0]
+    if not near and after:
+        # 26 Nov: Dom went quiet across the explosion (17.5-27.9 s) and the remake was held again for "speech starts at
+        # 2.4s"; his reaction comes right after the payoff, and that line is the hook
+        return after[0].start - 0.2
     if near:
         w = min(near, key=lambda x: abs(x.start - (peak - 0.4)))
         k = near.index(w)

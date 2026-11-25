@@ -73,3 +73,14 @@ def test_words_whisper_already_starred_are_muted_too():
     assert not profanity.is_bad("no") and not profanity.is_bad("5*") and not profanity.is_bad("damn")
     words, spans = profanity.clean([Word("you", 1.0, 1.2), Word("n****.", 1.2, 1.6)])
     assert spans and spans[0][0] < 1.2 < spans[0][1] and words[1].text.startswith("n*")
+
+
+def test_a_silent_payoff_flashes_the_reaction_line_after_it():
+    """26 Nov: Dom was quiet across the explosion (17.5-27.9 s); the remake was held for 'speech starts at 2.4s'."""
+    from engine.clips import Word
+    start, dur = 0.0, 31.0
+    rms = np.full(int(dur * 10), 300.0)
+    rms[200:215] = 6000.0                                   # the explosion at 20.0-21.5 s, nobody talks
+    words = [Word("Try", 16.0, 16.3), Word("Now", 27.9, 28.1), Word("that", 28.1, 28.3), Word("was", 28.3, 28.5)]
+    p0 = clipv3.payoff_start(rms, _thumbs(start, dur, (20.0, 21.5)), start, start + dur, words=words)
+    assert abs(p0 - 27.7) < 0.01
