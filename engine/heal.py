@@ -47,6 +47,14 @@ KNOWN = [
     (r"consent|terms of service|accept the terms|Join Campaign", "owner",
      "A terms / consent screen waits for your tap."),
 ]
+# 25 Nov: a gate hold is a content decision, not a code bug. It was filed as "Unexplained failure: needs a look at the
+# code" and filled the queue's HIGH list (32 of 34 items). The remake already gets the gate's fixes; a reason that keeps
+# coming back on a channel is a template problem -> an improve item.
+RULE_SKIP = re.compile(r"not allowed on \w+ \(channel, kids or campaign rules\)|made-for-kids videos never go to", re.I)
+GATE = re.compile(r"🛑 blocked|BLOCKED by the content gate", re.I)
+GATE_STEP = ("The gate held this video and the remake gets its fixes. If the same reason keeps coming back on this "
+             "channel, change the channel's template (writer rules, pictures, pacing) so it passes first time.")
+STALE_DAYS = 3                 # an open item not seen for this long has stopped happening: closed as stale
 
 _SIG_SUBS = [(re.compile(r"https?://\S+"), "<url>"),
              (re.compile(r"\b(?=[A-Za-z_\-]*\d)(?=[\d_\-]*[A-Za-z])[A-Za-z0-9_\-]{8,}\b"), "<id>"),   # video/item ids
@@ -61,6 +69,8 @@ def signature(area: str, error: str) -> str:
 
 
 def classify(error: str) -> tuple[str, str]:
+    if GATE.search(str(error)):
+        return "content", GATE_STEP
     for rx, kind, step in KNOWN:
         if re.search(rx, str(error), re.I):
             return kind, step
@@ -84,6 +94,8 @@ def report(area: str, error, channel: str = "", platform: str = "", now: float |
     from .cloud.runner import redact
     now = now or time.time()
     err = redact(str(error))
+    if RULE_SKIP.search(err) and not re.search(r"quality|potential|policy|franchise|campaign:", err, re.I):
+        return {"kind": "rule", "skipped": True}          # a routing rule worked (kids never go to Instagram)
     kind, step = classify(err)
     sig = signature(area, err)
     q = _load()
@@ -98,6 +110,10 @@ def report(area: str, error, channel: str = "", platform: str = "", now: float |
             it[key].append(val)
     if kind == "code" and (it["n"] >= CODE_AFTER or len(it["channels"]) >= CODE_CHANNELS):
         it["priority"] = "high"
+    elif kind == "content":
+        it["kind"], it["step"] = "content", step         # entries filed as "code" before 25 Nov are corrected
+        if it["n"] >= CODE_AFTER:
+            it["priority"] = "improve"
     _save(q)
     return it
 
@@ -133,7 +149,26 @@ def resolve(prefix: str, now: float | None = None) -> int:
     return n
 
 
+def sweep(now: float | None = None) -> int:
+    """Close items that stopped happening (not seen for STALE_DAYS) and re-file old gate holds as content items."""
+    now, q, n = now or time.time(), _load(), 0
+    for it in q["items"].values():
+        if it.get("status") != "open":
+            continue
+        if GATE.search(str(it.get("error") or "")) and it.get("kind") == "code":
+            it["kind"], it["step"] = "content", GATE_STEP
+            it["priority"] = "improve" if it.get("n", 0) >= CODE_AFTER else "normal"
+            n += 1
+        if float(it.get("last") or 0) < now - STALE_DAYS * 86400:
+            it["status"], it["fixed_at"], it["stale"] = "fixed", now, True
+            n += 1
+    if n:
+        _save(q)
+    return n
+
+
 def open_items(priority: str | None = None) -> list[tuple[str, dict]]:
+    sweep()
     q = _load()
     out = [(s, it) for s, it in q["items"].items() if it.get("status") == "open"
            and (priority is None or it.get("priority") == priority)]

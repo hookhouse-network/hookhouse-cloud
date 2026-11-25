@@ -487,6 +487,25 @@ def ensure_podcast(channel_id: str, playlist_id: str, session=HTTP) -> bool:
     return ok
 
 
+TG_BOT_MAX = 48 * 1024 * 1024          # Telegram bots may send files up to 50 MB
+
+
+def telegram_copy(video: Path) -> Path:
+    """Same picture size, lower bitrate, so the file fits a Telegram bot upload (~44 MB). Made once, kept beside it."""
+    import subprocess
+    from .media import ffmpeg
+    out = video.with_name(f"{video.stem}_tg.mp4")
+    if out.exists() and out.stat().st_size <= TG_BOT_MAX:
+        return out
+    dur = max(1.0, ffmpeg.duration(video))
+    kbps = max(300, int(TG_BOT_MAX * 0.9 * 8 / 1024 / dur) - 128)
+    subprocess.run([ffmpeg.ffmpeg_bin(), "-y", "-v", "error", "-i", str(video), "-c:v", "libx264", "-preset", "medium",
+                    "-b:v", f"{kbps}k", "-maxrate", f"{int(kbps * 1.2)}k", "-bufsize", f"{kbps * 2}k",
+                    "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", str(out)],
+                   check=True, timeout=3600)
+    return out
+
+
 def telegram_channel_post(channel_id: str, video: Path, meta: dict, youtube_id: str | None = None,
                           item_id: str = "", dry_run: bool = True) -> Action:
     """Post to the channel's own Telegram channel (bot as admin; @name in config/links.yaml). Shorts go as the video;
@@ -502,7 +521,9 @@ def telegram_channel_post(channel_id: str, video: Path, meta: dict, youtube_id: 
     yt = f"https://youtu.be/{youtube_id}" if youtube_id else ""
     cap = (str(meta.get("title") or "") + (f"\n\n▶ {yt}" if yt else ""))[:1024]
     try:
-        if video.stat().st_size <= 48 * 1024 * 1024:
+        if video.stat().st_size > TG_BOT_MAX:            # 25 Nov: a 52 MB Short was blocked; send a smaller copy
+            video = telegram_copy(video)
+        if video.stat().st_size <= TG_BOT_MAX:
             with video.open("rb") as fh:
                 res = tb.api("sendVideo", files={"video": (video.name, fh, "video/mp4")}, chat_id=chat, caption=cap,
                              supports_streaming=True, http_timeout=600)

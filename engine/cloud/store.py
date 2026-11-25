@@ -45,13 +45,18 @@ def token() -> str:
     if not t and _CLI_TOKEN:
         return _CLI_TOKEN
     if not t:                                    # the PC helper: the GitHub CLI login made during cloud setup
-        try:
-            import subprocess
-            from .setup import _gh
-            t = subprocess.run([_gh(), "auth", "token"], capture_output=True, text=True, timeout=20).stdout.strip()
-        except Exception:  # noqa: BLE001
-            t = ""
-        _CLI_TOKEN = t
+        import subprocess
+        from .setup import _gh
+        for wait in (60, 90):                    # 25 Nov: 20 s ran out while the PC rendered -> "no GitHub token"
+            try:
+                t = subprocess.run([_gh(), "auth", "token"], capture_output=True, text=True,
+                                   timeout=wait).stdout.strip()
+            except Exception as e:  # noqa: BLE001
+                print(f"gh auth token: {type(e).__name__}: {e}")
+                t = ""
+            if t:
+                break
+        _CLI_TOKEN = t or None                   # an empty answer is never cached: the next call asks again
     if not t:
         raise StoreError("no GitHub token (GITHUB_TOKEN in Actions, GH_TOKEN on the PC)")
     return t

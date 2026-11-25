@@ -473,6 +473,33 @@ Transcript (may be empty or partial):
 {transcript}"""
 
 
+def remove_letterbox(video: Path, log=print) -> Path:
+    """25 Nov: a campaign reference video was landscape footage pasted into a 9:16 frame; our reframe kept its black
+    bars and the gate blocked the clip. Crop to the real picture first (ffmpeg cropdetect over the source)."""
+    try:
+        dur = ffmpeg.duration(video)
+        r = subprocess.run([ffmpeg.ffmpeg_bin(), "-hide_banner", "-ss", f"{min(5.0, dur * 0.1):.1f}", "-i", str(video),
+                            "-t", f"{min(60.0, dur):.1f}", "-vf", "fps=2,cropdetect=limit=24:round=2:reset=0",
+                            "-f", "null", "-"], capture_output=True, text=True, timeout=600)
+        crops = re.findall(r"crop=(\d+):(\d+):(\d+):(\d+)", r.stderr)
+        if not crops:
+            return video
+        cw, ch, cx, cy = (int(x) for x in crops[-1])
+        v = next(s for s in ffmpeg.probe(video)["streams"] if s.get("codec_type") == "video")
+        w, h = int(v["width"]), int(v["height"])
+        if ch >= h * 0.92 and cw >= w * 0.92:
+            return video
+        out = video.with_name(f"{video.stem}_nobars.mp4")
+        subprocess.run([ffmpeg.ffmpeg_bin(), "-y", "-v", "error", "-i", str(video), "-vf", f"crop={cw}:{ch}:{cx}:{cy}",
+                        "-c:v", "libx264", "-preset", "veryfast", "-crf", "16", "-c:a", "copy", str(out)],
+                       check=True, timeout=3600)
+        log(f"  source had black bars ({w}x{h} -> picture {cw}x{ch}): cropped before reframing")
+        return out
+    except Exception as e:  # noqa: BLE001 - the gate still catches bars if this check fails
+        log(f"  letterbox check skipped: {type(e).__name__}: {e}")
+        return video
+
+
 KICK_OUTRO_S = 3.0              # free Kick downloads end with a 3 s card (one flash frame, then "Clipped by <user>")
 
 
@@ -778,7 +805,7 @@ def make_clips(brain, source: str, channel: dict, campaign: dict | None = None, 
     stamp = time.strftime("%Y%m%d_%H%M%S")
     out_dir = ROOT / "output" / channel["id"] / f"{stamp}_clips"
     out_dir.mkdir(parents=True, exist_ok=True)
-    video = fetch_source(source, out_dir / "source")
+    video = remove_letterbox(fetch_source(source, out_dir / "source"), log=log)
     if words is None:
         src_dur = ffmpeg.duration(video)
         if src_dur > LONG_SOURCE_S:                           # streams / long videos / gameplay sessions

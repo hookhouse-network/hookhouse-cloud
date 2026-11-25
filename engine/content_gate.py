@@ -383,7 +383,8 @@ def platform_problems(it: dict, platform: str, ch: dict, meta: dict, dur: float 
         p.append(f"{platform}: caption longer than {pr['caption_max']} characters")
     if pr.get("hashtags_max") and len(HASHTAG.findall(cap)) > pr["hashtags_max"]:
         p.append(f"{platform}: more than {pr['hashtags_max']} hashtags")
-    if pr.get("max_mb") and video.exists() and video.stat().st_size > pr["max_mb"] * 1024 * 1024:
+    if pr.get("max_mb") and platform != "telegram" and video.exists() and video.stat().st_size > pr["max_mb"] * 1024 * 1024:
+        # (telegram: the poster sends a smaller copy, publish.telegram_copy, 25 Nov)
         p.append(f"{platform}: file bigger than {pr['max_mb']} MB")
     if platform in ("instagram", "facebook", "threads") and (meta.get("made_for_kids") or ch.get("type") == "kids"):
         p.append(f"made-for-kids videos never go to {platform} (13+ platform)")

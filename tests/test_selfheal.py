@@ -345,3 +345,16 @@ def test_round_anniversaries_are_routed_by_whole_words():
     assert "cricket_ke_kisse" not in h and "itihaas_ke_raaz" not in h      # 'sodium', 'Indian Ocean'
     assert any("30 years ago" in x for x in h["unsolved_after_dark"])
     assert not any("33 years" in x for v in h.values() for x in v)
+
+
+def test_gate_holds_are_content_items_rules_are_not_failures_and_old_items_close():
+    """25 Nov: 32 of 34 HIGH items were gate holds filed as 'needs a look at the code'; nothing ever closed."""
+    for _ in range(3):
+        heal.report("upload:youtube", "🛑 blocked: quality: 4/10 shots are word cards", channel="cricket_ke_kisse")
+    (sig, it), = heal.open_items()
+    assert it["kind"] == "content" and it["priority"] == "improve" and "template" in it["step"]
+    r = heal.report("upload:instagram", "🛑 blocked: not allowed on instagram (channel, kids or campaign rules); "
+                    "made-for-kids videos never go to instagram (13+ platform)", channel="bloop_and_friends")
+    assert r.get("skipped") and len(heal.open_items()) == 1          # a routing rule worked: not queued
+    heal.report("upload:x", "weird crash", now=time.time() - 5 * 86400)
+    assert all("weird" not in s for s, _ in heal.open_items())       # not seen for 3+ days: closed as stale
