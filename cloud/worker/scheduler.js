@@ -72,6 +72,13 @@ export function makeScheduler(q, run, clock = () => Date.now() / 1000, rng = Mat
     enqueue(j) {
       if (!j || !j.kind || !j.key) throw new Error("bad job");
       const now = clock();
+      // 25 Nov shadow check: a job queued before the order rules changed kept its old class for ever (enqueue only
+      // refreshed cancelled keys), so the queue still handed out an idle channel's video ahead of a remake. A queued
+      // job takes the new class (and that call's deadline) when its class changes; same class: nothing moves, so a
+      // late job's deadline never drifts forward.
+      const cls = Math.max(0, Math.min(4, Number(j.cls ?? 2)));
+      run(`UPDATE sjobs SET cls = ?, deadline = ?, updated = ? WHERE key = ? AND state = 'queued' AND cls != ?`,
+          cls, j.deadline ?? null, now, j.key, cls);
       const n = run(`INSERT INTO sjobs(kind, key, cls, deadline, est_min, requires, prefer, fallback, payload,
                        run_after, max_attempts, created, updated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                      ON CONFLICT(key) DO UPDATE SET state = 'queued', cls = excluded.cls, deadline = excluded.deadline,

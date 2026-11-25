@@ -187,5 +187,17 @@ const short = (key, deadlineIn, cls = 1, now) => ({ kind: "make", key, cls, dead
   console.log(`property: ${completed} completions, ${doubles} doubles`);
 }
 
+// 6d. 25 Nov shadow check: a job queued before the order rules changed takes its new class (a remake moves to the
+// head); the same class again changes nothing, so a late job's deadline never drifts forward.
+{
+  const { s, clock } = fresh();
+  s.enqueue(short("r", 24 * 3600, 2, clock.t));
+  check("re-enqueue is not an add", s.enqueue(short("r", -3600, 1, clock.t)).added === false);
+  const r = s.list().jobs[0];
+  check("the queued job took the new class and deadline", r.cls === 1 && r.deadline === clock.t - 3600);
+  s.enqueue(short("r", 5 * 3600, 1, clock.t));
+  check("same class: the deadline stays", s.list().jobs[0].deadline === clock.t - 3600);
+}
+
 console.log(failures ? `${failures} check(s) failed` : "scheduler: all checks passed");
 process.exit(failures ? 1 : 0);
