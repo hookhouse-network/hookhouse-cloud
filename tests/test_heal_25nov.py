@@ -40,9 +40,11 @@ def test_letterboxed_source_is_cropped_to_its_picture(tmp_path):
     assert clips.remove_letterbox(plain, log=lambda m: None) == plain
 
 
-def test_account_hold_skips_instagram_and_threads_only():
+def test_account_hold_skips_instagram_and_threads_only(monkeypatch):
     """25 Nov: Instagram hid @brainsnackdose until the owner confirms it's human; never post there meanwhile."""
     from engine import links
+    monkeypatch.setattr(links, "data", lambda: {"brain_snack": {"instagram_hold": "confirm you're human"},
+                                                "clutch_tales": {}})
     assert "confirm" in links.hold_note("brain_snack", "instagram")
     assert links.hold_note("brain_snack", "threads") == links.hold_note("brain_snack", "instagram")
     assert links.hold_note("brain_snack", "youtube") == "" and links.hold_note("clutch_tales", "instagram") == ""
