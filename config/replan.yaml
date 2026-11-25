@@ -15,3 +15,6 @@ requests:
   - id: "2026-11-25-gta-clips-opening"          # judge held them: hook 3.5 / caption_hook 2.5 (nothing in the first 2 s)
     redo: [1121_0100_stream_clips_short, 1121_0500_stream_clips_short, 1121_0630_stream_clips_short]
     note: "remake: opens with a 1.5 s payoff teaser, game subtitles blurred, captions below the Kick badge"
+  - id: "2026-11-25-gta-clips-speech-first"     # all 3 held only for 'speech starts at 1.6-4.9s' (the flash had no words)
+    redo: [1121_0100_stream_clips_short, 1121_0500_stream_clips_short, 1121_0630_stream_clips_short]
+    note: "remake: the payoff flash starts on the streamer's line (991e2dc)"
