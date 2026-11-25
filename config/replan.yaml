@@ -21,3 +21,6 @@ requests:
   - id: "2026-11-26-gta-clips-shown"            # held by the judge (caption_hook 2-3): it read only the captions
     redo: [1121_0100_stream_clips_short, 1121_0500_stream_clips_short, 1121_0630_stream_clips_short]
     note: "remake: the clip record says what it shows (layout, headline, payoff flash, frames); silent payoffs flash the reaction"
+  - id: "2026-11-26-gta-clips-titles"           # judge scores rose to 4-7.5 with the description; titles still generic
+    redo: [1121_0100_stream_clips_short, 1121_0500_stream_clips_short, 1121_0630_stream_clips_short]
+    note: "remake: headlines written from the frames; a reaction near the clip end can lead the flash"

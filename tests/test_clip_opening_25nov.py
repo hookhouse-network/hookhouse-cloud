@@ -84,3 +84,13 @@ def test_a_silent_payoff_flashes_the_reaction_line_after_it():
     words = [Word("Try", 16.0, 16.3), Word("Now", 27.9, 28.1), Word("that", 28.1, 28.3), Word("was", 28.3, 28.5)]
     p0 = clipv3.payoff_start(rms, _thumbs(start, dur, (20.0, 21.5)), start, start + dur, words=words)
     assert abs(p0 - 27.7) < 0.01
+
+
+def test_a_reaction_near_the_clip_end_still_counts():
+    """26 Nov: Dom's 'Like, why the f***...' starts at 27.93 s of a 30 s clip; the old 1 s end margin dropped it."""
+    from engine.clips import Word
+    rms = np.full(300, 300.0)
+    rms[200:215] = 6000.0
+    words = [Word("Oh", 17.1, 17.3), Word("Like,", 27.93, 28.3), Word("why", 28.31, 28.4)]
+    p0 = clipv3.payoff_start(rms, _thumbs(0.0, 30.0, (20.0, 21.5)), 0.0, 30.0, words=words)
+    assert abs(p0 - 27.73) < 0.01
