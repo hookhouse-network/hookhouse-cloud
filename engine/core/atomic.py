@@ -7,7 +7,23 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+import time
 from pathlib import Path
+
+REPLACE_TRIES = 6                       # ~1.5 s in all
+
+
+def replace(src, dst) -> None:
+    """os.replace with a short retry: on Windows a virus scanner or the search indexer briefly holds a file it just
+    saw appear and the rename fails with "Access is denied" (25 Nov: 4 test failures in 2 suite runs, all here)."""
+    for i in range(REPLACE_TRIES):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError:
+            if i == REPLACE_TRIES - 1:
+                raise
+            time.sleep(0.05 * 2 ** i)
 
 
 def write_text(path: Path | str, text: str, encoding: str = "utf-8") -> Path:
@@ -19,7 +35,7 @@ def write_text(path: Path | str, text: str, encoding: str = "utf-8") -> Path:
             fh.write(text)
             fh.flush()
             os.fsync(fh.fileno())
-        os.replace(tmp, p)
+        replace(tmp, p)
     except BaseException:
         try:
             os.unlink(tmp)

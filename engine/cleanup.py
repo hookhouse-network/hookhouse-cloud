@@ -156,8 +156,15 @@ def plan(now: float | None = None) -> list[tuple[Path, str]]:
         if (now - f.stat().st_mtime) / 86400 > 3:
             todo.append((f, "phone preview older than 3 days"))
     for log in list((ROOT / "data").rglob("*.log")):
-        if (now - log.stat().st_mtime) / 86400 > 14:
-            todo.append((log, "log older than 14 days"))
+        # 25 Nov: this also matched Chrome's own LevelDB write-ahead logs inside data/browser_profile (Local Storage,
+        # IndexedDB: the saved logins' site data) and deleted the old ones; a file Chrome removed mid-scan crashed it
+        if any("profile" in part.lower() for part in log.relative_to(ROOT / "data").parts[:-1]):
+            continue
+        try:
+            if (now - log.stat().st_mtime) / 86400 > 14:
+                todo.append((log, "log older than 14 days"))
+        except FileNotFoundError:
+            continue
     return [(p, why) for p, why in todo if p.exists()]
 
 

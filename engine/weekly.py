@@ -252,7 +252,8 @@ def save_plan(plan: dict) -> Path:
     _audit_statuses(folder / "plan.json", plan)             # 20 Nov: every status change checked + logged
     tmp = folder / "plan.json.tmp"
     tmp.write_text(json.dumps(plan, indent=2, ensure_ascii=False), encoding="utf-8")
-    os.replace(tmp, folder / "plan.json")
+    from .core.atomic import replace
+    replace(tmp, folder / "plan.json")
     return folder / "plan.json"
 
 

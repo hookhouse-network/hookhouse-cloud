@@ -32,7 +32,8 @@ def _write(path: Path, rec: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".part")
     tmp.write_text(json.dumps(rec, ensure_ascii=False), encoding="utf-8")
-    tmp.replace(path)                                   # atomic on the same disk: never a half-written record
+    from ..core.atomic import replace
+    replace(tmp, path)                                  # atomic on the same disk: never a half-written record
 
 
 def add(item_id: str, folder: Path, marker: dict, now: float | None = None) -> Path:

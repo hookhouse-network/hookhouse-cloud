@@ -119,3 +119,21 @@ def test_title_only_change_needs_no_remake(env, monkeypatch):
     reply = autopilot.decide(tok, "change", "title 2")
     assert "B two" in reply and _it()["status"] == "made"
     assert json.loads((env["out"] / "upload.json").read_text())["title"] == "B two"
+
+
+def test_cleanup_never_touches_browser_profile_logs(tmp_path, monkeypatch):
+    """25 Nov: old Chrome LevelDB *.log files inside data/browser_profile were planned for deletion with our own logs."""
+    import os
+    data = tmp_path / "data"
+    chrome = data / "browser_profile" / "Default" / "Local Storage" / "leveldb" / "004496.log"
+    ours = data / "logs" / "old.log"
+    for f in (chrome, ours):
+        f.parent.mkdir(parents=True)
+        f.write_text("x")
+        os.utime(f, (time.time() - 30 * 86400, time.time() - 30 * 86400))
+    monkeypatch.setattr(cleanup, "ROOT", tmp_path)
+    (tmp_path / "output").mkdir()
+    monkeypatch.setattr(cleanup, "OUT", tmp_path / "output")
+    monkeypatch.setattr(cleanup, "WEEKS", tmp_path / "weeks")
+    paths = {p for p, _ in cleanup.plan()}
+    assert ours in paths and chrome not in paths

@@ -46,3 +46,26 @@ def test_account_hold_skips_instagram_and_threads_only():
     assert "confirm" in links.hold_note("brain_snack", "instagram")
     assert links.hold_note("brain_snack", "threads") == links.hold_note("brain_snack", "instagram")
     assert links.hold_note("brain_snack", "youtube") == "" and links.hold_note("clutch_tales", "instagram") == ""
+
+
+def test_atomic_replace_retries_a_briefly_locked_file(tmp_path, monkeypatch):
+    """25 Nov: Windows answered 'Access is denied' on renames while a scanner held the new file (4 suite failures)."""
+    import os
+
+    from engine.core import atomic
+    real, calls = os.replace, []
+
+    def flaky(a, b):
+        calls.append(1)
+        if len(calls) < 3:
+            raise PermissionError(5, "Access is denied")
+        real(a, b)
+    monkeypatch.setattr(atomic.os, "replace", flaky)
+    monkeypatch.setattr(atomic.time, "sleep", lambda s: None)
+    atomic.write_json(tmp_path / "q.json", {"a": 1})
+    assert (tmp_path / "q.json").read_text(encoding="utf-8").strip().startswith("{") and len(calls) == 3
+    calls.clear()
+    monkeypatch.setattr(atomic.os, "replace", lambda a, b: (_ for _ in ()).throw(PermissionError(5, "denied")))
+    import pytest
+    with pytest.raises(PermissionError):
+        atomic.write_json(tmp_path / "r.json", {"a": 1})
