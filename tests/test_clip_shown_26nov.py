@@ -24,3 +24,20 @@ def test_the_judge_reads_shown_before_said(tmp_path):
                                          encoding="utf-8")
     text = potential_gate.script_text({"out_dir": str(tmp_path), "file": "clip_01.mp4"}, {})
     assert text.startswith("SHOWN: Layout: face cam on top.\nSAID: ") and "NO WAY" in text
+
+
+def test_the_title_writer_sees_the_frames():
+    """26 Nov: headlines were generic ('Streamer reacts to risky landing'): the writer had only the transcript."""
+    from engine import clips
+    got = {}
+
+    class Res:
+        provider = "test"
+
+    class Brain:
+        def ask_json(self, task, prompt, system="", temperature=0.5):
+            got["p"] = prompt
+            return {"title": "Dom crashes the plane", "hook_options": ["Will he land it?"]}, Res()
+    m = clips.whole_clip_moment(Brain(), [], 30.0, seen=["0.7s: a plane wing", "46.0s: mission failed screen"])
+    assert "What the picture shows (frames, in order): 0.7s: a plane wing; 46.0s: mission failed screen" in got["p"]
+    assert m[0]["whole_clip"] and clips.whole_clip_moment(Brain(), [], 30.0) and "picture shows" not in got["p"]

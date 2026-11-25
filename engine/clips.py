@@ -469,7 +469,7 @@ Return ONLY JSON: {{"hook_options": ["..."], "title": "...", "caption": "hook li
  "scores": {{"hook": 0, "emotion": 0, "curiosity": 0, "complete": 0, "ending": 0, "audience_fit": 0, "brand_safe": 0}},
  "why": "one sentence"}}
 
-Transcript (may be empty or partial):
+{seen}Transcript (may be empty or partial):
 {transcript}"""
 
 
@@ -550,7 +550,7 @@ def content_end(video: Path, dur: float) -> float:
 
 
 def whole_clip_moment(brain, words: list[Word], dur: float, campaign: dict | None = None,
-                      max_len: float = 58) -> list[dict]:
+                      max_len: float = 58, seen: list[str] | None = None) -> list[dict]:
     """20 Nov: Kick highlights are mostly gameplay; the podcast editor found no 20 s talking moment in them, so the
     first GTA clips failed. A short highlight is posted whole (trimmed to the campaign's max length)."""
     rules = f"- Campaign rules: banned: {campaign.get('banned')}, other: {campaign.get('other_rules')}" if campaign else ""
@@ -560,6 +560,9 @@ def whole_clip_moment(brain, words: list[Word], dur: float, campaign: dict | Non
                   "\"GTA 6 gas was too expensive for Dasgas Dom... so he robbed the store\".")
     data, result = brain.ask_json("editor", WHOLE_PROMPT.format(
         dur=dur, keep=min(dur, max_len), campaign_rules=rules,
+        # 26 Nov: titles came out generic ("Streamer reacts to risky landing") from the transcript alone; the frames
+        # say what happens (a plane wreck, the mission-failed screen), so the headline can name it
+        seen=("What the picture shows (frames, in order): " + "; ".join(seen) + "\n\n") if seen else "",
         transcript=transcript_text([w for w in words if w.start >= dur - max_len]) if words else "(no speech)"),
         system=EDITOR_SYSTEM, temperature=0.5)
     m = dict(data or {}) if isinstance(data, dict) else {}
@@ -838,7 +841,15 @@ def make_clips(brain, source: str, channel: dict, campaign: dict | None = None, 
         if dur < (ls.get("min") or 0):
             raise UnusableFootage(f"Highlight is {dur:.1f} s, under the campaign's {ls['min']} s minimum")
         log("Short highlight (a streamer's own clip): keeping it whole, writing its hook and title…")
-        moments = whole_clip_moment(brain, words, dur, campaign=campaign, max_len=min(ls.get("max") or 58, 60))
+        seen = []
+        if campaign:
+            try:
+                from .clip_shown import frames
+                seen = frames(video, dur)
+            except Exception as e:  # noqa: BLE001 - the title is still written from the transcript (said)
+                log(f"  frames for the title: {type(e).__name__}: {e}")
+        moments = whole_clip_moment(brain, words, dur, campaign=campaign, max_len=min(ls.get("max") or 58, 60),
+                                    seen=seen)
     if moments is None:
         log("Finding the best moments…")
         moments = pick_moments(brain, words, keep=keep, n_candidates=max(12, keep * 2), campaign=campaign, memory=memory,
