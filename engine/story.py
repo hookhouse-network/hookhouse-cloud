@@ -890,6 +890,12 @@ def write_script(brain, channel: dict, topic: str, fmt: str = "short", memory=No
     f = dict(FORMATS[fmt])
     if fmt == "short" and (channel.get("spec") or {}).get("short_words"):
         f["words"] = channel["spec"]["short_words"]         # research length/pace for this niche
+    if fmt == "short" and _range(f["words"]):
+        # 25 Nov: 62 of 133 Short drafts came back over the word range (18% over on average; 187-193 words for
+        # 115-150): the fixed 16-22 beats at 3-14 words each asked for ~150-200 words. A finished Short averages ~9.5
+        # words a beat, so the beat count now follows the range (115-150 -> 11-16), like the long videos below.
+        lo, hi = _range(f["words"])
+        f["beats"] = f"{max(8, lo // 10)}-{max(10, hi // 9)}"
     if fmt == "long" and (channel.get("spec") or {}).get("long_words"):
         lo = _range(channel["spec"]["long_words"])
         if lo and lo[0] <= 2300:                            # fits one writer call

@@ -100,3 +100,22 @@ def test_campaign_clip_is_asked_as_soon_as_made(env, monkeypatch):
     monkeypatch.setattr(autopilot, "ask", lambda start, it, reminder=False: asked.append(it["id"]))
     autopilot._ask_due(print)
     assert asked == ["clip"]
+
+
+def test_a_parked_campaign_clip_moves_up_and_is_asked(env, monkeypatch):
+    """25 Nov: the first GTA clip passed every gate but its slot had been parked on 30 Nov (4.6 days out), outside the
+    3-day ask window: never asked, approved or submitted. It now takes the channel's next spare slot and is asked."""
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "42")
+    plan = weekly.load_plan("2099-01-05")
+    parked = (env["now"] + timedelta(days=5)).isoformat()
+    plan["items"] = [dict(plan["items"][0], id="story", publish_at=parked),
+                     dict(plan["items"][0], id="clip", publish_at=parked, made_as="clip")]
+    (weekly.WEEKS_DIR / "2099-01-05" / "plan.json").write_text(json.dumps(plan))
+    soon = (env["now"] + timedelta(hours=6)).isoformat()
+    monkeypatch.setattr(autopilot, "next_free_slot", lambda start, it: soon)
+    asked = []
+    monkeypatch.setattr(autopilot, "ask", lambda start, it, reminder=False: asked.append((it["id"], it["publish_at"])))
+    autopilot._ask_due(print)
+    assert asked == [("clip", soon)]
+    got = {x["id"]: x["publish_at"] for x in weekly.load_plan("2099-01-05")["items"]}
+    assert got == {"story": parked, "clip": soon}            # an ordinary video keeps its slot

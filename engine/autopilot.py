@@ -38,6 +38,7 @@ MAKE_AHEAD_H = 40         # start making this long before the slot
 MAKE_AHEAD_LONG_H = 96    # long videos (1.5-4.5 h each on this PC): start days ahead, in the PC's free time
 ASK_AHEAD_H = 20          # ask for approval this long before the slot (or as soon as it's made, if later)
 REMIND_H = 3
+CLIP_PARK_H = 48         # a made campaign clip slotted further out than this moves up (campaigns pay while they run)
 LATE_POST_MAX_H = 2       # IG/FB: if the PC was off at slot time, still post up to 2 h late; later -> re-slot
 TG_MAX = 48 * 1024 * 1024
 _STATE_LOCK = threading.Lock()
@@ -947,7 +948,7 @@ def _ask_due(log, allow=None) -> None:
     if not _chat():
         return                                    # phone not paired yet: nothing to ask on
     now, s = _now(), _load()
-    for start, it in items(0, 3):
+    for start, it in items(0, 14):
         if it["status"] != "made" or (allow and not allow(it)):
             continue
         w = _when(it)
@@ -955,6 +956,17 @@ def _ask_due(log, allow=None) -> None:
             continue
         hours = (w - now).total_seconds() / 3600
         clip = it.get("made_as") == "clip" or it.get("kind") == "clip" or str(it.get("out_dir") or "").endswith("_clips")
+        if clip and hours > CLIP_PARK_H and not asked_current(s, it):
+            # 25 Nov: the first GTA campaign clip passed every gate at 15:56 but sat unasked: the missed-slot step had
+            # parked its 21 Nov slot on 30 Nov, outside this 3-day window, so it was never approved or submitted.
+            # Campaigns pay only while they run: a parked clip takes the channel's next spare slot (within 48 h).
+            new = next_free_slot(start, it)
+            if datetime.fromisoformat(new) < w:
+                update_item(start, it["id"], publish_at=new)
+                log(f"Campaign clip {it['id']} moved up to {new} (was parked at {it['publish_at']})")
+                it = dict(it, publish_at=new)
+                w = _when(it)
+                hours = (w - now).total_seconds() / 3600
         # 20 Nov (owner: "send it to me for approval when done"): campaign clips are asked as soon as they are made;
         # campaigns pay only while they run and the footage goes stale in days
         if not asked_current(s, it) and (hours <= ASK_AHEAD_H or clip):
