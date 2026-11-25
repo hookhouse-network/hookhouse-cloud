@@ -768,7 +768,7 @@ def render_clip(video: Path, moment: dict, words: list[Word], out_path: Path, st
 
 
 def write_clip_srt(words: list[Word], start: float, end: float, dest: Path, per_line: int = 6,
-                   offset: float = 0.0) -> Path | None:
+                   offset: float = 0.0, teaser: list | None = None) -> Path | None:
     """The clip's own captions file (the cleaned words: swear words starred), times relative to the clip. 20 Nov: the
     quality scorecard held a Stream Clips clip for "no captions file"; search and sound-off viewers need it, and
     the upload can send it to YouTube as captions."""
@@ -784,6 +784,13 @@ def write_clip_srt(words: list[Word], start: float, end: float, dest: Path, per_
         part = ws[k:k + per_line]
         a, b = part[0].start - start + offset, min(part[-1].end, end) - start + offset
         rows.append(f"{len(rows) + 1}\n{ts(a)} --> {ts(max(b, a + 0.5))}\n{' '.join(w.text.strip() for w in part)}\n")
+    if teaser and teaser[1]:                    # the payoff flash's words come first (the gate reads the first one)
+        t0 = start + float(teaser[0])
+        flash = [w for w in words if t0 <= w.start < t0 + teaser[1] - 0.1 and str(w.text).strip()]
+        if flash:
+            a, b = flash[0].start - t0, min(flash[-1].end, t0 + teaser[1]) - t0
+            rows = [f"0\n{ts(a)} --> {ts(max(b, a + 0.4))}\n{' '.join(w.text.strip() for w in flash)}\n"] + rows
+            rows = [f"{i}\n" + r.split("\n", 1)[1] for i, r in enumerate(rows, 1)]
     dest.write_text("\n".join(rows), encoding="utf-8")
     return dest
 
@@ -859,7 +866,8 @@ def make_clips(brain, source: str, channel: dict, campaign: dict | None = None, 
             from .clipv3 import render_clip_v3
             render_clip_v3(video, m, words, path, channel.get("style", {}), hook, campaign=campaign, log=log)
         write_clip_srt(words, m["start"], m["end"], path.with_suffix(".srt"),
-                       offset=(m.get("teaser") or [0, 0])[1])     # the payoff teaser runs first
+                       offset=(m.get("teaser") or [0, 0])[1],      # the payoff teaser runs first
+                       teaser=m.get("teaser"))
         credit = permission.get("credit") or ""
         if campaign:                                # only the brief's real tags (never its sentences), #ad first
             caption = campaign_gate.fix_caption(f"{m.get('caption', '')}\n\n{credit}".strip(), campaign)

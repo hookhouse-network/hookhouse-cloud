@@ -69,3 +69,16 @@ def test_atomic_replace_retries_a_briefly_locked_file(tmp_path, monkeypatch):
     import pytest
     with pytest.raises(PermissionError):
         atomic.write_json(tmp_path / "r.json", {"a": 1})
+
+
+def test_stats_skip_an_instagram_account_on_hold(monkeypatch, tmp_path):
+    """25 Nov: Brain Snack's hidden account raised a HIGH heal item on every stats run ('object does not exist')."""
+    from engine import links, stats_fetch
+    (tmp_path / "meta_brain_snack.json").write_text('{"access_token": "x"}', encoding="utf-8")
+    monkeypatch.setattr(stats_fetch, "SECRETS", tmp_path)
+    monkeypatch.setattr(links, "data", lambda: {"brain_snack": {"instagram_hold": "human check"}})
+
+    class NoCall:
+        def get(self, *a, **k):
+            raise AssertionError("a held account must not be asked")
+    assert stats_fetch._instagram({"channel": "brain_snack", "id": "1"}, NoCall()) is None

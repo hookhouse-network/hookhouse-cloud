@@ -108,6 +108,9 @@ def _instagram(v: dict, session) -> dict | None:
     p = SECRETS / f"meta_{v['channel']}.json"
     if not p.exists():
         return None
+    from .links import hold_note                       # 25 Nov: Brain Snack's account is hidden behind Instagram's
+    if hold_note(v["channel"], "instagram"):           # human check; every stats run raised a HIGH heal item
+        return None                                    # ("object does not exist"): a held account is not asked
     rec = json.loads(p.read_text(encoding="utf-8"))
     token, host = rec.get("access_token"), (IG_GRAPH if rec.get("login") == "instagram" else GRAPH)
     r = session.get(f"{host}/{v['id']}/insights", params={

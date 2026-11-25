@@ -19,8 +19,13 @@ BAD = re.compile(rf"^({_BAD})$", re.I)
 PAD_S = 0.04                       # a little silence either side so no syllable leaks
 
 
+STARRED = re.compile(r"^\w\*{2,}\w*$")   # 25 Nov: Whisper itself writes "n****" / "f***"; stripping the stars left "n",
+# so the word was never muted and the campaign gate held the clip for "an unmuted racial slur (n****)"
+
+
 def is_bad(token: str) -> bool:
-    return bool(BAD.match(re.sub(r"[^\w]", "", token or "")))
+    core = re.sub(r"[^\w*]", "", token or "")
+    return bool(STARRED.match(core)) or bool(BAD.match(core.replace("*", "")))
 
 
 def stars(token: str) -> str:

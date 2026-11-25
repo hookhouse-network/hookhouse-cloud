@@ -43,3 +43,33 @@ def test_burned_in_subtitles_are_blurred_and_a_clean_picture_is_left_alone():
 
 def test_stream_captions_sit_below_the_kick_badge():
     assert clipv3.STREAM_CAPTION_MIN_Y >= clipv3.CAM_PANE_H + 400
+
+
+def test_the_teaser_starts_on_the_streamers_line_near_the_peak():
+    """25 Nov: a remake was held for 'speech starts at 1.6s (the hook must land within 1.0s)': the flash had no words."""
+    from engine.clips import Word
+    start, dur = 100.0, 30.0
+    rms = np.full(int(dur * 10), 300.0)
+    rms[200:215] = 6000.0
+    words = [Word("NO", 119.4, 119.7), Word("WAY", 119.7, 120.0), Word("later", 125.0, 125.3)]
+    p0 = clipv3.payoff_start(rms, _thumbs(start, dur, (120.0, 121.5)), start, start + dur, words=words)
+    assert abs(p0 - 119.2) < 0.01                  # 0.2 s before "NO"
+
+
+def test_the_captions_file_starts_with_the_flash_words(tmp_path):
+    from engine.clips import Word, write_clip_srt
+    words = [Word("hello", 1.0, 1.4), Word("there", 1.4, 1.8), Word("BOOM", 20.2, 20.6), Word("wow", 20.6, 21.0)]
+    p = write_clip_srt(words, 0.0, 30.0, tmp_path / "c.srt", offset=1.5, teaser=[20.0, 1.5])
+    rows = p.read_text(encoding="utf-8").split("\n\n")
+    assert rows[0].startswith("1\n00:00:00,200 --> ") and "BOOM wow" in rows[0]
+    assert rows[1].startswith("2\n00:00:02,500") and "hello there" in rows[1]
+
+
+def test_words_whisper_already_starred_are_muted_too():
+    """25 Nov: a GTA remake was held for 'an unmuted racial slur (n****)': Whisper had starred it itself."""
+    from engine import profanity
+    from engine.clips import Word
+    assert profanity.is_bad("n****") and profanity.is_bad("F***!") and profanity.is_bad("s***,")
+    assert not profanity.is_bad("no") and not profanity.is_bad("5*") and not profanity.is_bad("damn")
+    words, spans = profanity.clean([Word("you", 1.0, 1.2), Word("n****.", 1.2, 1.6)])
+    assert spans and spans[0][0] < 1.2 < spans[0][1] and words[1].text.startswith("n*")

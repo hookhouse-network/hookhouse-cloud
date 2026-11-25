@@ -557,7 +557,8 @@ def _audio_rms(wav: Path, step: float = 0.1) -> np.ndarray:
     return np.sqrt((data[: k * hop].reshape(k, hop) ** 2).mean(axis=1)) if k else np.zeros(0)
 
 
-def payoff_start(rms: np.ndarray, thumbs: list, start: float, end: float, step: float = 0.1) -> float | None:
+def payoff_start(rms: np.ndarray, thumbs: list, start: float, end: float, step: float = 0.1,
+                 words: list | None = None) -> float | None:
     """Where the clip's payoff flash should start (source seconds): the loudest + busiest moment in its later part
     (the reaction / explosion), a little before the peak. None when the clip is short or has no clear peak."""
     dur = end - start
@@ -586,7 +587,18 @@ def payoff_start(rms: np.ndarray, thumbs: list, start: float, end: float, step: 
     pk = lo + int(np.argmax(score[lo:hi]))
     if score[pk] < 1.3 * float(np.median(score)):
         return None                                    # no moment stands out: no teaser
-    return start + max(lo * step, pk * step - 0.6)
+    p0 = start + max(lo * step, pk * step - 0.6)
+    # 25 Nov: the potential gate held a remake for "speech starts at 1.6s (the hook must land within 1.0s)": the flash
+    # was all explosion. It now starts on the streamer's line nearest the peak (within 1.5 s before to 0.3 s after)
+    peak = start + pk * step
+    near = [w for w in (words or []) if peak - 1.5 <= w.start <= peak + 0.3 and start + lo * step <= w.start - 0.2]
+    if near:
+        w = min(near, key=lambda x: abs(x.start - (peak - 0.4)))
+        k = near.index(w)
+        while k > 0 and w.start - near[k - 1].end < 0.3:      # back to the start of that phrase
+            k, w = k - 1, near[k - 1]
+        p0 = w.start - 0.2
+    return p0
 
 
 def blur_burned_subtitles(game: np.ndarray) -> np.ndarray:
@@ -814,7 +826,7 @@ def render_clip_v3(video: Path, moment: dict, words: list, out_path: Path, style
     max_len = float(((campaign or {}).get("length_seconds") or {}).get("max") or 60)
     if stream and total + TEASER_S <= max_len:
         try:
-            p0 = payoff_start(_audio_rms(raw), scene.thumbs, start, end)
+            p0 = payoff_start(_audio_rms(raw), scene.thumbs, start, end, words=clip_words)
         except (OSError, ValueError) as e:
             log(f"  v3: payoff teaser skipped ({type(e).__name__}: {e})")
         if p0 is not None:
@@ -824,6 +836,9 @@ def render_clip_v3(video: Path, moment: dict, words: list, out_path: Path, style
     total += teaser
     from .clips import Word
     out_words = [Word(x.text, tm.to_out(x.start) + teaser, tm.to_out(x.end) + teaser) for x in clip_words]
+    if teaser:                                   # the flash's own words are captioned too (they are the hook)
+        out_words = [Word(x.text, x.start - p0, min(x.end, p0 + teaser) - p0) for x in clip_words
+                     if p0 <= x.start < p0 + teaser - 0.1] + out_words
     shots = ([{"t0": 0.0, "t1": total, "layout": "S", "speaker": 0}] if stream
              else make_shots(out_words, spk, len(tracks), total))
     emphasis = {re.sub(r"[^\w]", "", e.lower()) for e in moment.get("emphasis", []) if e}
