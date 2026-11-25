@@ -736,10 +736,11 @@ GATE_TRIES = 4            # campaign clips: footage tried per slot before giving
 def _make_clip(plan: dict, item: dict, brain, ch: dict, memory, log) -> tuple[str, str]:
     """One source video gives many clips; each clip slot of the channel takes the next best one."""
     s = clip_state()
-    pool = _live_pool(s["pool"].get(ch["id"], []))
+    again = _remake_source(item)
+    pool = [] if again else _live_pool(s["pool"].get(ch["id"], []))   # a remake never takes a spare clip instead
     tries = 0
     while not pool:
-        src = next_source(ch["id"], s["used"])
+        src, again = (again, None) if again else (next_source(ch["id"], s["used"]), None)
         if not src:
             raise NeedsSource("No clip footage left for this channel. Send /source <link> in Telegram or add a "
                               "line to data/clip_sources.txt")
@@ -911,9 +912,22 @@ def clip_slot(ch: dict, item: dict) -> bool:
     (PC_CLIP_USED) and reported back in the done marker, so the cloud never cuts the same footage again."""
     if ch.get("type") != "story" or not ch.get("clips_first") or item.get("kind") == "long":
         return False
+    if _remake_source(item):                            # a clip's remake cuts its own footage again
+        return True
     s = clip_state()                                    # only footage meant for THIS channel (never loose sources)
     return bool(_live_pool(s["pool"].get(ch["id"], []))) or any(
         src["source"] not in s["used"] and _source_channel(src) == ch["id"] for src in _read_sources())
+
+
+def _remake_source(item: dict) -> dict | None:
+    """25 Nov: the 3 GTA clips were sent back for a remake (new opening), but every Dasgasd3m source was marked used
+    (their own included), so the paused story channel saw no clip slot and the PC made nothing for hours. A remake of
+    a clip (status redo + the footage it was cut from) cuts that same footage again."""
+    src = str(item.get("clip_source") or "")
+    if item.get("status") != "redo" or not src:
+        return None
+    line = next((x for x in _read_sources() if x["source"] == src), None)
+    return line or {"source": src, "campaign": None, "channel": None}
 
 
 def story_paused(ch: dict) -> str | None:

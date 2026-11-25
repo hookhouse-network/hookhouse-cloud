@@ -452,7 +452,8 @@ def _due_to_make(kinds: set | None, skip: set, connected_only: bool = False,
     now = autopilot._now()
     due = []
     pictures_out = storyboard.images_blocked() if pictures else False
-    window = autopilot.items(OVERDUE_D, 5)
+    window = autopilot.items(OVERDUE_D, 14)   # 25 Nov: a remake slotted 5+ days out was never made (only remakes
+    # skip the 'due soon' check below, so the wider window changes nothing else)
     # 18 Nov (owner: "where are the other channel's videos"): 6 channels never got a video because the soonest slots
     # always went to the same few, and a slot that passed unmade was dropped for ever. Now a missed video (up to
     # OVERDUE_D days) is still made (the missed-slot step gives it the next free slot), and the channels with the
