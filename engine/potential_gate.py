@@ -404,6 +404,11 @@ def judge(it: dict, ch: dict, meta: dict, brain, evidence: str = "") -> dict:
             break
     if not got:
         raise ValueError("no judge on the panel answered: " + "; ".join(errors[-6:]))
+    weak = {str(m).strip() for m in (cfg.get("judge_weak") or [])}
+    names = [n for n in panel + backups if n in used]
+    if weak and names and all(n in weak for n in names):
+        # P5 model tiers (master plan): when only weak models are left, the judge waits instead of judging
+        raise ValueError(f"only weak judges answered ({', '.join(names)}); the verdict waits for a stronger one")
     fixes = list(dict.fromkeys(f for v in got for f in v["fixes"]))[:5]
     return {"scores": {c: round(sum(v["scores"][c] for v in got) / len(got), 2) for c in criteria},
             "fixes": fixes, "summary": got[0]["summary"], "criteria": criteria,

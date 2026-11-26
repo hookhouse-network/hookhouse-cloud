@@ -64,6 +64,9 @@ potential:                    # engine/potential_gate.py: the "viral + earning" 
   # counts twice). High-quota models first, the strong gemini-3-flash last (the scripts need it); never the Cloudflare
   # models (they share the picture allowance). [] = the members only, as before.
   judge_backups: [gemini31_lite, gemini35_lite, groq20, gemini3]
+  # 27 Nov (P5 model tiers): a verdict from these models alone does not count; it waits for a stronger one ("not judged
+  # yet, it tries again"). gpt-oss-20b is the small backup. [] = any answer counts, as before.
+  judge_weak: [groq20]
 
 auto_approve:                 # engine/auto_approve.py (owner 20 Nov: "yes you can consider auto-approval")
   enabled: true

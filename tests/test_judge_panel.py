@@ -104,3 +104,19 @@ def test_without_a_panel_one_answer_from_the_checker_route(monkeypatch):
     b = Brain({"groq": 5, "gemini_lite": 7})
     v = _judge(b)
     assert b.asked == ["groq"] and v["model"] == "groq" and "panel" not in v
+
+
+def test_only_weak_judges_answering_means_the_verdict_waits(panel, monkeypatch):
+    """27 Nov (P5 model tiers): when only weak models are left, the judge waits instead of judging."""
+    monkeypatch.setattr(pg, "judge_backups", lambda cfg: ["groq20"])
+    real_cfg = pg._cfg
+    monkeypatch.setattr(pg, "_cfg", lambda: dict(real_cfg(), judge_weak=["groq20"]))
+    b = Brain({"groq": 5, "gemini_lite": 7, "groq20": 6}, resting=("groq", "gemini_lite"))
+    b.routes = {"checker": ["groq", "gemini_lite"]}
+    monkeypatch.setattr(pg, "_pinned", lambda brain, name: type("P", (), {
+        "ask_json": lambda self, task, prompt, temperature=0.0: (
+            (_ for _ in ()).throw(RuntimeError("resting")) if name in ("groq", "gemini_lite")
+            else ({"scores": {c: 7 for c in pg._criteria(pg._cfg(), "story") + [pg.HUMAN]}, "fixes": [],
+                   "summary": "s"}, Res(name)))})())
+    with pytest.raises(ValueError, match="only weak judges"):
+        _judge(b)
