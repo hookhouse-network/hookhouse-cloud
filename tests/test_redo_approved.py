@@ -22,7 +22,9 @@ def test_no_redo_for_other_failures_or_after_the_limit(monkeypatch):
     it, calls = _setup(monkeypatch)
     assert not autopilot._redo_if_blocked("s", it, "upload failed (HTTP 500): boom", log=lambda *a: None)
     assert not autopilot._redo_if_blocked("s", it, "upload failed: 🛑 blocked: no title", log=lambda *a: None)
+    assert not calls
+    # 26 Nov: past the limit it is no longer retried every tick (Hot Take ~45 blocks): it is set aside once
     it2, calls2 = _setup(monkeypatch, redos=2)
-    assert not autopilot._redo_if_blocked("s", it2, "upload failed: 🛑 blocked: potential: hook 3",
-                                          log=lambda *a: None)
-    assert not calls and not calls2
+    monkeypatch.setattr("engine.telegram_bot.notify", lambda t: True)
+    assert autopilot._redo_if_blocked("s", it2, "upload failed: 🛑 blocked: potential: hook 3", log=lambda *a: None)
+    assert calls2["status"] == "missed" and "blocked at upload after" in calls2["gate_note"]

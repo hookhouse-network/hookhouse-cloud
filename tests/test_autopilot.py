@@ -119,3 +119,19 @@ def test_a_parked_campaign_clip_moves_up_and_is_asked(env, monkeypatch):
     assert asked == [("clip", soon)]
     got = {x["id"]: x["publish_at"] for x in weekly.load_plan("2099-01-05")["items"]}
     assert got == {"story": parked, "clip": soon}            # an ordinary video keeps its slot
+
+
+def test_a_video_out_of_remakes_is_set_aside_not_retried_forever(env, monkeypatch):
+    """26 Nov: a Hot Take clip was blocked at upload ~45 times and a Cricket Short ~40 times: both had used their
+    remakes, stayed 'approved' and were re-tried every tick."""
+    from engine import content_gate
+    monkeypatch.setattr(content_gate, "rules_for", lambda ch: {"auto_redo_max": 1})
+    monkeypatch.setattr(content_gate, "fixable_by_remake", lambda probs: True)
+    plan = weekly.load_plan("2099-01-05")
+    plan["items"][0].update(status="approved", gate_redos=1)
+    (weekly.WEEKS_DIR / "2099-01-05" / "plan.json").write_text(json.dumps(plan))
+    it = _item()
+    assert autopilot._redo_if_blocked("2099-01-05", it, "🛑 blocked: black bars top and bottom", print) is True
+    got = _item()
+    assert got["status"] == "missed" and "after 1 remake" in got["gate_note"]
+    assert any("set aside" in t for t in env["sent"])

@@ -27,3 +27,6 @@ requests:
   - id: "2026-11-26-gta-clips-brief-name"       # judge 3-7.5: headlines ignored the brief's 'Dasgas Dom ...' pattern
     redo: [1121_0100_stream_clips_short, 1121_0500_stream_clips_short, 1122_0630_stream_clips_short]
     note: "remake: headline starts with 'Dasgas Dom' (brief pattern), teases the payoff; judge told face cam + gameplay is the format"
+  - id: "2026-11-26-hot-take-letterbox"         # the 25 Nov request skipped it (status approved); now allowed
+    redo: [1122_0500_hot_take_hq_clip]
+    note: "remake: black bars cropped before reframing"

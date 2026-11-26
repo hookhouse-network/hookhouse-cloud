@@ -600,6 +600,23 @@ def _redo_if_blocked(start: str, it: dict, result: str, log=print) -> bool:
     except Exception as e:  # noqa: BLE001 - keep retrying the upload as before
         log(f"{it['id']}: redo check skipped ({type(e).__name__})")
         return False
+    if int(it.get("gate_redos") or 0) >= limit and fixable_by_remake(probs):
+        # 26 Nov: a Hot Take clip (black bars) was blocked at upload ~45 times since 24 Nov and a Cricket Short (word
+        # cards) ~40 times overnight: both had used their remakes, stayed 'approved' and were re-tried every tick. Out
+        # of remakes, the video is set aside ('missed'; a replan 'redo' can still bring it back) and the owner is told
+        # once, instead of a block every few minutes.
+        note = "; ".join(probs)[:900]
+        update_item(start, it["id"], status="missed", gate_note=f"blocked at upload after {limit} remake(s): {note}")
+        log(f"Approved {it['id']} still blocked after {limit} remake(s): set aside ({note[:160]})")
+        from .core import ledger
+        ledger.event("gate.gave_up", item=it["id"], channel=it.get("channel") or "", data={"problems": probs})
+        try:
+            from .telegram_bot import notify
+            notify(f"⏸ {it.get('channel_name') or it['channel']}: a video stayed blocked after {limit} remake(s), so "
+                   f"it is set aside (its slot goes to the next video). Why: {note[:300]}")
+        except Exception as e:  # noqa: BLE001 - the plan change already stops the retries (said, never silent)
+            log(f"{it['id']}: owner note failed ({type(e).__name__})")
+        return True
     if not fixable_by_remake(probs) or int(it.get("gate_redos") or 0) >= limit:
         return False
     note = "; ".join(probs)[:900]

@@ -317,7 +317,8 @@ def run_replans(log=_log) -> int:
         autopilot._update_state(lambda st, k=rid: st.setdefault("replans", {}).__setitem__(k, time.time()))  # once
         if redo:          # 20 Nov: made videos that no longer meet the brief are made again (never posted ones only)
             for s, it in autopilot.items(7, 14):
-                if it["id"] in redo and it["status"] in ("made", "missed", "failed") and not it.get("youtube_id"):
+                if it["id"] in redo and it["status"] in ("made", "approved", "missed", "failed") and not it.get("youtube_id"):
+                    # (26 Nov: an approved video blocked at upload was skipped here: the Hot Take letterbox remake never ran)
                     autopilot.update_item(s, it["id"], status="redo", note=str(r.get("note") or "remake"),
                                           attempts=0, retry_at=None)
                     log(f"re-make {rid}: {it['id']}")
