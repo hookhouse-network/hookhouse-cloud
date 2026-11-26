@@ -1002,6 +1002,11 @@ def helper(once: bool = False, every_s: int = 300, log=_log, videos_only: bool =
                 pick = _sched.next_job(hb, {it["id"]: (s, it) for s, it in due}, log)
                 if pick == "fallback" and seen is not None and _sched.mode() == "shadow":
                     _sched.shadow_compare(seen["queued"], [it["id"] for _s, it in due], log=log)
+            if pick is None and due:
+                # 26 Nov (before scheduler: on): the queue handed nothing while this PC had due work (every job it saw
+                # was put back, or the jobs were not added yet): make it through the claim files rather than idle
+                log("scheduler: the queue gave nothing while work is due here; claim files this round")
+                pick = "fallback"
             if pick is None:
                 raise _SkipClaim("the queue has nothing for this PC right now")
             if pick != "fallback":
