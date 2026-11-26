@@ -140,3 +140,11 @@ def test_a_failed_local_draw_is_remembered(monkeypatch):
     monkeypatch.setattr(local_sd, "DROPPED", [])
     monkeypatch.setattr(local_sd, "why_not", lambda start=False: "the PC runs on its battery")
     assert local_sd.draw("a lake", 1) is None and local_sd.DROPPED == ["the PC runs on its battery"]
+
+
+def test_sports_channels_ask_for_hidden_faces_from_the_first_draw():
+    """26 Nov: two Cricket Shorts were held for word cards (3/9, 4/14): pictures showed real faces (likeness rule), the
+    one redraw still did, and the shot became a word card. The first prompt now asks for hidden faces."""
+    from engine.config import channel
+    for cid in story.NO_FACES:
+        assert "faces turned away or hidden" in channel(cid)["style"]["ai_style"], cid

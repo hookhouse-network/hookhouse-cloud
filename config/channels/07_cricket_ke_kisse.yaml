@@ -17,7 +17,7 @@ style:
   # word cards under the sports likeness rule). The faceless framing comes from the storyboard rule (no_faces).
   # Owner 24 Nov: anime style A from the look test (data/tmp/loop/anime_ab, checker 9/10); the sport is named in each
   # shot by the storyboard rule (sport): the test's unnamed "match on TV" came out as football
-  ai_style: "cinematic anime key visual, clean cel shading, crisp line art, dramatic rim light, detailed painted background, rich warm colours"   # one consistent AI look per channel
+  ai_style: "cinematic anime key visual, clean cel shading, crisp line art, dramatic rim light, detailed painted background, rich warm colours, players seen from behind or in silhouette, faces turned away or hidden by caps, helmets and shadow"   # one consistent AI look per channel
   palette: ["#0B3D2E", "#1E88E5", "#FFFFFF"]
   caption_color: "#FFFFFF"
   highlight_color: "#FFD400"

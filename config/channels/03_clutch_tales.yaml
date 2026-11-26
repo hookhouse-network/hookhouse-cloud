@@ -15,7 +15,7 @@ style:
   # 24 Nov: "generic athletes with no real person's likeness" asked every picture for athletes and a likeness (an image
   # model cannot read "no"); the faceless framing comes from the storyboard rule (no_faces)
   # Owner 24 Nov: anime style A from the look test (data/tmp/loop/anime_ab, checker 9/10)
-  ai_style: "cinematic anime key visual, clean cel shading, crisp line art, dramatic rim light, detailed painted background, rich warm colours"   # one consistent AI look per channel
+  ai_style: "cinematic anime key visual, clean cel shading, crisp line art, dramatic rim light, detailed painted background, rich warm colours, players seen from behind or in silhouette, faces turned away or hidden by caps, helmets and shadow"   # one consistent AI look per channel
   palette: ["#0A1F44", "#FFB000", "#FFFFFF"]
   caption_color: "#FFFFFF"
   highlight_color: "#FFC21A"
