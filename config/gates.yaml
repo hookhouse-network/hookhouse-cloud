@@ -35,6 +35,9 @@ temporary_bar:                # owner 21 Nov ("Temporary 85 bar"): 0 of 53 posts
   potential: coach            # owner 22 Nov 23:10 ("B"): the judge's 1-10 rubric only coaches until `until` (it
                               # scored real hits 3-6; 0 posts for 2 days). Its hook-start, title-repeat, ad-friendly,
                               # S10 'obviously AI-made' and 'not judged yet' findings still block. Off: delete this line
+  campaign_avg: 7             # owner 26 Nov ("campaign bar 7"): a campaign clip that passes EVERY campaign rule passes
+  campaign_min: 6             # the potential judge with an average of 7+ and no point under 6 (it held 4 GTA clips at
+                              # 4-7.5 and told them to drop the gameplay the brief asks for). Ends with `until`
   # policy, copyright/franchise, fact-check, kids-safety, AI-label and clip/campaign checks are NOT relaxed
 
 potential:                    # engine/potential_gate.py: the "viral + earning" half of 100/100

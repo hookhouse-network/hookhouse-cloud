@@ -119,6 +119,17 @@ def judge_tag(ctype: str, it: dict) -> str:
     return hashlib.sha1(json.dumps([own, _long(it)], sort_keys=True).encode("utf-8")).hexdigest()[:8]
 
 
+def campaign_bar_ok(scores: dict, today: str | None = None) -> bool:
+    """Owner 26 Nov ("campaign bar 7"): until temporary_bar.until, a campaign clip passes the rubric with an average of
+    campaign_avg+ and no point under campaign_min (config/gates.yaml). False when no such bar is set."""
+    from .content_gate import temporary_bar
+    t = temporary_bar(today)
+    if t.get("campaign_avg") is None or not scores:
+        return False
+    vals = [float(v) for v in scores.values()]
+    return sum(vals) / len(vals) >= float(t["campaign_avg"]) and min(vals) >= float(t.get("campaign_min", 0))
+
+
 def _cfg() -> dict:
     from .content_gate import config
     c = dict({"min_each": 9, "hook_start_max_s": 0.6, "clip_hook_start_max_s": 1.0, "title_repeat_ratio": 0.85},
@@ -469,6 +480,8 @@ def problems(it: dict, ch: dict, meta: dict, brain_fn=None, led=None) -> list[st
     scores_all = dict(verdict.get("scores") or {})
     h = scores_all.pop(HUMAN, None)                   # older verdicts have no human_feel: nothing to hold
     low = {c: s for c, s in scores_all.items() if s < need}
+    if low and meta.get("campaign") and _ctype(ch, meta, it) == "clips" and campaign_bar_ok(scores_all):
+        low = {}                                  # the campaign's own rules were checked by the campaign gate
     fixes = "; ".join(verdict.get("fixes") or [])
     out = []
     if low:
