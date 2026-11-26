@@ -11,6 +11,7 @@ must match the clip"). rules() turns them into:
             judges them; if it can't answer, the clip waits (never passes by default)
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import hashlib
 import json
@@ -237,7 +238,8 @@ def check(meta: dict, campaign: dict | None, conn=None, brain=None, transcript: 
                                (meta["edit_hash"], campaign["id"])).fetchone()
             if row:
                 p.append(f"this edit was already sent to campaign {row[0]}")
-        except Exception:  # noqa: BLE001 - no submissions table yet
+        except Exception as _swallowed:  # noqa: BLE001 - no submissions table yet
+            noted("campaign_gate.py:240", _swallowed)
             pass
     # 7. rules that need reading (AI) - cached per caption so the checker is asked once
     if r["soft"] and not p:

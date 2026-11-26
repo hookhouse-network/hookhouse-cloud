@@ -5,6 +5,7 @@ and lowercase on handwriting lines, numbers 0-20 with counting dots, shapes, and
 8.5 x 11 in at 300 dpi with 0.75 in margins, priced for KDP's 60% royalty tier ($9.99+).
 Usage: python -m engine.kdp_books tracing"""
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import json
 import math
@@ -130,7 +131,8 @@ def _pic(name: str, size: int):
     try:
         from .products import _objects, line_art
         return line_art(_objects()[name], size, thick=9)
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("kdp_books.py:133", _swallowed)
         return None
 
 

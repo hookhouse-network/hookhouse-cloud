@@ -10,6 +10,7 @@ Loop: winners (top 20%) -> memory "what worked" -> topic picking; weak formats (
 Fetching uses the official APIs once accounts are connected (Week 3); until then metrics can be added by hand.
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import sqlite3
 import statistics
@@ -174,6 +175,7 @@ def weekly_report(conn, channels: list[str]) -> str:
         extra = report_lines(conn, channels)
         if extra:
             lines += ["", "Where viewers leave (retention curves, last 30 days):"] + extra
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("analytics.py:177", _swallowed)
         pass
     return "\n".join(lines)

@@ -21,6 +21,7 @@ Safety (the PC's memory copy is from 12:07 on 18 Nov; the cloud ran until about 
 - only videos whose file is on this PC are offered or posted.
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import json
 import secrets
@@ -368,7 +369,8 @@ class Maker:
             try:
                 if self.kv is not None:
                     self.kv.put(f"res:{rid}", {"state": state, "text": text, "at": time.time()}, ttl=86400)
-            except Exception:  # noqa: BLE001
+            except Exception as _swallowed:  # noqa: BLE001
+                noted("pc_fallback.py:371", _swallowed)
                 pass
 
 
@@ -505,7 +507,8 @@ def live_ids() -> dict:
         for v in posted_videos():
             if v.get("platform") == "youtube" and v.get("id"):
                 vids[v["id"]] = v.get("channel")
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("pc_fallback.py:508", _swallowed)
         pass
     for vid, v in (ls.get("videos") or {}).items():
         vids.setdefault(vid, v.get("channel"))
@@ -557,7 +560,8 @@ def open_dashboard() -> str:
                                text=True, timeout=60, creationflags=0x08000000)
             started += ("Video maker started. " if "started" in r.stdout else
                         "Video maker already running. " if "already" in r.stdout else "")
-        except Exception:  # noqa: BLE001 - the dashboard opens either way
+        except Exception as _swallowed:  # noqa: BLE001 - the dashboard opens either way
+            noted("pc_fallback.py:560", _swallowed)
             pass
     try:                                         # 19 Nov: keep the PC light (the folder had grown past 24 GB)
         from .cleanup import due_on_pc
@@ -566,7 +570,8 @@ def open_dashboard() -> str:
             subprocess.Popen([sys.executable, "-c", "from engine.cleanup import run_pc; run_pc()"], cwd=str(ROOT),
                              stdout=logf, stderr=subprocess.STDOUT, creationflags=0x08000000)   # no window
             started += "Clean-up running in the background. "
-    except Exception:  # noqa: BLE001 - the dashboard opens either way
+    except Exception as _swallowed:  # noqa: BLE001 - the dashboard opens either way
+        noted("pc_fallback.py:569", _swallowed)
         pass
     link = dash_link()
     if not link:
@@ -586,7 +591,8 @@ def github_back(session=HTTP) -> bool:
         r = session.get(f"https://api.github.com/repos/{store.repo()}",
                         headers={"Authorization": f"Bearer {store.token()}", "User-Agent": "hookhouse"}, timeout=20)
         return r.status_code == 200
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("pc_fallback.py:589", _swallowed)
         return False
 
 
@@ -608,7 +614,8 @@ def handover(kv, log=_log) -> bool:
         from .telegram_bot import notify
         notify("☁️ GitHub is back. The PC handed everything to the cloud (its memory went up first, so nothing is "
                "posted twice). Claude: push the local code commits with _git_push().")
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("pc_fallback.py:611", _swallowed)
         pass
     return True
 

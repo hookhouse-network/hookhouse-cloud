@@ -10,6 +10,7 @@ Everything is read from local files and databases; nothing is sent anywhere. Wor
 (the Telegram bot sends this same file).
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import base64
 import hashlib
@@ -69,7 +70,8 @@ def _channels() -> list[dict]:
     for p in sorted((ROOT / "config" / "channels").glob("*.yaml")):
         try:
             out.append(yaml.safe_load(p.read_text(encoding="utf-8")))
-        except Exception:  # noqa: BLE001
+        except Exception as _swallowed:  # noqa: BLE001
+            noted("dashboard.py:72", _swallowed)
             continue
     return out
 
@@ -83,7 +85,8 @@ def _latest(ch_id: str, fmt: str) -> tuple[Path | None, dict]:
         if meta.exists():
             try:
                 j = json.loads(meta.read_text(encoding="utf-8"))
-            except Exception:  # noqa: BLE001
+            except Exception as _swallowed:  # noqa: BLE001
+                noted("dashboard.py:86", _swallowed)
                 continue
             if j.get("format") == fmt:
                 return d, j
@@ -616,7 +619,8 @@ def _health(items: list[dict]) -> list[tuple[str, str, str]]:
             gen = 100 * s.get("used", 0) / max(1, s.get("limit", 10000))
             out.append(("good" if max(ins, gen) < 70 else "warn", "YouTube quota today",
                         f"uploads {min(ins, 100):.0f}% · other {min(gen, 100):.0f}%"))
-        except Exception:  # noqa: BLE001
+        except Exception as _swallowed:  # noqa: BLE001
+            noted("dashboard.py:619", _swallowed)
             pass
     sec = ROOT / "data" / "secrets"
     yt = len(list(sec.glob("youtube_*.json"))) if sec.exists() else 0
@@ -628,7 +632,8 @@ def _health(items: list[dict]) -> list[tuple[str, str, str]]:
         ready = sum(len(v) for v in cs.get("pool", {}).values())
         left = sum(1 for s in _read_sources() if s["source"] not in cs.get("used", []))
         out.append(("good" if ready or left else "warn", "Clip footage", f"{ready} clips ready · {left} sources waiting"))
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("dashboard.py:631", _swallowed)
         pass
     reps = sorted((ROOT / "data" / "campaigns").glob("daily_*.md"))
     if reps:
@@ -694,7 +699,8 @@ def _quality() -> dict:
     try:
         from .quality import load
         return (load() or {}).get("channels", {})
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("dashboard.py:697", _swallowed)
         return {}
 
 
@@ -774,7 +780,8 @@ def _learn_page(chans: list[dict], metrics: dict) -> str:
             t = top_terms(c["id"], 4)
             if t:
                 terms.append(f"<li><b>{_e(c['name'])}</b>: " + ", ".join(f"{_e(k)} ({v})" for k, v in t) + "</li>")
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("dashboard.py:777", _swallowed)
         pass
     prod = []
     try:
@@ -1363,7 +1370,8 @@ def build() -> Path:
     for cid, st, score, data in _db("SELECT id, status, score, data FROM campaigns ORDER BY score DESC"):
         try:
             c = json.loads(data)
-        except Exception:  # noqa: BLE001
+        except Exception as _swallowed:  # noqa: BLE001
+            noted("dashboard.py:1366", _swallowed)
             continue
         c["status"], c["score"] = st, score
         campaigns.append(c)

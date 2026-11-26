@@ -14,6 +14,7 @@ Commands (one-shot):     python -m engine.copilot goto URL | look | click N|"tex
                          shot | tabs | tab N | grab [KEY] | scroll [down|up] | wait SECONDS | back
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import json
 import os
@@ -137,7 +138,8 @@ class Pilot:
             text = p.evaluate("() => { const t = [document.body ? document.body.innerText : ''];"
                               "document.querySelectorAll('input, textarea').forEach(e => { if (e.type !== 'password')"
                               " t.push(e.value || ''); }); return t.join('\\n'); }")
-        except Exception:  # noqa: BLE001 - page navigating
+        except Exception as _swallowed:  # noqa: BLE001 - page navigating
+            noted("copilot.py:140", _swallowed)
             return []
         saved = []
         for name, spec in ss.KEYS.items():

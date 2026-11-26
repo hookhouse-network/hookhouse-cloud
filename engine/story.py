@@ -5,6 +5,7 @@ visuals per beat (AI image / real footage / evidence photo / big text) -> our fr
 (moves, punch-ins, transitions, grade, emoji, progress bar) -> sound design + music -> video.
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import copy
 import json
@@ -455,7 +456,8 @@ def _too_plain(path, strict: bool = False) -> bool:
         if strict:                                                         # 0.70 bright; Nosferatu still 0.45 dark = ok
             return dark > 0.6 or bright > 0.4 or detail < 8
         return dark > 0.6 or bright > 0.55 or detail < 3
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("story.py:458", _swallowed)
         return False
 
 
@@ -1281,7 +1283,8 @@ def _big_face(path) -> bool:
         det = _detector(small.shape[1], small.shape[0])
         _, faces = det.detect(small)
         return faces is not None and any(f[2] > 0.08 * small.shape[1] for f in faces)
-    except Exception:  # noqa: BLE001 - no detector: keep the picture
+    except Exception as _swallowed:  # noqa: BLE001 - no detector: keep the picture
+        noted("story.py:1284", _swallowed)
         return False
 
 
@@ -1851,7 +1854,8 @@ def _chart_like(path) -> bool:
         dark_lines = (hsv[..., 2] < 90).mean()
         edges = (cv2.Canny(img, 80, 160) > 0).mean()
         return bool(white > 0.45 and 0.005 < dark_lines < 0.2 and edges > 0.03)
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("story.py:1854", _swallowed)
         return False
 
 
@@ -1912,7 +1916,8 @@ def _write_reel_extras(channel: dict, script: dict, out_dir: Path, reel_hook: st
         if imgs:
             cover_for(channel, Image.open(imgs[0]).convert("RGB"), reel_hook or script.get("hook_text", ""),
                       out_dir / "reel_cover.jpg")
-    except Exception:  # noqa: BLE001 - a cover problem must not lose the finished Reel
+    except Exception as _swallowed:  # noqa: BLE001 - a cover problem must not lose the finished Reel
+        noted("story.py:1915", _swallowed)
         pass
     tags = [t if t.startswith("#") else f"#{t}" for t in (script.get("hashtags") or []) + channel.get("hashtags", [])]
     tags = [t for t in dict.fromkeys(tags) if t.lower() not in YT_ONLY_TAGS][:5]   # Instagram: max 5, no #shorts
@@ -2126,7 +2131,8 @@ def render(channel: dict, script: dict, out_dir: Path, fmt: str = "short", log=p
                     seg = seg.copy()
                     seg[at:at + len(br)] += br.astype(seg.dtype)
                     parts[k] = seg
-    except Exception:  # noqa: BLE001 - breaths are polish, never a failure
+    except Exception as _swallowed:  # noqa: BLE001 - breaths are polish, never a failure
+        noted("story.py:2129", _swallowed)
         pass
     lead_in = 0.15
     narration = work / "narration_24k.wav"

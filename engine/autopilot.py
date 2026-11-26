@@ -15,6 +15,7 @@ Every few minutes (inside `python cli.py bot run`):
 Nothing is ever posted without the owner's tap.
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import hashlib
 import json
@@ -215,7 +216,8 @@ def preflight(it: dict) -> list[str]:
         dur = ffmpeg.duration(video)
         if it.get("kind") != "long" and dur > 180:
             probs.append(f"Short is {dur:.0f} s (YouTube Shorts max 180 s)")
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("autopilot.py:218", _swallowed)
         pass
     from .publish import already_posted
     done = already_posted(it, ignore_youtube_id=it.get("youtube_id"))
@@ -352,7 +354,8 @@ def ask(start: str, it: dict, reminder: bool = False, mark: bool = True) -> None
             with thumb.open("rb") as fh:
                 tb.api("sendPhoto", files={"photo": (thumb.name, fh, "image/jpeg")}, chat_id=tb._chat(),
                        caption="Thumbnail (YouTube tests 3 versions)", http_timeout=120)
-        except Exception:  # noqa: BLE001 - the video and buttons matter more
+        except Exception as _swallowed:  # noqa: BLE001 - the video and buttons matter more
+            noted("autopilot.py:355", _swallowed)
             pass
     text = approval_text(it, reminder)
     if reach and not reminder:
@@ -431,7 +434,8 @@ def close_buttons(item_id: str, label: str) -> int:
             tb.api("editMessageReplyMarkup", chat_id=tb._chat(), message_id=mid,
                    reply_markup={"inline_keyboard": [[{"text": label[:60], "callback_data": "noop"}]]})
             n += 1
-        except Exception:  # noqa: BLE001 - very old messages can't be edited
+        except Exception as _swallowed:  # noqa: BLE001 - very old messages can't be edited
+            noted("autopilot.py:434", _swallowed)
             pass
     _update_state(lambda s: s.get("button_msgs", {}).pop(item_id, None))
     return n
@@ -562,7 +566,8 @@ def _change_title(start: str, it: dict, value: str) -> str:
     fresh = update_item(start, it["id"], **fields)
     try:
         ask(start, fresh)
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("autopilot.py:565", _swallowed)
         pass
     return f"✏️ Title changed to: {value}. The updated version is above; approve it when you're happy."
 
@@ -857,7 +862,8 @@ def _make_due(brain_fn, log) -> None:
                         feeling=item.get("feeling"), now_hook=item.get("now_hook"))
             try:
                 preview_file(item)                   # phone copy ready now, so the approval message is quick
-            except Exception:  # noqa: BLE001
+            except Exception as _swallowed:  # noqa: BLE001
+                noted("autopilot.py:860", _swallowed)
                 pass
             work = Path(item.get("out_dir") or "") / "work"
             if item.get("out_dir") and work.is_dir():  # temporary render files: not needed once it's finished
@@ -1289,7 +1295,8 @@ def _morning_waiting() -> None:
         try:
             send(f"Watched them all? One tap approves every video you were shown ({len(shown_waiting())}).",
                  reply_markup={"inline_keyboard": [[{"text": "✅ Approve all I've seen", "callback_data": "aa:all"}]]})
-        except Exception:  # noqa: BLE001 - single buttons below still work
+        except Exception as _swallowed:  # noqa: BLE001 - single buttons below still work
+            noted("autopilot.py:1292", _swallowed)
             pass
     for st, it in waiting[:12]:
         ask(st, it, reminder=True, mark=False)
@@ -1301,7 +1308,8 @@ def _branding() -> None:
     try:                                       # 18 Nov: the cloud has no output/brand: fetch the v2 banners first
         from .brand_art import pull
         pull()
-    except Exception:  # noqa: BLE001 - the texts are still written
+    except Exception as _swallowed:  # noqa: BLE001 - the texts are still written
+        noted("autopilot.py:1304", _swallowed)
         pass
     done = [r for r in branding.apply_all() if r.endswith("written")]
     if done:
@@ -1381,7 +1389,8 @@ def keep_awake() -> bool:
         import ctypes
         ES_CONTINUOUS, ES_SYSTEM_REQUIRED = 0x80000000, 0x00000001
         return bool(ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED))
-    except Exception:  # noqa: BLE001 - not Windows
+    except Exception as _swallowed:  # noqa: BLE001 - not Windows
+        noted("autopilot.py:1384", _swallowed)
         return False
 
 

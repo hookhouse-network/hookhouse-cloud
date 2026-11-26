@@ -8,6 +8,7 @@
 Needs YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET in .env (from the owner's own Google Cloud project).
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import json
 import os
@@ -172,7 +173,8 @@ def refresh_instagram_tokens(session=HTTP) -> list[str]:
                            expires_at=time.time() + float(d.get("expires_in") or 60 * 86400))
                 p.write_text(json.dumps(rec), encoding="utf-8")
                 done.append(p.stem.replace("meta_", "", 1))
-        except Exception:  # noqa: BLE001 - token_health reports what is left
+        except Exception as _swallowed:  # noqa: BLE001 - token_health reports what is left
+            noted("connect.py:175", _swallowed)
             pass
     return done
 
@@ -201,7 +203,8 @@ def token_health(session=HTTP) -> list[str]:
     probs = []
     try:
         refresh_instagram_tokens(session)
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("connect.py:204", _swallowed)
         pass
     for p in sorted(SECRETS.glob("youtube_*.json")) if SECRETS.exists() else []:
         cid = p.stem.replace("youtube_", "", 1)
@@ -214,13 +217,15 @@ def token_health(session=HTTP) -> list[str]:
             body = getattr(e.response, "text", "") or ""
             if "invalid_grant" in body:
                 probs.append(f"YouTube login for {cid} stopped working: run python cli.py connect youtube --channel {cid}")
-        except Exception:  # noqa: BLE001 - network: try again tomorrow
+        except Exception as _swallowed:  # noqa: BLE001 - network: try again tomorrow
+            noted("connect.py:217", _swallowed)
             pass
     for p in sorted(SECRETS.glob("meta_*.json")) if SECRETS.exists() else []:
         cid = p.stem.replace("meta_", "", 1)
         try:
             rec = json.loads(p.read_text(encoding="utf-8"))
-        except Exception:  # noqa: BLE001
+        except Exception as _swallowed:  # noqa: BLE001
+            noted("connect.py:223", _swallowed)
             continue
         left = ((rec.get("expires_at") or 0) - time.time()) / 86400
         if rec.get("expires_at") and left < 7:
@@ -231,7 +236,8 @@ def token_health(session=HTTP) -> list[str]:
             r = session.get(f"{host}/me", params={"fields": "id", "access_token": rec.get("access_token")}, timeout=30)
             if ((r.json() or {}).get("error") or {}).get("code") == 190:
                 probs.append(f"Instagram/Facebook login for {cid} has expired: reconnect it (connect meta)")
-        except Exception:  # noqa: BLE001
+        except Exception as _swallowed:  # noqa: BLE001
+            noted("connect.py:234", _swallowed)
             pass
     return probs
 

@@ -5,6 +5,7 @@ used_titles(): every title already uploaded (publish log) or given to a made/app
 pick(): the first option nobody used yet; if all were used, the best option plus a short distinguishing detail.
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import json
 import re
@@ -57,7 +58,8 @@ def used_titles(channel_id: str) -> set[str]:
             for it in json.loads(plan.read_text(encoding="utf-8")).get("items") or []:
                 if it.get("channel") == channel_id and it.get("title"):
                     out.add(_norm(it["title"]))
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("uniq.py:60", _swallowed)
         pass
     folder = ROOT / "output" / channel_id
     for meta in [*folder.glob("*/meta.json"), *folder.glob("*/upload.json")] if folder.exists() else []:

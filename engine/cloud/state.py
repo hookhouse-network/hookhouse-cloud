@@ -3,6 +3,7 @@ to-do ticks). Every cloud job pulls it first and pushes it back last; GitHub run
 (concurrency group "state"), so nothing is lost. Encrypted with STATE_KEY (a Fernet key kept only in the repo's
 Actions secrets and the PC's .env), so even the private repo never holds a readable login."""
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import io
 import os
@@ -86,7 +87,8 @@ def push(store, root: Path = ROOT) -> int:
         old = store.get(TAG, NAME)                  # once lost a finished video's "made" status (15 Nov)
         if old:
             store.put(TAG, BACKUP, old)
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("cloud/state.py:89", _swallowed)
         pass
     for attempt in range(3):                        # the real save: retry a timeout / blip
         try:

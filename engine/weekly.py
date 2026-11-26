@@ -10,6 +10,7 @@
 Plans live in data/weeks/<monday>/plan.json; videos stay in output/<channel>/...
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import html
 import json
@@ -78,7 +79,8 @@ def _explore_time(ch: dict) -> tuple[int, int] | None:
     try:
         from .timing import slots_for_channel
         _, ex = slots_for_channel(ch["id"])
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("weekly.py:81", _swallowed)
         return None
     return tuple(int(x) for x in ex.split(":")) if ex else None
 
@@ -366,17 +368,20 @@ def pick_topics(brain, ch: dict, n: int, memory=None, hints: list[str] | None = 
     try:                                                 # what our own viewers asked for in the comments
         from .comments import ideas as viewer_ideas
         hints += viewer_ideas(ch["id"], 3)
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("weekly.py:369", _swallowed)
         pass
     try:                                                 # lessons from the end-of-day reviews (18 Nov)
         from .daily_review import planner_hints
         hints += planner_hints(ch["id"])
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("weekly.py:374", _swallowed)
         pass
     try:                                                 # 19 Nov: this channel's own numbers -> what must change
         from .content_tuning import topic_hints
         hints += topic_hints(ch["id"])
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("weekly.py:379", _swallowed)
         pass
     prompt = TOPIC_PROMPT.format(
         name=ch["name"], niche=ch["niche"], n=n,
@@ -602,7 +607,8 @@ def clip_state() -> dict:
         for p in sorted(WEEKS_DIR.glob("*/plan.json")) if WEEKS_DIR.exists() else []:
             try:
                 used += json.loads(p.read_text(encoding="utf-8")).get("clip_sources_used") or []
-            except Exception:  # noqa: BLE001
+            except Exception as _swallowed:  # noqa: BLE001
+                noted("weekly.py:605", _swallowed)
                 pass
         s = {"used": list(dict.fromkeys(used)), "pool": {}}
     s.setdefault("pool", {})
@@ -681,7 +687,8 @@ def _source_channel(src: dict) -> str | None:
         try:
             from . import db
             return (db.get_campaign(db.connect(), src["campaign"]) or {}).get("account")
-        except Exception:  # noqa: BLE001
+        except Exception as _swallowed:  # noqa: BLE001
+            noted("weekly.py:684", _swallowed)
             return None
     return None
 
@@ -1135,7 +1142,8 @@ def make_item(plan: dict, item: dict, brain, memory=None, log=print) -> None:
             from .content_tuning import record_hook
             record_hook(item["id"], ch["id"], json.loads((out / "script.json").read_text(encoding="utf-8"))
                         .get("hook_type"))
-        except Exception:  # noqa: BLE001
+        except Exception as _swallowed:  # noqa: BLE001
+            noted("weekly.py:1138", _swallowed)
             pass
     elif ch["type"] == "brainrot":
         from .snack import maker as snack              # Brain Snack v3: five rotating game formats

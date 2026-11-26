@@ -11,6 +11,7 @@
 Nothing is ever sent automatically: the owner sends from their own account.
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import html
 import re
@@ -94,7 +95,8 @@ def proof_text() -> str:
     try:
         from .dashboard import _metrics
         views = sum(m["views"] for m in _metrics().values())
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("pitch.py:97", _swallowed)
         pass
     base = ROOT / "output" / "hot_take_hq"
     folders = sorted(base.glob("*_clips_pitch_samples")) or sorted(base.glob("*_clips*")) if base.exists() else []

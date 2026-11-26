@@ -3,6 +3,7 @@ nothing is posted, nothing is changed on any platform. Run `python cli.py doctor
 runs when the bot starts, so problems show up the moment an account is added.
 Each result: (area, status good/warn/bad/info, what we saw, how to fix it)."""
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import json
 import os
@@ -156,7 +157,8 @@ def local() -> list[dict]:
         out.append(_r("Start with Windows", "good" if q.returncode == 0 else "warn",
                       "scheduled task found" if q.returncode == 0 else "no scheduled task",
                       "" if q.returncode == 0 else "double-click scripts/setup_pc.cmd once"))
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("doctor.py:159", _swallowed)
         pass
     keys = {"CLOUDFLARE_API_TOKEN": "AI images", "YOUTUBE_API_KEY": "weekly 'what's winning' search",
             "PEXELS_API_KEY": "stock footage", "GEMINI_API_KEY": "backup writer", "GROQ_API_KEY": "backup writer"}

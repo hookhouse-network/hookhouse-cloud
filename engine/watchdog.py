@@ -12,6 +12,7 @@ Telegram alert per problem (repeated at most every ALERT_EVERY_H hours), plus an
 The Worker itself alerts when it cannot start a cloud run (cloud/worker/worker.js).
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import json
 import time
@@ -95,7 +96,8 @@ def _campaigns_waiting(now: float) -> dict[str, str]:
     from . import db
     try:
         picked = db.list_campaigns(db.connect(), "picked")
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("watchdog.py:98", _swallowed)
         return {}
     from .telegram_bot import joinable
     late = [c for c in picked if now - float(c.get("picked_at") or now) > 12 * 3600 and joinable(c)]
@@ -103,7 +105,8 @@ def _campaigns_waiting(now: float) -> dict[str, str]:
         try:                                        # paused/ended meanwhile: close them, don't ask to join
             from . import discover
             late = discover.refresh_states(late)
-        except Exception:  # noqa: BLE001
+        except Exception as _swallowed:  # noqa: BLE001
+            noted("watchdog.py:106", _swallowed)
             pass
     if not late:
         return {}
@@ -130,7 +133,8 @@ def _videos(now: float) -> dict[str, str]:
             out["pictures"] = (f"Today's free cloud pictures are used up (next try {reset}). While the PC is on and "
                                "idle it draws story pictures itself (about 2 minutes each, capped per day); Brain "
                                "Snack, kids and clip videos keep going. Nothing to do.")
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("watchdog.py:133", _swallowed)
         pass
     made = [float(it.get("made_at") or 0) for it in items if it.get("made_at")]
     if items and made and now - max(made) > 24 * 3600:

@@ -9,6 +9,7 @@ Removes: temporary work/ folders of finished videos, failed or abandoned renders
 after 2 days, old logs and temp files. Skips everything while a video is being made (render lock).
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import json
 import shutil
@@ -62,7 +63,8 @@ def _plan_folders() -> dict[Path, dict]:
     for plan in sorted(WEEKS.glob("*/plan.json")) if WEEKS.exists() else []:
         try:
             items = json.loads(plan.read_text(encoding="utf-8")).get("items") or []
-        except Exception:  # noqa: BLE001
+        except Exception as _swallowed:  # noqa: BLE001
+            noted("cleanup.py:65", _swallowed)
             continue
         for it in items:
             if it.get("out_dir"):

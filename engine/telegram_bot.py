@@ -9,6 +9,7 @@
 Nothing here posts publicly or joins anything by itself.
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import json
 import os
@@ -93,7 +94,8 @@ def notify(text: str) -> bool:
     try:
         send("🔔 " + text)
         return True
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("telegram_bot.py:96", _swallowed)
         return False
 
 
@@ -244,7 +246,8 @@ def digest(conn=None, fresh_only: bool = True, check_live: bool = True) -> dict 
             rows = discover.refresh_states(rows, conn=conn)
             rows = candidates(conn, fresh_only=fresh_only) if len(rows) < DIGEST_SIZE else rows
             rows = discover.refresh_states(rows, conn=conn)
-        except Exception:  # noqa: BLE001 - the list still goes out
+        except Exception as _swallowed:  # noqa: BLE001 - the list still goes out
+            noted("telegram_bot.py:247", _swallowed)
             pass
     if not rows:
         send(digest_text(rows))
@@ -659,12 +662,14 @@ def tasks_text() -> str:
         ready = [b.get("title", pid)[:40] for pid, b in bk.items() if b.get("status") == "ready"]
         if ready:
             you.append(f"Books ready to publish ({len(ready)}): {', '.join(ready[:3])}")
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("telegram_bot.py:662", _swallowed)
         pass
     try:
         for t in [t for t in todo.items() if not t["done"]][:8]:
             you.append(f"{t.get('platform', '')}: {t['task'][:110]}")
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("telegram_bot.py:667", _swallowed)
         pass
     lines.append("👉 For you:")
     lines += [f"{i}. {x}" for i, x in enumerate(you, 1)] or ["Nothing right now ✅"]
@@ -690,7 +695,8 @@ def tasks_text() -> str:
     try:
         making = [it for _, it in autopilot.items(0, 2) if it["status"] in ("planned", "failed", "redo", "making")]
         lines += ["", f"🤖 I'm making next (no action needed): {len(making)} video(s) in the next 2 days"]
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("telegram_bot.py:693", _swallowed)
         pass
     return "\n".join(lines)[:4000]
 
@@ -714,7 +720,8 @@ def health_text(store=None) -> str:
                     "every condition is met):\n" + "\n".join(
                         f"• {v.get('channel', '')}: {'; '.join(v.get('problems') or [])[:160]}"
                         for v in list(g.values())[:5]))
-    except Exception:  # noqa: BLE001 - the health answer never fails because of this extra
+    except Exception as _swallowed:  # noqa: BLE001 - the health answer never fails because of this extra
+        noted("telegram_bot.py:717", _swallowed)
         pass
     try:                                           # 18 Nov: problems that need a code fix / improvements
         from . import heal
@@ -724,7 +731,8 @@ def health_text(store=None) -> str:
                      + "\n".join(f"• {it['area']}: {it['error'][:120]} ({it['n']}x)" for _, it in hi[:4]))
         if imp:
             held += f"\n\n💡 {len(imp)} improvement(s) from the daily review are queued for the next 'Heal and Improve'."
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("telegram_bot.py:727", _swallowed)
         pass
     if not found:
         return "✅ Everything is working: cloud, PC helper, Chrome, video making and campaigns." + held
@@ -890,14 +898,16 @@ def handle(update: dict, conn=None) -> None:
     if data == "noop":                                         # an already-decided label
         try:
             api("answerCallbackQuery", callback_query_id=cb["id"], text="Already done ✅")
-        except Exception:  # noqa: BLE001
+        except Exception as _swallowed:  # noqa: BLE001
+            noted("telegram_bot.py:893", _swallowed)
             pass
         return
     if data == "aa:all":                                       # approve every video already shown
         from . import autopilot
         try:
             api("answerCallbackQuery", callback_query_id=cb["id"], text="Working on it…")
-        except Exception:  # noqa: BLE001
+        except Exception as _swallowed:  # noqa: BLE001
+            noted("telegram_bot.py:900", _swallowed)
             pass
         try:
             send(autopilot.approve_all_shown())
@@ -910,7 +920,8 @@ def handle(update: dict, conn=None) -> None:
         try:                                                   # answer the tap at once (uploads can take minutes)
             api("answerCallbackQuery", callback_query_id=cb["id"],
                 text="Working on it…" if data.startswith("ap:") else "")
-        except Exception:  # noqa: BLE001
+        except Exception as _swallowed:  # noqa: BLE001
+            noted("telegram_bot.py:913", _swallowed)
             pass
         if data.startswith("ch:"):
             s["awaiting_change"] = {"tok": tok, "at": time.time()}
@@ -931,7 +942,8 @@ def handle(update: dict, conn=None) -> None:
                 iid = autopilot.item_of(tok)
                 if iid:
                     autopilot.close_buttons(iid, reply.split("\n")[0])
-            except Exception:  # noqa: BLE001
+            except Exception as _swallowed:  # noqa: BLE001
+                noted("telegram_bot.py:934", _swallowed)
                 pass
         if reply:
             send(reply)
@@ -940,7 +952,8 @@ def handle(update: dict, conn=None) -> None:
         from . import books
         try:
             api("answerCallbackQuery", callback_query_id=cb["id"], text="Got it")
-        except Exception:  # noqa: BLE001
+        except Exception as _swallowed:  # noqa: BLE001
+            noted("telegram_bot.py:943", _swallowed)
             pass
         if data.startswith("bk:ch:"):
             s["awaiting_change"] = {"book": data[6:], "tok": "", "at": time.time()}
@@ -958,7 +971,8 @@ def handle(update: dict, conn=None) -> None:
         t = todo.tick(data[3:], True)
         try:
             api("answerCallbackQuery", callback_query_id=cb["id"], text="☑ Done!" if t else "Not found")
-        except Exception:  # noqa: BLE001
+        except Exception as _swallowed:  # noqa: BLE001
+            noted("telegram_bot.py:961", _swallowed)
             pass
         body, kb = todo.telegram_text()
         try:
@@ -971,7 +985,8 @@ def handle(update: dict, conn=None) -> None:
         _, act, pid = (data.split(":", 2) + ["", ""])[:3]
         try:
             api("answerCallbackQuery", callback_query_id=cb["id"], text="Saved")
-        except Exception:  # noqa: BLE001
+        except Exception as _swallowed:  # noqa: BLE001
+            noted("telegram_bot.py:974", _swallowed)
             pass
         send(outreach.decide(act, pid))
         return
@@ -979,7 +994,8 @@ def handle(update: dict, conn=None) -> None:
         from . import comments
         try:
             api("answerCallbackQuery", callback_query_id=cb["id"], text="Working on it…")
-        except Exception:  # noqa: BLE001
+        except Exception as _swallowed:  # noqa: BLE001
+            noted("telegram_bot.py:982", _swallowed)
             pass
         try:
             send(comments.reply(int(data[3:])) if data.startswith("cr:") else comments.skip(int(data[3:])))
@@ -991,14 +1007,16 @@ def handle(update: dict, conn=None) -> None:
         _, item, plat = (data.split(":", 2) + ["", ""])[:3]
         try:
             api("answerCallbackQuery", callback_query_id=cb["id"], text=share_packs.mark_posted(item, plat)[:180])
-        except Exception:  # noqa: BLE001
+        except Exception as _swallowed:  # noqa: BLE001
+            noted("telegram_bot.py:994", _swallowed)
             pass
         return
     if data.startswith("s:"):                                  # /source: which campaign the footage belongs to
         source_pick(data[2:])
         try:
             api("answerCallbackQuery", callback_query_id=cb["id"], text="Saved")
-        except Exception:  # noqa: BLE001
+        except Exception as _swallowed:  # noqa: BLE001
+            noted("telegram_bot.py:1001", _swallowed)
             pass
         return
     d = s.get("digest") or {}
@@ -1037,7 +1055,8 @@ def handle(update: dict, conn=None) -> None:
     _save(s)
     try:
         api("answerCallbackQuery", callback_query_id=cb["id"], text=note)
-    except Exception:  # noqa: BLE001 - old buttons can expire
+    except Exception as _swallowed:  # noqa: BLE001 - old buttons can expire
+        noted("telegram_bot.py:1040", _swallowed)
         pass
 
 
@@ -1054,7 +1073,8 @@ def file_log(msg) -> None:
         try:
             if sys.stdout and sys.stdout.isatty():            # console window; the file below is the real log
                 print(line, flush=True)
-        except Exception:  # noqa: BLE001 - no console
+        except Exception as _swallowed:  # noqa: BLE001 - no console
+            noted("telegram_bot.py:1057", _swallowed)
             pass
         try:
             LOG_FILE.parent.mkdir(parents=True, exist_ok=True)

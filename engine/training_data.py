@@ -11,6 +11,7 @@ The fine-tuning itself needs a GPU home that allows COMMERCIAL use (not Kaggle: 
 and ban server farming; never GitHub Actions). The owner picks it when the set is ready.
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import json
 import sqlite3
@@ -67,7 +68,8 @@ def record(item: dict) -> dict | None:
         with SCRIPTS.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
         return rec
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("training_data.py:70", _swallowed)
         return None
 
 

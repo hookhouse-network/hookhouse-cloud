@@ -4,6 +4,7 @@
 - A platform can be limited to some channels (e.g. Pinterest only for evergreen explainer channels).
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 from functools import lru_cache
 
@@ -31,7 +32,8 @@ def _campaign_platforms(campaign_id: str | None) -> list[str] | None:
         from . import db
         c = db.get_campaign(db.connect(), campaign_id) or {}
         return [str(p) for p in c.get("platforms") or []] or None
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("platforms.py:34", _swallowed)
         return None
 
 

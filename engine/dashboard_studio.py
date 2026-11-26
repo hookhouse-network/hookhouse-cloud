@@ -10,6 +10,7 @@ Two cards on every channel page:
   file (Telegram) shows the same page read-only.
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import html
 import json
@@ -71,7 +72,8 @@ def video_rows(cid: str, limit: int = 15) -> list[dict]:
             r["views"] = max(float(r["views"] or 0), float(v.get("views") or 0))
             r["likes"] = max(float(r["likes"] or 0), float(v.get("likes") or 0))
             r["video_id"] = r.get("video_id") or vid
-    except Exception:  # noqa: BLE001 - live counters are a bonus
+    except Exception as _swallowed:  # noqa: BLE001 - live counters are a bonus
+        noted("dashboard_studio.py:74", _swallowed)
         pass
     out = sorted(rows.values(), key=lambda r: r.get("posted") or 0, reverse=True)[:limit]
     for r in out:

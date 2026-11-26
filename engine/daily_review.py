@@ -19,6 +19,7 @@ Research basis: YouTube Shorts: viewed-vs-swiped-away is the first test, engaged
 Instagram: watch time, likes per reach and sends per reach (Mosseri, Jan 2025), originality push (2026).
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import json
 import statistics
@@ -56,7 +57,8 @@ def _plan_items(days: int) -> dict[str, dict]:
     try:
         from . import autopilot
         return {it["id"]: it for _, it in autopilot.items(days, 1)}
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("daily_review.py:59", _swallowed)
         return {}
 
 
@@ -117,7 +119,8 @@ def _retention(channel: str, since: float) -> list[str]:
         rows = connect().execute("SELECT lesson FROM retention WHERE channel=? AND fetched_at>? AND lesson<>''",
                                  (channel, since)).fetchall()
         return [r[0] for r in rows][:5]
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("daily_review.py:120", _swallowed)
         return []
 
 

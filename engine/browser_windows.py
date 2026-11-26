@@ -5,6 +5,7 @@ Chrome throttles any tab that is hidden or covered, and a throttled tab makes pa
 - Amazon KDP gets the right half (its long print checks run while the store window works).
 window_for(browser, url_part, start_url, side) -> the page for a job, visible and in front."""
 from __future__ import annotations
+from engine.core.quiet import noted
 
 
 def _bounds(cdp, target_id: str, side: str, screen_w: int = 1920, screen_h: int = 1040) -> None:
@@ -45,7 +46,8 @@ def window_for(browser, url_part: str, start_url: str, side: str = "left"):
         _bounds(cdp, _tid(page), side)
         for p in kdp:
             _bounds(cdp, _tid(p), "right")
-    except Exception:  # noqa: BLE001 - layout is a nicety
+    except Exception as _swallowed:  # noqa: BLE001 - layout is a nicety
+        noted("browser_windows.py:48", _swallowed)
         pass
     page.bring_to_front()
     return page

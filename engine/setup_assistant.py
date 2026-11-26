@@ -9,6 +9,7 @@ profile in data/browser_profile (git-ignored), with no tricks to hide that it is
 switch "Open pages in" to "my normal browser" and paste keys into the boxes.
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import json
 import os
@@ -412,7 +413,8 @@ def browser_loop(url: str) -> bool:
                     event(f"The page is slow to open ({type(e).__name__}); it may still finish", ok=False)
                 try:
                     work.bring_to_front()
-                except Exception:  # noqa: BLE001
+                except Exception as _swallowed:  # noqa: BLE001
+                    noted("setup_assistant.py:415", _swallowed)
                     pass
             elif cmd and cmd[0] == "download":
                 try:
@@ -428,7 +430,8 @@ def browser_loop(url: str) -> bool:
                     threads_return(page.url)               # works even when the return page doesn't load
                     try:
                         scan_text(step, page.url, page.evaluate(SCAN_JS))
-                    except Exception:  # noqa: BLE001 - page navigating; next round
+                    except Exception as _swallowed:  # noqa: BLE001 - page navigating; next round
+                        noted("setup_assistant.py:431", _swallowed)
                         pass
             try:
                 helper.wait_for_timeout(250)
@@ -436,7 +439,8 @@ def browser_loop(url: str) -> bool:
                 break
         try:
             ctx.close()
-        except Exception:  # noqa: BLE001
+        except Exception as _swallowed:  # noqa: BLE001
+            noted("setup_assistant.py:439", _swallowed)
             pass
     STATE["browser"] = False
     return True
@@ -451,7 +455,8 @@ def check(url: str, shot: Path) -> None:
             try:
                 b = pw.chromium.launch(headless=True, **({"channel": chan} if chan else {}))
                 break
-            except Exception:  # noqa: BLE001
+            except Exception as _swallowed:  # noqa: BLE001
+                noted("setup_assistant.py:454", _swallowed)
                 continue
         page = b.new_page(viewport={"width": 1440, "height": 900})
         page.goto(url)
@@ -497,7 +502,8 @@ def main(argv=None) -> None:
         from . import todo
         done, total = todo.progress()
         print(f"To-do list: {done}/{total} done. Run the assistant again any time to continue.")
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("setup_assistant.py:500", _swallowed)
         pass
 
 

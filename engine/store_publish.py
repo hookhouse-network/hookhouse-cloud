@@ -11,6 +11,7 @@ that profile itself. What is listed where is recorded in data/products/listed.js
 store links feed descriptions and bios). Prices are the catalogue's USD prices; checkout/payout settings are the
 owner's (bank details are never typed by the system)."""
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import json
 import re
@@ -315,7 +316,8 @@ def payhip_add(p, pid: str) -> str:
     try:            # owner, 16 Nov (income articles): every buyer and free download joins our free Payhip mailing list
         p.evaluate("() => { const c = document.getElementById('subscribe-customers-to-mailing-list-checkbox');"
                    " if (c && !c.checked) c.click(); }")
-    except Exception:  # noqa: BLE001 - the listing itself matters more
+    except Exception as _swallowed:  # noqa: BLE001 - the listing itself matters more
+        noted("store_publish.py:318", _swallowed)
         pass
     for _ in range(180):                                       # big zips: wait for the uploads
         if not p.evaluate(J_UPLOADING):

@@ -2,6 +2,7 @@
 Tasks with `auto` are ticked by the system itself when it can see them done (a key in .env, connected accounts, the
 Windows task, free disk space, a saved choice); the rest are ticked by the owner in Telegram (/todo) and saved here."""
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import os
 import shutil
@@ -27,7 +28,8 @@ def load() -> list[dict]:
 def _schtask(name: str) -> bool:
     try:
         return subprocess.run(["schtasks", "/Query", "/TN", name], capture_output=True, timeout=20).returncode == 0
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("todo.py:30", _swallowed)
         return False
 
 

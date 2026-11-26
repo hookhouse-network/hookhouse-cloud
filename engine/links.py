@@ -2,6 +2,7 @@
 sends viewers to related sibling channels and to the channel's Instagram, plus a plan of what to put in each YouTube
 "Links" section and Instagram bio. Only channels marked live are linked; Made-for-Kids videos get no cross-links."""
 from __future__ import annotations
+from engine.core.quiet import noted
 
 from functools import lru_cache
 
@@ -65,7 +66,8 @@ def _ig_connected(channel_id: str) -> bool:
         return True
     try:
         return bool((data().get(channel_id) or {}).get("instagram_live"))
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("links.py:68", _swallowed)
         return False
 
 
@@ -91,7 +93,8 @@ def footer(channel_id: str, language: str = "en", kids: bool = False) -> str:
         shop = shop_link(channel_id)
         if shop:
             lines.append(f"🛍️ {shop[0]}: {shop[1]}")
-    except Exception:  # noqa: BLE001 - a missing store record never breaks a description
+    except Exception as _swallowed:  # noqa: BLE001 - a missing store record never breaks a description
+        noted("links.py:94", _swallowed)
         pass
     return "\n".join(lines)
 

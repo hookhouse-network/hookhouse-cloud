@@ -8,6 +8,7 @@ helper  (the PC, whenever it is on): claims the next videos, makes them (long on
         tick merges them. The PC never writes the shared state, so the cloud and the PC can't overwrite each other.
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import json
 import os
@@ -519,7 +520,8 @@ def _cloud_long(it: dict, kinds: set | None) -> bool:
     from ..config import channel
     try:
         return channel(it["channel"]).get("type") in CLOUD_LONG_TYPES
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("cloud/runner.py:522", _swallowed)
         return False
 
 
@@ -550,7 +552,8 @@ def _storyboarded(channel_id: str) -> bool:
     from ..config import channel
     try:
         return storyboard.enabled(channel(channel_id))
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("cloud/runner.py:553", _swallowed)
         return False
 
 

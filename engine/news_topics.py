@@ -8,6 +8,7 @@ format: today's news is the hook, the story behind it (a record, a rivalry, a co
 writer's fact-check still runs on every script.
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import html
 import re
@@ -78,7 +79,8 @@ def headlines(cid: str, hours: int = 48, session=None) -> list[dict]:
             r = session.get(GN.format(q=quote(q), hl=hl, gl=gl, lang=lang), timeout=20,
                             headers={"User-Agent": "Mozilla/5.0 (HookHouse planner)"})
             items = parse(r.text)
-        except Exception:  # noqa: BLE001 - one feed down: the other still counts
+        except Exception as _swallowed:  # noqa: BLE001 - one feed down: the other still counts
+            noted("news_topics.py:81", _swallowed)
             continue
         for it in items:
             key = re.sub(r"\W+", " ", it["title"].lower())[:60]

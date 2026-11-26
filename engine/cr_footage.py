@@ -13,6 +13,7 @@ it runs by itself:
 Never clicks anything on the board, never types, never downloads from video-platform pages.
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import asyncio
 import json
@@ -67,7 +68,8 @@ def chrome_up() -> bool:
     try:
         _cdp_json("/json/version")
         return True
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("cr_footage.py:70", _swallowed)
         return False
 
 
@@ -95,7 +97,8 @@ def read_page(url: str, wait_s: float = 30) -> dict:
     finally:
         try:
             _cdp_json(f"/json/close/{tab['id']}")
-        except Exception:  # noqa: BLE001
+        except Exception as _swallowed:  # noqa: BLE001
+            noted("cr_footage.py:98", _swallowed)
             pass
 
 
@@ -229,7 +232,8 @@ def add_sources(campaign_id: str, links: list[str]) -> int:
             continue
         try:
             files += clips.expand_source(u)
-        except Exception:  # noqa: BLE001 - a private folder: the owner gets the /source hint
+        except Exception as _swallowed:  # noqa: BLE001 - a private folder: the owner gets the /source hint
+            noted("cr_footage.py:232", _swallowed)
             continue
     have = {s["source"] for s in weekly._read_sources()}
     new = [u for u in dict.fromkeys(files) if u not in have and not clips.DRIVE_FOLDER.search(u)]

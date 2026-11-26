@@ -5,6 +5,7 @@ video file address the player loads (Network events), then download it with plai
 sign-in, no clicks on anything but folders and files. Brand footage shared for clipping = permission (campaign brief).
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import asyncio
 import json
@@ -33,7 +34,8 @@ def _new_tab() -> dict:
 def _close(t: dict) -> None:
     try:
         urllib.request.urlopen(f"{CDP}/json/close/{t['id']}", timeout=10).read()
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("frameio.py:36", _swallowed)
         pass
 
 

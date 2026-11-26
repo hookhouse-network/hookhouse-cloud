@@ -2,6 +2,7 @@
 source video -> transcript -> brain proposes moments -> virality score (0-100)
 -> top moments -> face-tracked 9:16 crop -> captions + hook -> campaign rule check."""
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import json
 import os
@@ -925,7 +926,8 @@ def make_clips(brain, source: str, channel: dict, campaign: dict | None = None, 
             try:
                 from . import campaign_safety as cs
                 meta["edit_hash"] = cs.video_hash(path)
-            except Exception:  # noqa: BLE001
+            except Exception as _swallowed:  # noqa: BLE001
+                noted("clips.py:928", _swallowed)
                 pass
             campaign_gate.stamp(meta, campaign_gate.check(meta, campaign, conn=db.connect(), brain=brain,
                                                           transcript=spoken, cache=meta["gate_cache"]))

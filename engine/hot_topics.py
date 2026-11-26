@@ -1,6 +1,7 @@
 """Hot topics ("most talked-about right now"): a fixed list (config/hot_topics.yaml, e.g. GTA 6) plus the day's
 safe trending items from the trend radar. Used to push matching campaigns to the top of the owner's list."""
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import re
 from datetime import date
@@ -28,7 +29,8 @@ def topics(with_trends: bool = True) -> list[dict]:
                 title = str(it.get("title", "")).replace("_", " ").strip()
                 if len(title) >= 4:
                     out.append({"name": f"Trending: {title}", "keywords": [title.lower()], "boost": 10})
-        except Exception:  # noqa: BLE001 - no trends today just means no extra boosts
+        except Exception as _swallowed:  # noqa: BLE001 - no trends today just means no extra boosts
+            noted("hot_topics.py:31", _swallowed)
             pass
     return out
 

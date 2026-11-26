@@ -12,6 +12,7 @@ Candidates are the research peak windows (research_notes, 10 Nov: US lunch 12-15
 India 12:30-14:00 and 19:00-22:00 IST), all in India time. Output: data/state/timing.json, read by weekly.slots_for.
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import json
 import time
@@ -102,7 +103,8 @@ def learn(log=print, conn=None) -> dict:
         try:
             from .telegram_bot import notify
             notify("⏰ Posting times updated from our own numbers:\n• " + "\n• ".join(changed[:10]))
-        except Exception:  # noqa: BLE001
+        except Exception as _swallowed:  # noqa: BLE001
+            noted("timing.py:105", _swallowed)
             pass
     log(f"timing: {len(changed)} channel(s) changed slots")
     return out

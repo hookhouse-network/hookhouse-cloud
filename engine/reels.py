@@ -6,6 +6,7 @@ a slightly shorter ending, its own 3:4-grid-safe cover and an Instagram caption 
 (Story Shorts make their Reel inside story.render from the same frames.)
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import json
 import re
@@ -76,5 +77,6 @@ def _cover_from(src: Path, label: str, channel: dict, out: Path) -> None:
     try:
         from .media.thumbs_v4 import cover_for
         cover_for(channel, Image.open(src).convert("RGB"), label, out)
-    except Exception:  # noqa: BLE001 - never lose a finished Reel over its cover
+    except Exception as _swallowed:  # noqa: BLE001 - never lose a finished Reel over its cover
+        noted("reels.py:79", _swallowed)
         pass

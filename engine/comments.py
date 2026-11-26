@@ -11,6 +11,7 @@ post only after approval, ideas from repeated requests), built our own way:
   only after that tap (YouTube comments.insert = 50 units, at most REPLY_MAX a day; Instagram /replies).
 - Viewer ideas reach the weekly topic planner as hints. Comment data is deleted after 30 days (API policy)."""
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import re
 import sqlite3
@@ -146,7 +147,8 @@ def safe_reply(text: str) -> str:
         from .policy import topic_flags
         if topic_flags(t):
             return ""
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("comments.py:149", _swallowed)
         pass
     return t
 
@@ -204,7 +206,8 @@ def due_videos(now: float | None = None) -> list[dict]:
         try:
             if get_channel(v["channel"]).get("type") == "kids":
                 continue
-        except Exception:  # noqa: BLE001
+        except Exception as _swallowed:  # noqa: BLE001
+            noted("comments.py:207", _swallowed)
             continue
         out.append(v)
     return sorted(out, key=lambda v: float(v.get("posted_at") or 0), reverse=True)   # newest first: most comments

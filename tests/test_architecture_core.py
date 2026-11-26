@@ -162,7 +162,7 @@ def test_an_unreadable_plan_is_reported_not_hidden(tmp_path, monkeypatch):
 
 
 # ---------------------------------------------------------------- ratchet
-SILENT_BASELINE = 110      # 20 Nov 2026: broad excepts that swallow the error (pass / continue / return empty)
+SILENT_BASELINE = 0        # 27 Nov (P9): was 110; every deliberate carry-on now calls engine.core.quiet.noted()
 
 
 def test_silently_swallowed_errors_never_grow():

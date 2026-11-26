@@ -8,6 +8,7 @@ read once, 4-30 days after posting: how many stayed past the hook, where the big
 was on screen then, which moment people rewound to. Lessons go into our memory ("playbook", per channel) so the next
 scripts avoid what lost people, and into the weekly report. YouTube API data is kept 30 days at most."""
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import json
 import re
@@ -145,7 +146,8 @@ def _items_by_id(days: int) -> dict:
     try:
         from . import autopilot
         return {it["id"]: it for _, it in autopilot.items(days, 0)}
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("retention.py:148", _swallowed)
         return {}
 
 
@@ -203,7 +205,8 @@ def run(session=HTTP, log=print, conn=None, memory=None, now: float | None = Non
         if memory is not None:
             try:
                 memory.add("playbook", text, channel=v["channel"], meta={"source": "retention", "video": v["id"]})
-            except Exception:  # noqa: BLE001
+            except Exception as _swallowed:  # noqa: BLE001
+                noted("retention.py:206", _swallowed)
                 pass
         n += 1
     conn.commit()

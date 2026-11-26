@@ -16,6 +16,7 @@ Official endpoints:
 - Facebook Pages: POST /{page}/video_reels (start -> upload -> finish).
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import json
 import os
@@ -242,7 +243,8 @@ def youtube_delete(channel_id: str, video_id: str, session=HTTP) -> bool:
             return False
         r = session.delete(f"{YT_API}/videos", params={"id": video_id},
                            headers={"Authorization": f"Bearer {token}"}, timeout=30)
-    except Exception:  # noqa: BLE001 - the caller tells the owner to delete it by hand
+    except Exception as _swallowed:  # noqa: BLE001 - the caller tells the owner to delete it by hand
+        noted("publish.py:245", _swallowed)
         return False
     add_quota(50)
     ok = r.status_code in (200, 204, 404)                    # 404: already gone
@@ -273,7 +275,8 @@ def youtube_reschedule(channel_id: str, video_id: str, publish_at: str, session=
                         json={"id": video_id, "status": status})
         add_quota(50)
         ok = u.status_code == 200
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("publish.py:276", _swallowed)
         return False
     _log(Action("youtube", channel_id, "", f"reschedule {video_id}", when=publish_at,
                 details={"status": u.status_code}, done=ok))
@@ -335,7 +338,8 @@ def process_pending_thumbnails(session=HTTP) -> int:
                 continue
             if st in ("failed", "terminated"):
                 continue
-        except Exception:  # noqa: BLE001 - try again next time
+        except Exception as _swallowed:  # noqa: BLE001 - try again next time
+            noted("publish.py:338", _swallowed)
             pass
         keep.append(r)
     PENDING_THUMBS.write_text(json.dumps(keep), encoding="utf-8")
@@ -646,7 +650,8 @@ def share_link(video: Path, hours: float = 2.0):
         st = Store()
         name = f"{uuid.uuid4().hex}.mp4"
         asset = st.put(SHARE_TAG, name, Path(video).read_bytes(), "video/mp4")
-    except Exception:  # noqa: BLE001 - no cloud store here: the old upload is tried
+    except Exception as _swallowed:  # noqa: BLE001 - no cloud store here: the old upload is tried
+        noted("publish.py:649", _swallowed)
         return None
     exp = int(time.time() + hours * 3600)
     sig = hmac.new(("media:" + key).encode(), f"{asset['id']}.{exp}".encode(), hashlib.sha256).hexdigest()
@@ -654,7 +659,8 @@ def share_link(video: Path, hours: float = 2.0):
     def cleanup():
         try:
             st.delete(SHARE_TAG, name)
-        except Exception:  # noqa: BLE001 - a leftover copy is harmless (the link expires)
+        except Exception as _swallowed:  # noqa: BLE001 - a leftover copy is harmless (the link expires)
+            noted("publish.py:657", _swallowed)
             pass
     return f"{WORKER_URL}/v/{asset['id']}/{exp}/{sig}", cleanup
 
@@ -1082,7 +1088,8 @@ def upload_item(it: dict, dry_run: bool = True, session=HTTP, platforms=("youtub
                 if meta.get("format") == "long" and _allowed(_ch, "youtube_podcasts", meta):
                     try:
                         ensure_podcast(it["channel"], pid, session=session)
-                    except Exception:  # noqa: BLE001 - the video is in the playlist either way
+                    except Exception as _swallowed:  # noqa: BLE001 - the video is in the playlist either way
+                        noted("publish.py:1085", _swallowed)
                         pass
                 return res
             actions.append(_safe(_to_playlist, "youtube", it["channel"], "", "playlist"))
@@ -1188,7 +1195,8 @@ def _hub_link(it: dict) -> str:
             if x.get("channel") == it.get("channel") and x.get("role") == "hub" and x.get("topic") == it.get("hub") \
                     and x.get("youtube_id"):
                 return f"https://youtu.be/{x['youtube_id']}"
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("publish.py:1191", _swallowed)
         pass
     return ""
 

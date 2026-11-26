@@ -7,6 +7,7 @@ when the campaign is joined and applied to every clip:
 - needs_logo + logo_urls: the brand logo goes on screen (top right) for the whole clip
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import re
 from pathlib import Path
@@ -57,7 +58,8 @@ def logo_file(campaign: dict, folder: Path) -> Path | None:
             r = HTTP.get(url, timeout=60)
             r.raise_for_status()
             im = Image.open(io.BytesIO(r.content)).convert("RGBA")
-        except Exception:  # noqa: BLE001 - try the next one
+        except Exception as _swallowed:  # noqa: BLE001 - try the next one
+            noted("campaign_rules.py:60", _swallowed)
             continue
         folder.mkdir(parents=True, exist_ok=True)
         dest = folder / "_brand_logo.png"

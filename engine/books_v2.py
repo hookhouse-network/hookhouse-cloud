@@ -9,6 +9,7 @@ big kid-friendly title, age badge, three feature chips; back: six real inside pa
 Also: store cover + thumbnail (Payhip) and kdp_listing.json.
 Usage: python -m engine.books_v2 <book id> [--pages N] [--local]"""
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import json
 import sys
@@ -368,7 +369,8 @@ def _cloud_open() -> bool:
         from .storyboard import _open
         hf = bool(os.environ.get("HF_TOKEN")) and _open("hf") and bookart._hf_room()     # 2nd free source (18 Nov)
         return bool(_open("cloudflare") and _open("cf_flux")) or hf
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("books_v2.py:371", _swallowed)
         return False
 
 

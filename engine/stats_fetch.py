@@ -5,6 +5,7 @@ Reads the upload log (data/publish_log.jsonl), then stores snapshots in data/ana
 all read from there. Videos on accounts that aren't connected are skipped quietly.
 """
 from __future__ import annotations
+from engine.core.quiet import noted
 
 import json
 import time
@@ -127,13 +128,15 @@ def _instagram(v: dict, session) -> dict | None:
         try:
             from . import heal
             heal.report("stats:instagram", err, channel=v.get("channel"), platform="instagram")
-        except Exception:  # noqa: BLE001
+        except Exception as _swallowed:  # noqa: BLE001
+            noted("stats_fetch.py:130", _swallowed)
             pass
         raise RuntimeError(err)
     try:                                               # 19 Nov: insights answer again -> the old errors close
         from . import heal
         heal.resolve("stats:instagram: ")
-    except Exception:  # noqa: BLE001
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("stats_fetch.py:136", _swallowed)
         pass
     vals = {d["name"]: (d.get("values") or [{}])[0].get("value") for d in r.json().get("data", [])}
     avg_ms = vals.get("ig_reels_avg_watch_time")
