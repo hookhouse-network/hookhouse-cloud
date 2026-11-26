@@ -457,10 +457,14 @@ class UnusableFootage(RuntimeError):
     """This footage can never give a clip for this campaign (for example a highlight shorter than the brief's
     minimum). 20 Nov: the PC maker retried one 30 s Kick highlight every 6 minutes; the slot must skip it at once."""
 
+# 26 Nov: plain descriptive headlines scored caption_hook 5; the title is now a curiosity gap (what he tries / expects).
+# Prompt text states rules only, never dated history (a dated note in the judge rubric was read as a directive).
 WHOLE_PROMPT = """This is ONE short highlight clip ({dur:.0f} s; the last {keep:.0f} s are posted) cut from a streamer's live stream (gameplay plus the
 streamer's reactions; little speech). It is posted whole as a vertical Short. Write its packaging.
-- Title: the concrete thing that happens or is said, under 60 chars, no "BREAKING"/"LIVE", no clickbait the clip
-  does not deliver. Name the streamer only if the transcript does.
+- Title: a curiosity gap about the concrete moment: what he TRIES, EXPECTS or RISKS, so a stranger needs to see how
+  it turns out (e.g. "Dasgas Dom thought this landing would work...", "Dasgas Dom tries to outrun 5 cop cars..."),
+  under 60 chars, no "BREAKING"/"LIVE", no clickbait the clip does not deliver. Name the streamer only if the
+  transcript or the campaign rules do.
 - Hooks: 3 on-screen hooks, max 7 words, that make a scroller stay (a question or the stakes), true to the clip.
 - No spoilers of the game's story, and never give away how THIS clip ends: the title and hooks tease the stakes
   ("Can he land this plane?", "He thought this was a good idea"), never the outcome ("he crashes", "mission failed").

@@ -33,3 +33,6 @@ requests:
   - id: "2026-11-26-gta-clips-campaign-bar-7"   # owner 26 Nov: campaign bar 7 (avg 7+, no point under 6) until 28 Nov
     redo: [1121_0100_stream_clips_short, 1121_0500_stream_clips_short, 1121_0630_stream_clips_short, 1122_0630_stream_clips_short]
     note: "remake: judged under the campaign bar (avg 7+, no point under 6); Dasgas Dom headlines, payoff flash on speech"
+  - id: "2026-11-26-gta-clips-curiosity"        # judge (fixed rubric): brief_fit 8+, shareability/caption_hook ~5
+    redo: [1121_0100_stream_clips_short, 1121_0500_stream_clips_short, 1121_0630_stream_clips_short, 1122_0630_stream_clips_short, 1123_0500_stream_clips_short, 1123_0630_stream_clips_short]
+    note: "remake: curiosity-gap headline (what he tries / expects), judged under the campaign bar"
