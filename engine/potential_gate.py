@@ -57,8 +57,11 @@ CRITERIA_HELP = {
     "age_safety": "nothing scary, unsafe to imitate or confusing for ages 2-5",
     "self_contained": "the moment makes sense without the full video",
     "caption_hook": "the on-screen hook/caption makes a stranger stop and watch",
-    "brief_fit": "fits the campaign brief's spirit and audience (for a streamer's campaign the expected format IS "
-                 "gameplay with the streamer's face cam or voice; 26 Nov: the judge told GTA clips to drop the gameplay)",
+    # 26 Nov: an earlier version of this text carried a history note ("the judge told GTA clips to drop the gameplay");
+    # the judge read it as a directive ("drop the gameplay per the 26 Nov directive") and brief_fit fell to 2.5-4.
+    # Prompt text states the rule only, never history.
+    "brief_fit": "fits the campaign brief's spirit and audience; for a streamer's campaign, gameplay with the "
+                 "streamer's face cam or voice on screen is exactly the requested format and scores well",
     # S10 (owner 21 Nov: "the content ... is so obvious for the viewer that this is ai, we need more human like")
     "human_feel": "the words and shots read like a skilled human creator made them: specific concrete details, "
                   "natural spoken phrasing, varied rhythm, real humour or opinion; NOT obvious AI (stock phrases like "
@@ -114,6 +117,8 @@ def judge_tag(ctype: str, it: dict) -> str:
     a short hash of its own texts, part of the verdict's cache key, so a kids or long video is judged once more by
     the corrected judge and again whenever those texts change (scores can go down as well as up)."""
     own = {k: v for k, v in criteria_help(ctype, it).items() if CRITERIA_HELP.get(k) != v}
+    if ctype == "clips":                          # 26 Nov: a clip's verdict follows its rubric texts too (the
+        own = {**criteria_help(ctype, it), **own}  # misread brief_fit note stayed cached on every held clip)
     if not own and not _long(it):
         return ""
     return hashlib.sha1(json.dumps([own, _long(it)], sort_keys=True).encode("utf-8")).hexdigest()[:8]

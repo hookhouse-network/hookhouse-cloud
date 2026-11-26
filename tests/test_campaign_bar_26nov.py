@@ -10,3 +10,18 @@ def test_the_campaign_bar():
     assert not pg.campaign_bar_ok({k: 6.5 for k in good}, today="2026-11-26")          # average under 7
     assert not pg.campaign_bar_ok(good, today="2026-11-29")                            # the bar has ended
     assert not pg.campaign_bar_ok({}, today="2026-11-26")
+
+
+def test_clip_verdicts_follow_the_rubric_text_and_carry_no_history():
+    """26 Nov: a dated note in brief_fit was read as a directive ('drop the gameplay per the 26 Nov directive') and the
+    misjudged verdicts stayed cached; the rubric states rules only and the clip tag follows its texts."""
+    assert "26 Nov" not in pg.CRITERIA_HELP["brief_fit"] and "drop" not in pg.CRITERIA_HELP["brief_fit"]
+    assert pg.judge_tag("clips", {"id": "x"}) != ""
+
+
+def test_the_daily_review_survives_a_video_without_a_title():
+    """26 Nov: '21:00 daily review: NoneType object is not subscriptable' (a plan item with topic: null)."""
+    from engine import daily_review
+    rep = daily_review.judge([{"title": None, "kind": "short", "slot": "05:00", "views": 10, "hours": 30.0},
+                              {"title": "A", "kind": "short", "slot": "06:30", "views": 0, "hours": 30.0}])
+    assert isinstance(rep, dict)

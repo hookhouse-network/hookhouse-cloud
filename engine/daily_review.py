@@ -89,7 +89,7 @@ def collect(now: float | None = None, days: int = LOOKBACK_D) -> dict[tuple[str,
             m.update(views=lv["views"], likes=lv.get("likes"), comments=lv.get("comments"))
         it = items.get(v["item"]) or {}
         out.setdefault((v["platform"], v["channel"]), []).append({
-            "id": v["id"], "item": v["item"], "title": (lv or {}).get("title") or v.get("title") or it.get("topic", ""),
+            "id": v["id"], "item": v["item"], "title": (lv or {}).get("title") or v.get("title") or it.get("topic") or "",
             "topic": it.get("topic", ""), "kind": it.get("kind") or v.get("format") or "short",
             "hours": round((now - v["posted_at"]) / 3600, 1),
             "slot": datetime.fromtimestamp(v["posted_at"]).strftime("%H:%M"),
@@ -148,7 +148,7 @@ def judge(videos: list[dict]) -> dict:
     for v in videos:
         vw = v.get("views")
         v["vs_median"] = round(vw / med, 2) if (med and vw is not None) else None
-        tag = f"'{v['title'][:60]}' ({v['kind']}, {v['slot']})"
+        tag = f"'{str(v.get('title') or '')[:60]}' ({v.get('kind')}, {v.get('slot')})"   # 26 Nov: a None title (topic null) crashed the 21:00 review
         if vw is not None and vw == 0 and v["hours"] >= NOT_SHOWN_H:
             bad.append(f"{tag}: 0 views after {v['hours']:.0f} h: the platform isn't showing it (first frame / title "
                        "/ a new account still in its test phase)")
