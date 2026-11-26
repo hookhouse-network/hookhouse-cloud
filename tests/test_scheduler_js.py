@@ -91,6 +91,10 @@ def test_queue_mirrors_what_is_due(monkeypatch):
     from engine import autopilot
     now = datetime(2026, 11, 21, 17, 0, tzinfo=timezone.utc)
     monkeypatch.setattr(autopilot, "_when", lambda it: now + timedelta(hours=it["h"]))
+    # 26 Nov: the order rules read the channel's connection; CI has no login files (brain_snack came out "not live",
+    # class P2) while this PC has them. The test fixes the facts it is about.
+    monkeypatch.setattr(sched, "order_hints", lambda it: {"redo": it.get("status") == "redo", "clip": False,
+                                                          "live": True, "recent": 0})
     q = QueueTwin()
     due = [("s1", {"id": "a", "kind": "short", "status": "planned", "h": 5, "channel": "brain_snack"}),
            ("s2", {"id": "b", "kind": "long", "status": "planned", "h": 50, "channel": "bloop_and_friends"})]
