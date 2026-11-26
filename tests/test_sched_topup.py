@@ -159,3 +159,22 @@ def test_next_job_stops_after_the_put_back_limit(monkeypatch):
             return {"state": "queued"}
     hb = sched.Heartbeat(sched.SchedClient(client=Forever()), "pc-t", "pc", [], log=lambda *_: None)
     assert sched.next_job(hb, {}, log=lambda m: None) is None and len(claims) == sched.PUT_BACK_MAX
+
+
+def test_a_job_handed_back_is_held_three_hours(monkeypatch):
+    """26 Nov: 8 clip jobs the PC could not make were offered again every 30 min, eating each round's put-backs."""
+    import time
+    monkeypatch.setattr("engine.config.settings", lambda: {"scheduler": "on"})
+    sent = []
+
+    class T:
+        def call(self, p):
+            sent.append(p)
+            if p["op"] == "s_claim":
+                return {"jobs": [{"id": 1, "epoch": 1, "key": "make:z:0:planned:clip", "payload": {"item": "z"}}]
+                        if not any(x["op"] == "s_fail" for x in sent) else []}
+            return {"state": "queued", "ok": 1}
+    hb = sched.Heartbeat(sched.SchedClient(client=T()), "pc-t", "pc", [], log=lambda *_: None)
+    assert sched.next_job(hb, {"a": ("s", {"id": "a"})}, log=lambda m: None) is None
+    fail = next(p for p in sent if p["op"] == "s_fail")
+    assert fail["retry_at"] >= time.time() + 3 * 3600 - 60

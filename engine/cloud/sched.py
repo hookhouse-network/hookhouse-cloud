@@ -336,9 +336,9 @@ def next_job(hb: Heartbeat | None, items: dict[str, tuple[str, dict]], log=print
             return None
         for job in jobs:
             iid = str((job.get("payload") or {}).get("item") or "")
-            if iid not in items:               # made or claimed elsewhere: back to the queue for 30 min (no attempt
-                hb.client.fail(job["id"], hb.wid, job["epoch"], "not due on this PC now", "quota",   # counted); the
-                               time.time() + 1800)                    # cloud's next sync cancels it if it is done
+            if iid not in items:               # made or claimed elsewhere: back to the queue (no attempt counted);
+                hb.client.fail(job["id"], hb.wid, job["epoch"], "not due on this PC now", "quota",   # the cloud's next
+                               time.time() + PUT_BACK_HOLD_S)          # sync cancels it if it is done
                 log(f"scheduler: job {job['key']} put back: its item is not due here right now")
                 continue
             hb.track(job)
@@ -348,6 +348,10 @@ def next_job(hb: Heartbeat | None, items: dict[str, tuple[str, dict]], log=print
 
 
 PUT_BACK_MAX = 6
+# 26 Nov, first hour with the scheduler on: 8 Stream Clips clip jobs the cloud queued (it saw footage the PC had already
+# used) were handed back every round, so each round spent its 6 put-backs and fell back to the claim files. A job
+# this PC can't make now is held 3 h (it still makes due work through the fallback meanwhile).
+PUT_BACK_HOLD_S = 3 * 3600
 
 
 def finish_job(hb: Heartbeat, job: dict, result: dict | None = None, error: Exception | None = None,
