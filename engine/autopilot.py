@@ -497,9 +497,11 @@ def decide(tok: str, action: str, note: str = "") -> str:
         from .publish import youtube_delete
         ok = youtube_delete(plan_it["channel"], plan_it["youtube_id"])
         update_item(start, item_id, youtube_id=None)
-        if not ok:
-            tb.notify(f"⚠️ Couldn't remove the scheduled YouTube upload {plan_it['youtube_id']}: delete it in "
-                      "YouTube Studio so the old version doesn't go live.")
+        if not ok:                                # 27 Nov (P4 saga): retried with backoff, then heal + owner
+            from .publish_queue import enqueue_undo
+            enqueue_undo(item_id, plan_it["channel"], plan_it["youtube_id"])
+            tb.notify(f"⚠️ Couldn't remove the scheduled YouTube upload {plan_it['youtube_id']} yet: I'll keep "
+                      "trying and tell you if it still fails.")
     if action == "reject":
         weekly.decide(start, item_id, "reject")
         return f"❌ Rejected. {plan_it['channel_name']} skips that slot."

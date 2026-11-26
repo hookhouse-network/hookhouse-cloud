@@ -95,12 +95,67 @@ def classify(act) -> tuple[str, str]:
     return "transient", err or "no answer"
 
 
+UNDO_KIND = "undo"            # P4 sagas: remote copies a Reject / Change must remove
+UNDO_MAX_ATTEMPTS = 6
+
+
+def enqueue_undo(item_id: str, channel: str, video_id: str, led=None) -> bool:
+    """27 Nov (P4 saga): a Reject or Change after YouTube scheduling deletes the remote copy; when that delete failed,
+    the owner was only asked to remove it by hand. It is now a job: retried with backoff, then heal queue + owner."""
+    led = led or ledger.default()
+    return led.enqueue(UNDO_KIND, f"undo:{item_id}:youtube:{video_id}",
+                       {"item": item_id, "channel": channel, "platform": "youtube", "video_id": video_id},
+                       max_attempts=UNDO_MAX_ATTEMPTS)
+
+
+def drain_undo(log=print, worker: str = "cloud", led=None, deleter=None, notify=None) -> dict:
+    """Run due undo jobs: delete the remote copy; a failure retries with backoff; the last failure goes to the heal
+    queue and the owner is told once."""
+    led = led or ledger.default()
+    if deleter is None:
+        from .publish import youtube_delete as deleter
+    counts = {"undone": 0, "retry": 0, "dead": 0}
+    for j in led.claim(worker, kinds=[UNDO_KIND], lease_s=600.0, limit=10):
+        p = j["payload"]
+        try:
+            ok = bool(deleter(p["channel"], p["video_id"]))
+            err = "" if ok else "the platform did not confirm the delete"
+        except Exception as e:  # noqa: BLE001 - counted as a failed try (said in the job's last_error)
+            ok, err = False, f"{type(e).__name__}: {e}"
+        if ok:
+            led.complete(j["id"], worker, {"deleted": p["video_id"]})
+            counts["undone"] += 1
+            log(f"undo: removed {p['platform']} copy {p['video_id']} of {p['item']}")
+            continue
+        state = led.fail(j["id"], worker, err)
+        if state == "dead":
+            counts["dead"] += 1
+            try:
+                from . import heal
+                heal.report("undo:youtube", f"could not delete {p['video_id']} ({p['item']}): {err}",
+                            channel=p.get("channel"), platform="youtube")
+            except Exception as e:  # noqa: BLE001 - the owner message below still goes out
+                log(f"undo: heal report failed ({type(e).__name__})")
+            if notify is None:
+                from .telegram_bot import notify
+            notify(f"⚠️ I could not remove the YouTube upload {p['video_id']} after {UNDO_MAX_ATTEMPTS} tries: "
+                   "please delete it in YouTube Studio.")
+        else:
+            counts["retry"] += 1
+    return counts
+
+
 def drain(log=print, worker: str = "cloud", limit: int = 60, now: float | None = None, led=None,
           governor: Governor | None = None, allow=None) -> dict:
     """Post every due job (within the governor's budgets). allow(item) -> bool: only these videos (others are
     handed back untouched). Returns counts for the run log."""
     from . import autopilot, publish
     led = led or ledger.default()
+    if allow is None:                                  # the cloud's full run also retries pending remote deletes
+        try:
+            drain_undo(log, worker, led)
+        except Exception as e:  # noqa: BLE001 - posting goes on (said, never silent)
+            log(f"undo: {type(e).__name__}: {e}")
     gov = governor or Governor(publish.LOG, now=now)
     counts = {"done": 0, "skipped": 0, "waiting": 0, "retry": 0, "dead": 0}
     jobs = led.claim(worker, kinds=[KIND], lease_s=LEASE_S, limit=limit)
