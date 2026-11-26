@@ -52,3 +52,12 @@ def test_a_slot_that_becomes_a_clip_gets_a_new_key(world):
 def test_order_hints_never_raise_on_an_unknown_channel():
     h = sched.order_hints({"id": "z", "status": "planned", "channel": "no_such_channel_zz"})
     assert h["redo"] is False and h["clip"] is False and isinstance(h["live"], bool)
+
+
+def test_several_remakes_come_out_in_slot_order(world):
+    """26 Nov shadow: three remakes due at once came out in enqueue order; the PC takes them by slot time."""
+    now = NOW.timestamp()
+    jobs = [sched.job_for("s", _it("1121_0630_stream_clips_short", -90, "redo"), now + 120),
+            sched.job_for("s", _it("1121_0100_stream_clips_short", -95, "redo"), now + 60),
+            sched.job_for("s", _it("1121_0500_stream_clips_short", -92, "redo"), now)]
+    assert sched.queue_pick(jobs, now) == "1121_0100_stream_clips_short"

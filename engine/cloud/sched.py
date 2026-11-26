@@ -93,10 +93,13 @@ def job_for(start: str, it: dict, now: float) -> dict:
     # (campaigns pay only while they run), then channels that can post; the queue went by deadline alone and handed
     # out 1126_0500_stream_clips while the PC made the 1121 remake. The queue now carries the same order.
     h = order_hints(it)
+    # 26 Nov shadow (15 of 26 the same): several remakes due at once came out in enqueue order (deadline "now - 1 h"
+    # at each enqueue) while the PC takes them by slot time; remakes and clips now keep their slot order, shifted
+    # 30 / 15 days earlier so they stay ahead of everything else (slots lie within days of now)
     if h["redo"]:
-        cls, deadline = 1, now - 3600
+        cls, deadline = 1, when - 30 * 86400
     elif h["clip"] and h["live"]:
-        cls, deadline, key = 1, now, key + ":clip"
+        cls, deadline, key = 1, when - 15 * 86400, key + ":clip"
     elif not h["live"]:
         cls = max(cls, 2)
     return {"kind": "make", "key": key,
