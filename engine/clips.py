@@ -855,7 +855,7 @@ def make_clips(brain, source: str, channel: dict, campaign: dict | None = None, 
         if dur < full:
             log(f"  Kick's {full - dur:.1f} s outro card cut (the stream ends at {dur:.1f} s)")
         if dur < (ls.get("min") or 0):
-            raise UnusableFootage(f"Highlight is {dur:.1f} s, under the campaign's {ls['min']} s minimum")
+            raise UnusableFootage(f"Highlight is {dur:.2f} s, under the campaign's {ls['min']} s minimum")
         log("Short highlight (a streamer's own clip): keeping it whole, writing its hook and title…")
         seen = []
         if campaign:

@@ -325,7 +325,7 @@ KICK_ACCOUNT = ROOT / "data" / "secrets" / "kick_account.json"
 KICK_EVERY_S = 60 * 60                    # new stream clips appear all day during a marathon
 KICK_PER_RUN = 3                          # per campaign per hour: enough clips, light on the PC
 KICK_MAX_TRIES = 3                        # a clip whose Download gives no file this often is skipped
-KICK_MIN_S = 30                           # owner 20 Nov: clips were too short; brief: setup + reaction + payoff
+KICK_MIN_S = 34                           # owner 20 Nov: 30 s minimum; 26 Nov: + Kick's 3 s outro card (cut) + 1 s, 8 clips of 30-33 s fell to 29.x s
 ADULT = re.compile(r"(strip\s?club|stripper|nsfw|naked|nude|nudity|sex|boob|titt|porn|onlyfans|twerk|lap\s?dance|hooker|"
                    r"prostitut|18\+|thirst)", re.I)                     # brief: no explicit material; YouTube policy
 GAMBLING = re.compile(r"\b(stake|casino|slots?|gambl\w*|roulette|blackjack|bet(ting)?|crash game|plinko)\b", re.I)

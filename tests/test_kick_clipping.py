@@ -478,3 +478,10 @@ def test_swear_words_and_slurs_are_muted_and_starred():
     assert len(spans) == 3 and spans[0][0] < .5 and spans[0][1] > .9          # padded; 'damn' and 'assume' kept
     af = profanity.mute_filter(spans, offset=0.4)
     assert af.count("volume=0") == 3 and "between(t,0.060," in af               # relative to the cut's start
+
+
+def test_kick_clips_must_survive_the_outro_cut():
+    """26 Nov: 8 Kick clips of 30-33 s fell to 29.x s once the 3 s outro card was cut and were thrown away after the
+    download; the fetch now asks for 34 s or more."""
+    from engine import cr_footage
+    assert cr_footage.KICK_MIN_S >= 30 + 3 + 1
