@@ -205,3 +205,204 @@ savings_challenge_tracker:
       rows: 12
     - kind: notes
       title: "NOTES"
+
+exam_study_planner:                     # 26 Nov (P6 week 2): in season Dec-Feb (boards, JEE, NEET, UPSC; research idea)
+  idea: study_planner_in
+  file: Exam_Study_Planner_Printable.pdf
+  footer: "Exam Study Planner · HookHouse Media"
+  title: "Exam Study Planner Printable | Board Exam, JEE, NEET, UPSC Revision Timetable & Syllabus Tracker PDF"
+  price_usd: "$3"
+  price_inr: "₹79"
+  channel: itihaas_ke_raaz
+  description: >-
+    A calm plan for exam season. 14 printable pages: how to plan your revision in three rounds, an exam timetable
+    with a days-left countdown, three syllabus trackers (read, notes, revision 1 and 2, mock), four weekly study
+    plans, a 100-hour study chart to color in, a mock test log to find weak topics, and milestones. For board
+    exams, JEE, NEET, UPSC or any test. US Letter and A4 included. Print any page as often as you like.
+  tags: [study planner printable, exam planner, revision timetable, board exam planner, jee study planner,
+         upsc study planner, syllabus tracker]
+  promo_angles:
+    - "The three revision rounds toppers use before every exam"
+    - "Why a days-left countdown beats a to-do list in exam season"
+    - "Mock tests: the log that shows your weak chapters"
+  cover:
+    top: "PRINTABLE PDF"
+    head: ["EXAM", "STUDY PLANNER"]
+    sub: "Revise in three rounds, calmly"
+    bg: ["#1B1F4B", "#3A4BA0"]
+    accent: "#FFC857"
+    pages: [2, 5, 7]
+    feats: ["Exam timetable + countdown", "3 syllabus trackers", "4 weekly plans", "US Letter + A4"]
+  copy:
+    hook: "A calm, simple plan for exam season: know what is left, revise in rounds, and see every hour you study."
+    inside:
+      - "How to plan revision in three rounds, in plain words"
+      - "Exam timetable with a days-left countdown and confidence check"
+      - "3 syllabus trackers: read, notes, revision 1 and 2, mock test"
+      - "4 weekly study plans (morning, afternoon, evening) and a 100-hour chart"
+      - "A mock test log to find weak topics, and 5 milestones"
+    who: "Students preparing for board exams, JEE, NEET, UPSC, university or any big test, and parents helping them plan."
+    how: "Download once, print any page as often as you like and fill it in by hand."
+    note: "US Letter and A4 included."
+    kdp: "Exam study planner: revision timetable, syllabus trackers, weekly plans and a mock test log."
+    social: "Exam study planner: timetable, syllabus tracker, weekly plans"
+  pages:
+    - kind: cover
+      title: "EXAM STUDY PLANNER"
+      sub: "Revise in three rounds"
+      lines: ["Know what is left.", "Plan every week.", "See every hour you study."]
+    - kind: steps
+      title: "HOW TO USE IT"
+      sub: "A calm plan in five steps"
+      blocks:
+        - head: "1. Fill in the exam timetable"
+          text: "Write every exam, its date and the days left. Rate how ready you feel from 1 to 5."
+        - head: "2. List the syllabus"
+          text: "One tracker per subject: write every chapter. Tick read, notes, revision 1, revision 2 and mock as you go."
+        - head: "3. Plan each week on Sunday"
+          text: "Put your weakest chapters in the morning slots, when you are fresh. Keep one evening free."
+        - head: "4. Color one square per hour studied"
+          text: "The 100-hour chart shows real progress on the days a to-do list feels endless."
+        - head: "5. Take a mock test every week"
+          text: "Log the score and the weak topics, then move those topics into next week's plan."
+    - kind: table
+      title: "EXAM TIMETABLE"
+      sub: "Every exam, with a countdown"
+      fields: ["Exam / board: ______________", "Start date: ______________"]
+      columns: [["Subject", 30], ["Exam date", 18], ["Days left", 14], ["Syllabus %", 18], ["Ready 1-5", 20]]
+      rows: 12
+    - kind: table
+      title: "SYLLABUS TRACKER"
+      sub: "Tick each step for every chapter"
+      fields: ["Subject: ______________"]
+      columns: [["Chapter", 40], ["Read", 12], ["Notes", 12], ["Rev 1", 12], ["Rev 2", 12], ["Mock", 12]]
+      rows: 16
+      repeat: 3
+    - kind: table
+      title: "WEEKLY STUDY PLAN"
+      sub: "Weakest chapters in the morning"
+      fields: ["Week of: ______________", "Goal: ______________"]
+      columns: [["Day", 14], ["Morning", 24], ["Afternoon", 24], ["Evening", 20], ["Hours", 9], ["Done", 9]]
+      rows: 7
+      row_labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+      repeat: 4
+    - kind: grid
+      title: "100-HOUR STUDY CHART"
+      sub: "Color one box for every hour you study"
+      fields: ["Started on: __________"]
+      count: 100
+      cols: 10
+      big: "{n}"
+      total: "100 hours = real progress"
+    - kind: table
+      title: "MOCK TEST LOG"
+      sub: "Find the weak topics, fix them next week"
+      columns: [["Date", 15], ["Test", 27], ["Score", 14], ["Weak topics", 44]]
+      rows: 14
+    - kind: milestones
+      title: "MILESTONES"
+      sub: "Celebrate every step"
+      items: ["Syllabus listed for every subject", "First revision round finished", "10 mock tests done",
+              "Second revision round finished", "Exam day: ready and calm"]
+    - kind: notes
+      title: "NOTES"
+
+meal_planner_kit:                       # 26 Nov (P6 week 2): in season Jan + Sep (New Year eating plans; research idea)
+  idea: meal_planner
+  file: Weekly_Meal_Planner_Printable.pdf
+  footer: "Weekly Meal Planner · HookHouse Media"
+  title: "Weekly Meal Planner Printable | Grocery List, Pantry Inventory & Food Budget Tracker PDF"
+  price_usd: "$3"
+  price_inr: "₹79"
+  channel: money_cheat_codes
+  description: >-
+    Plan the week, shop once, waste less. 15 printable pages: how to plan meals in 20 minutes a week, four weekly
+    meal plans (breakfast, lunch, dinner, snacks), four grocery lists sorted by aisle, a pantry inventory, a
+    favourite recipes index, a monthly food budget tracker and a no-waste checklist. Works in rupees, dollars or any
+    currency. US Letter and A4 included. Print any page as often as you like.
+  tags: [meal planner printable, weekly meal planner, grocery list printable, pantry inventory, food budget,
+         meal prep planner, menu planner]
+  promo_angles:
+    - "The 20-minute Sunday plan that cuts the grocery bill"
+    - "Shop by aisle: the list order that stops impulse buys"
+    - "Pantry first: cook what you already have"
+  cover:
+    top: "PRINTABLE PDF"
+    head: ["WEEKLY", "MEAL PLANNER"]
+    sub: "Plan once, shop once, waste less"
+    bg: ["#2F5D3A", "#6BA368"]
+    accent: "#FFD166"
+    pages: [2, 6, 10]
+    feats: ["4 weekly meal plans", "Grocery lists by aisle", "Pantry + budget", "US Letter + A4"]
+  copy:
+    hook: "Plan the week in 20 minutes, shop once, and stop throwing food away."
+    inside:
+      - "A 20-minute weekly planning routine, step by step"
+      - "4 weekly meal plans: breakfast, lunch, dinner and snacks"
+      - "4 grocery lists sorted by aisle"
+      - "Pantry inventory and a favourite recipes index"
+      - "A monthly food budget tracker and a no-waste checklist"
+    who: "Families, students and anyone who wants to spend less on food and stop deciding dinner at 8 pm. Works in rupees, dollars or any currency."
+    how: "Download once, print any page as often as you like and fill it in by hand."
+    note: "US Letter and A4 included."
+    kdp: "Weekly meal planner: meal plans, grocery lists by aisle, pantry inventory and a food budget tracker."
+    social: "Weekly meal planner: meal plans + grocery lists"
+  pages:
+    - kind: cover
+      title: "WEEKLY MEAL PLANNER"
+      sub: "Plan once, shop once, waste less"
+      lines: ["20 minutes a week.", "One shopping trip.", "Less food thrown away."]
+    - kind: steps
+      title: "HOW TO USE IT"
+      sub: "Plan a week in 20 minutes"
+      blocks:
+        - head: "1. Check the pantry first"
+          text: "Write what you already have on the pantry page and plan meals around it."
+        - head: "2. Plan the week"
+          text: "Fill in breakfast, lunch, dinner and snacks. Cook once, eat twice: plan leftovers on purpose."
+        - head: "3. Write the grocery list by aisle"
+          text: "Only what the plan needs, sorted the way the shop is laid out, so you buy less on impulse."
+        - head: "4. Track the food budget"
+          text: "Write each shop's total on the budget page and watch the month."
+        - head: "5. Use the no-waste checklist"
+          text: "Before the next plan, use up what is left: soups, stir-fries and freezing save money."
+    - kind: table
+      title: "WEEKLY MEAL PLAN"
+      sub: "Cook once, eat twice"
+      fields: ["Week of: ______________"]
+      columns: [["Day", 12], ["Breakfast", 22], ["Lunch", 22], ["Dinner", 26], ["Snacks", 18]]
+      rows: 7
+      row_labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+      repeat: 4
+    - kind: table
+      title: "GROCERY LIST"
+      sub: "Sorted by aisle, only what the plan needs"
+      fields: ["Week of: ______________", "Budget: ______________"]
+      columns: [["Aisle", 22], ["Item", 44], ["Qty", 14], ["Got it", 20]]
+      rows: 18
+      row_labels: ["Fruit & veg", "", "", "Dairy & eggs", "", "Bread & grains", "", "Meat & protein", "", "Tins & jars", "", "Frozen", "", "Spices & oils", "", "Household", "", "Other"]
+      repeat: 4
+    - kind: table
+      title: "PANTRY INVENTORY"
+      sub: "Cook what you already have"
+      columns: [["Item", 40], ["Have", 14], ["Use by", 20], ["Buy again", 26]]
+      rows: 18
+    - kind: table
+      title: "FAVOURITE RECIPES"
+      sub: "Your go-to meals in one place"
+      columns: [["Meal", 36], ["Book / link / page", 40], ["Time", 12], ["Kids like", 12]]
+      rows: 16
+    - kind: table
+      title: "FOOD BUDGET TRACKER"
+      sub: "Every shop, every month"
+      fields: ["Month: __________", "Budget: __________"]
+      columns: [["Date", 18], ["Shop", 34], ["Spent", 16], ["Left", 16], ["Note", 16]]
+      rows: 16
+    - kind: milestones
+      title: "NO-WASTE CHECKLIST"
+      sub: "Before you plan the next week"
+      items: ["Check the fridge and use what is oldest first", "Plan one use-it-up meal (soup, stir-fry, fried rice)",
+              "Freeze bread, bananas and leftovers before they spoil", "Write what you threw away (and buy less of it)",
+              "Shop once, with the list"]
+    - kind: notes
+      title: "NOTES"

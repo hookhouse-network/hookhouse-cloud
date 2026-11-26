@@ -288,6 +288,14 @@ def payhip_sync_files(p, pid: str, dry_run: bool = False, log=print) -> dict:
     return {"pid": pid, "ok": ok, "added": [f.name for f in todo], "now": after}
 
 
+def _title_key(title: str) -> str:
+    """26 Nov: the Exam Study Planner was created but reported 'not created': Payhip's list shortens long titles
+    ('Board Exam, JEE, ...') and spacing differs, so a raw 40-character compare missed it. Compare the first 30
+    letters/digits only."""
+    import re
+    return re.sub(r"[^a-z0-9]", "", str(title).replace("...", "").lower())[:30]
+
+
 def payhip_add(p, pid: str) -> str:
     folder = PROD / pid
     p.goto("https://payhip.com/product/add/digital", timeout=90000, wait_until="domcontentloaded")
@@ -325,9 +333,9 @@ def payhip_add(p, pid: str) -> str:
     # 22 Nov: the Savings Challenge Kit came back as "listed" (the page had moved to /product/addit) but Payhip never
     # created it; only the product list says for sure. Listed = its title is on the dashboard (edit link returned).
     page_text = p.evaluate("() => document.body.innerText")[:300]
-    want = title_for(pid)[:40].lower()
+    want = _title_key(title_for(pid))
     for _ in range(3):
-        mine = [u for u, t, _pub in payhip_rows(p) if t[:40].lower() == want]
+        mine = [u for u, t, _pub in payhip_rows(p) if _title_key(t) == want]
         if mine:
             return mine[0]
         p.wait_for_timeout(5000)
@@ -346,8 +354,8 @@ def publish(store: str = "payhip", ids: list[str] | None = None, replace: bool =
         rows = payhip_rows(p)
         for pid in todo:
             meta = json.loads((PROD / pid / "product.json").read_text(encoding="utf-8"))
-            names = {title_for(pid)[:40].lower(), meta["title"][:40].lower()}
-            mine = [u for u, t, _ in rows if t[:40].lower() in names]
+            names = {_title_key(title_for(pid)), _title_key(meta["title"])}   # 26 Nov: shortened titles matched
+            mine = [u for u, t, _ in rows if _title_key(t) in names]
             recorded = bool((listed().get(pid) or {}).get(store))   # our own record wins (no double listing)
             if (mine or recorded) and not replace:
                 out.append(f"{pid}: already listed")
