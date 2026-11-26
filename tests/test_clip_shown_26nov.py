@@ -47,3 +47,27 @@ def test_the_title_writer_is_told_not_to_reveal_the_ending():
     """26 Nov: the first frame-written headline gave the crash away; the campaign gate held it as a spoiled payoff."""
     from engine import clips
     assert "never the outcome" in clips.WHOLE_PROMPT and "do not describe the ending" in clips.WHOLE_PROMPT
+
+
+def test_the_brief_name_is_mandatory_in_clip_titles():
+    """26 Nov: 4 of 4 GTA headlines ignored the brief's 'Dasgas Dom ...' pattern ('Motorbike ride leads to ...')."""
+    from engine import clips
+    camp = {"hook_ideas": ["Dasgas Dom reacts to ...", "Dasgas Dom finds a GTA 6 glitch", "Dasgas Dom fails ..."]}
+    assert clips.brief_name(camp) == "Dasgas Dom"
+    assert clips.brief_name({"hook_ideas": ["He reacts", "Watch this"]}) == "" and clips.brief_name(None) == ""
+    got = {}
+
+    class Res:
+        provider = "test"
+
+    class Brain:
+        def __init__(self, title):
+            self.title = title
+
+        def ask_json(self, task, prompt, system="", temperature=0.5):
+            got["p"] = prompt
+            return {"title": self.title}, Res()
+    m = clips.whole_clip_moment(Brain("Motorbike ride goes wrong"), [], 30.0, campaign=camp)
+    assert 'MUST start with "Dasgas Dom"' in got["p"] and "no_brief_name" in m[0]["title_flags"]
+    m = clips.whole_clip_moment(Brain("Dasgas Dom tries a motorbike jump"), [], 30.0, campaign=camp)
+    assert "no_brief_name" not in (m[0].get("title_flags") or [])

@@ -24,3 +24,6 @@ requests:
   - id: "2026-11-26-gta-clips-titles"           # judge scores rose to 4-7.5 with the description; titles still generic
     redo: [1121_0100_stream_clips_short, 1121_0500_stream_clips_short, 1121_0630_stream_clips_short]
     note: "remake: headlines written from the frames; a reaction near the clip end can lead the flash"
+  - id: "2026-11-26-gta-clips-brief-name"       # judge 3-7.5: headlines ignored the brief's 'Dasgas Dom ...' pattern
+    redo: [1121_0100_stream_clips_short, 1121_0500_stream_clips_short, 1122_0630_stream_clips_short]
+    note: "remake: headline starts with 'Dasgas Dom' (brief pattern), teases the payoff; judge told face cam + gameplay is the format"

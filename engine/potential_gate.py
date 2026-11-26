@@ -57,7 +57,8 @@ CRITERIA_HELP = {
     "age_safety": "nothing scary, unsafe to imitate or confusing for ages 2-5",
     "self_contained": "the moment makes sense without the full video",
     "caption_hook": "the on-screen hook/caption makes a stranger stop and watch",
-    "brief_fit": "fits the campaign brief's spirit and audience",
+    "brief_fit": "fits the campaign brief's spirit and audience (for a streamer's campaign the expected format IS "
+                 "gameplay with the streamer's face cam or voice; 26 Nov: the judge told GTA clips to drop the gameplay)",
     # S10 (owner 21 Nov: "the content ... is so obvious for the viewer that this is ai, we need more human like")
     "human_feel": "the words and shots read like a skilled human creator made them: specific concrete details, "
                   "natural spoken phrasing, varied rhythm, real humour or opinion; NOT obvious AI (stock phrases like "

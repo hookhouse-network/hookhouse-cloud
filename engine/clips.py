@@ -551,11 +551,23 @@ def content_end(video: Path, dur: float) -> float:
     return dur
 
 
+def brief_name(campaign: dict | None) -> str:
+    """The name every hook idea of the brief starts with ("Dasgas Dom reacts to ...", "Dasgas Dom fails ...") or ""."""
+    ideas = [str(x).strip() for x in (campaign or {}).get("hook_ideas") or [] if str(x).strip()]
+    if len(ideas) < 2:
+        return ""
+    first = [i.split()[:2] for i in ideas]
+    return " ".join(first[0]) if all(f == first[0] for f in first) and len(first[0]) == 2 else ""
+
+
 def whole_clip_moment(brain, words: list[Word], dur: float, campaign: dict | None = None,
                       max_len: float = 58, seen: list[str] | None = None) -> list[dict]:
     """20 Nov: Kick highlights are mostly gameplay; the podcast editor found no 20 s talking moment in them, so the
     first GTA clips failed. A short highlight is posted whole (trimmed to the campaign's max length)."""
     rules = f"- Campaign rules: banned: {campaign.get('banned')}, other: {campaign.get('other_rules')}" if campaign else ""
+    name = brief_name(campaign)
+    if name:                                           # 26 Nov: 4 of 4 headlines ignored the pattern ("Motorbike ride
+        rules += f"\n- The title MUST start with \"{name}\" followed by what he does or tries."   # leads to eerie ...")
     if campaign and campaign.get("hook_ideas"):        # the brief's own title pattern ("Dasgas Dom reacts to ...")
         rules += ("\n- The title is shown as the headline for the whole clip: follow the brief's pattern, filled with "
                   f"what really happens: {campaign['hook_ideas']}. Like the campaign's best clip: "
@@ -569,6 +581,8 @@ def whole_clip_moment(brain, words: list[Word], dur: float, campaign: dict | Non
         system=EDITOR_SYSTEM, temperature=0.5)
     m = dict(data or {}) if isinstance(data, dict) else {}
     m["title"], tflags = clean_title(str(m.get("title") or ""), proper_nouns(words, ""))
+    if name and m["title"] and name.lower() not in m["title"].lower():
+        tflags = list(tflags) + ["no_brief_name"]      # said in the record; the writer was told
     if tflags:
         m["title_flags"] = tflags
     # longer than allowed: keep the END (viewers press Clip right after the moment, so the payoff is last)
