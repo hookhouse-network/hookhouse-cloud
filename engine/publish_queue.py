@@ -195,12 +195,23 @@ def _post_one(item_id, js, found, led, gov, worker, counts, log) -> None:
         counts["skipped"] += len(js)
         return
     already = set(publish.already_posted(it))
+    unsure = set(publish.unresolved_intents(it))   # 27 Nov (P4 chaos): a crash between the platform's answer and the save
     try_now, jobs_for = [], {}
     for j in js:
         p = j["payload"]["platform"]
         if p in already or (p == "youtube" and it.get("youtube_id")):
             led.complete(j["id"], worker, {"reconciled": "already on the platform"})
             counts["skipped"] += 1
+            continue
+        if p in unsure:                           # maybe posted: never post twice; the owner checks once
+            led.complete(j["id"], worker, {"skipped": "unsure after a crash: check the platform by hand"})
+            counts["skipped"] += 1
+            try:
+                from . import heal
+                heal.report(f"post:{p}", f"{item_id}: a run stopped between {p}'s answer and the save; not posted "
+                            "again (check whether it is live)", channel=it.get("channel"), platform=p)
+            except Exception as e:  # noqa: BLE001 - the job is already settled (said)
+                log(f"publish queue: heal report failed ({type(e).__name__})")
             continue
         from .links import hold_note
         held = hold_note(it["channel"], p)
@@ -218,8 +229,15 @@ def _post_one(item_id, js, found, led, gov, worker, counts, log) -> None:
     if not try_now:
         return
     it = autopilot._with_local_media(start, it)
+    for p in try_now:                             # P4 chaos: intent first, so a crash after the answer is never a repost
+        publish.log_intent(it, p)
     # the content gate (incl. the strict clip gate) runs inside upload_item for every platform
-    acts = publish.upload_item(it, dry_run=False, platforms=tuple(try_now), publish_at=None)
+    try:
+        acts = publish.upload_item(it, dry_run=False, platforms=tuple(try_now), publish_at=None)
+    finally:                                      # returned or raised normally: every intent is settled (only a real
+        for p in try_now:                         # crash leaves one open, which is exactly the 'maybe posted' case)
+            publish._log(publish.Action(p, it.get("channel") or "", it["id"], "intent settled",
+                                        details={"settled": True}))
     new_done, dead, waits = [], [], []
     for p in try_now:
         j, act = jobs_for[p], _main_action(acts, p)

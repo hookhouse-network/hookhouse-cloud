@@ -61,6 +61,39 @@ def _log(action: Action) -> None:
         fh.write(json.dumps({"at": time.time(), **action.__dict__}, ensure_ascii=False) + "\n")
 
 
+INTENT = "INTENT to post"
+
+
+def log_intent(it: dict, platform: str) -> None:
+    """27 Nov (P4 chaos): written right before a platform call. A crash after the platform answered but before its
+    result line was saved left nothing behind, so the next run posted again. An intent with no result after it means
+    'maybe posted': the queue holds that platform for a check instead of posting twice."""
+    _log(Action(platform, it.get("channel") or "", it["id"], INTENT,
+                details={"intent": True, "version": str(int(float(it.get("made_at") or 0)))}))
+
+
+def unresolved_intents(it: dict) -> list[str]:
+    """Platforms with an intent for THIS version and no result line after it (a crash in between)."""
+    if not LOG.exists():
+        return []
+    ver = str(int(float(it.get("made_at") or 0)))
+    open_: dict[str, bool] = {}
+    for ln in LOG.read_text(encoding="utf-8").splitlines():
+        try:
+            a = json.loads(ln)
+        except json.JSONDecodeError:
+            continue
+        if a.get("item_id") != it["id"]:
+            continue
+        p = a.get("platform") or ""
+        if (a.get("details") or {}).get("intent"):
+            if (a.get("details") or {}).get("version") == ver:
+                open_[p] = True
+        elif p in open_:
+            open_[p] = False                     # any later line for that platform settles the intent
+    return [p for p, still in open_.items() if still]
+
+
 # ---------- YouTube ----------
 
 def yt_token_path(channel_id: str) -> Path:

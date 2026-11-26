@@ -176,3 +176,43 @@ def test_threads_can_post_in_a_later_run_with_the_logged_instagram_id(tmp_path, 
     publish._log(publish.Action("instagram", "c", "a", "publish Reel x", done=True, result={"media_id": "M9"}))
     publish._log(publish.Action("instagram", "c", "a", "publish Story teaser", done=True, result={"media_id": "S1"}))
     assert publish.logged_result({"id": "a", "made_at": 0}, "instagram", "media_id") == "M9"
+
+
+# ---- 27 Nov, P4 chaos suite: kill the run at every point between the platform's answer and the save ----
+def test_crash_after_the_platform_answered_but_before_the_save_is_never_a_repost(env, monkeypatch):
+    calls, healed = [], []
+    _uploader(monkeypatch, {"instagram": "ok"}, calls)
+    from engine import heal
+    monkeypatch.setattr(heal, "report", lambda *a, **k: healed.append(a))
+    publish.log_intent(_it(), "instagram")            # the run died here: the intent is written, no result line
+    pq.enqueue("2099-01-05", _it(), ["instagram"])
+    pq.drain(lambda m: None)
+    assert calls == [] and pq.queued("a")[0]["state"] == "done" and healed      # held, owner/heal told, no repost
+
+
+def test_crash_after_the_result_line_reconciles_from_the_log(env, monkeypatch):
+    calls = []
+    _uploader(monkeypatch, {"instagram": "ok"}, calls)
+    publish.log_intent(_it(), "instagram")
+    publish._log(publish.Action("instagram", "unsolved_after_dark", "a", "publish Reel", done=True,
+                                result={"media_id": "M0"}))                    # answered + saved, then the crash
+    pq.enqueue("2099-01-05", _it(), ["instagram"])
+    pq.drain(lambda m: None)
+    assert calls == [] and pq.queued("a")[0]["state"] == "done"
+
+
+def test_a_normal_run_settles_its_intents_and_an_error_retries(env, monkeypatch):
+    calls = []
+    _uploader(monkeypatch, {"instagram": "ok"}, calls)
+    pq.enqueue("2099-01-05", _it(), ["instagram"])
+    pq.drain(lambda m: None)
+    assert calls == [("instagram",)] and publish.unresolved_intents(_it()) == []
+
+    def boom(it, platforms=(), **k):
+        raise RuntimeError("network dropped before any platform call")
+    monkeypatch.setattr(publish, "upload_item", boom)
+    it2 = dict(_it(), made_at=999.0)                  # a new version
+    publish.log_intent(it2, "facebook")
+    assert publish.unresolved_intents(it2) == ["facebook"]
+    publish._log(publish.Action("facebook", "unsolved_after_dark", "a", "intent settled", details={"settled": True}))
+    assert publish.unresolved_intents(it2) == []      # a raised error settles: the retry posts normally
