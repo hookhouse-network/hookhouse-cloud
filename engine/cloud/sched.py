@@ -102,6 +102,11 @@ def job_for(start: str, it: dict, now: float) -> dict:
         cls, deadline, key = 1, when - 15 * 86400, key + ":clip"
     elif not h["live"]:
         cls = max(cls, 2)
+    else:
+        # 26 Nov shadow: the last misses were ties between same-slot videos, where the PC gives the turn to the channel
+        # with the fewest recent videos; 2 h per recent video breaks those ties the same way (a real deadline hours
+        # apart still wins, unlike the PC's strict rule, so the queue never starves a slot)
+        deadline += 2 * 3600 * h.get("recent", 0)
     return {"kind": "make", "key": key,
             "cls": cls, "deadline": deadline,
             "est_min": 45 if long_ else 12,
@@ -122,7 +127,30 @@ def order_hints(it: dict) -> dict:
     except Exception as e:  # noqa: BLE001 - unknown channel: keep its deadline order
         runner._log(f"queue order: connection check {it.get('id')}: {type(e).__name__}: {e}")
     clip = bool(it.get("channel")) and runner._clip_slot(it)
-    return {"redo": it.get("status") == "redo", "clip": clip, "live": live}
+    return {"redo": it.get("status") == "redo", "clip": clip, "live": live,
+            "recent": recent_counts().get(it.get("channel"), 0)}
+
+
+_RECENT: dict = {"at": 0.0, "counts": {}}
+
+
+def recent_counts(ttl: float = 120.0) -> dict:
+    """Videos per channel made/approved/posted in the PC's window (runner._due_to_make's 'recent'), read once per
+    couple of minutes, not once per job (every call reads all plan files)."""
+    import time
+    if time.time() - _RECENT["at"] < ttl:
+        return _RECENT["counts"]
+    from .. import autopilot
+    from . import runner
+    counts: dict = {}
+    try:
+        for _s, x in autopilot.items(runner.OVERDUE_D, 14):
+            if x.get("status") in ("making", "made", "approved", "posted") and x.get("kind") != "long":
+                counts[x["channel"]] = counts.get(x["channel"], 0) + 1
+    except Exception as e:  # noqa: BLE001 - no counts: deadline order only (said)
+        runner._log(f"queue order: recent counts: {type(e).__name__}: {e}")
+    _RECENT.update(at=time.time(), counts=counts)
+    return counts
 
 
 def sync_due(client: SchedClient, due: list[tuple[str, dict]], now: float | None = None, log=print) -> dict:

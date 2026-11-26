@@ -61,3 +61,24 @@ def test_several_remakes_come_out_in_slot_order(world):
             sched.job_for("s", _it("1121_0100_stream_clips_short", -95, "redo"), now + 60),
             sched.job_for("s", _it("1121_0500_stream_clips_short", -92, "redo"), now)]
     assert sched.queue_pick(jobs, now) == "1121_0100_stream_clips_short"
+
+
+def test_a_same_slot_tie_goes_to_the_channel_with_fewer_recent_videos(monkeypatch):
+    """26 Nov shadow: 1127_0500 Deep Blue vs Unsolved: the PC gave the turn to the channel with fewer recent videos."""
+    monkeypatch.setattr(autopilot, "_when", lambda it: NOW + timedelta(hours=it["h"]))
+    recent = {"busy": 3, "quiet": 0}
+    monkeypatch.setattr(sched, "order_hints", lambda it: {"redo": False, "clip": False, "live": True,
+                                                          "recent": recent[it["channel"]]})
+    now = NOW.timestamp()
+    a = dict(_it("1127_0500_busy_short", 20), channel="busy")
+    b = dict(_it("1127_0500_quiet_short", 20), channel="quiet")
+    assert sched.queue_pick([sched.job_for("s", a, now), sched.job_for("s", b, now)], now) == "1127_0500_quiet_short"
+    c = dict(_it("1126_2300_busy_short", 5), channel="busy")              # a real deadline hours earlier still wins
+    assert sched.queue_pick([sched.job_for("s", c, now), sched.job_for("s", b, now)], now) == "1126_2300_busy_short"
+
+
+def test_recent_counts_are_cached(monkeypatch):
+    calls = []
+    monkeypatch.setattr(sched, "_RECENT", {"at": 0.0, "counts": {}})
+    monkeypatch.setattr(autopilot, "items", lambda *a: calls.append(1) or [("s", {"channel": "x", "status": "posted"})])
+    assert sched.recent_counts() == {"x": 1} and sched.recent_counts() == {"x": 1} and len(calls) == 1
