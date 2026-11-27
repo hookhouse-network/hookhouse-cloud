@@ -74,6 +74,15 @@ def unpack(blob: bytes, root: Path = ROOT) -> int:
     return n
 
 
+def _snapshot_stale(root: Path, day: str) -> bool:
+    """This weekday's snapshot was written on an earlier date (last week): replace it with today's first save."""
+    mark = root / "data" / "state" / f"snapshot_{day}.txt"
+    try:
+        return mark.read_text(encoding="utf-8").strip() != time.strftime("%Y-%m-%d")
+    except OSError:
+        return True
+
+
 def pull(store, root: Path = ROOT) -> int:
     """Download and unpack the memory bundle. 0 = first run (nothing stored yet)."""
     blob = store.get(TAG, NAME)
@@ -82,6 +91,11 @@ def pull(store, root: Path = ROOT) -> int:
 
 def push(store, root: Path = ROOT) -> int:
     """Pack and upload; the previous bundle is kept as a backup first."""
+    day = time.strftime("%a").lower()               # 27 Nov (P9 DR drill): one snapshot per weekday (7 restore points);
+    snap = _snapshot_stale(root, day)               # the date marker is written BEFORE packing, so the saved bundle
+    if snap:                                        # carries it and the next run does not snapshot again
+        (root / "data" / "state").mkdir(parents=True, exist_ok=True)
+        (root / "data" / "state" / f"snapshot_{day}.txt").write_text(time.strftime("%Y-%m-%d"), encoding="utf-8")
     blob = pack(root)
     try:                                            # the backup copy is a nice-to-have: a slow GitHub download of it
         old = store.get(TAG, NAME)                  # once lost a finished video's "made" status (15 Nov)
@@ -90,6 +104,11 @@ def push(store, root: Path = ROOT) -> int:
     except Exception as _swallowed:  # noqa: BLE001
         noted("cloud/state.py:89", _swallowed)
         pass
+    if snap:                                        # BACKUP is overwritten on every save: two bad saves in a row would
+        try:                                        # leave no good copy without these weekday snapshots
+            store.put(TAG, f"state.{day}.bin", blob)
+        except Exception as _swallowed:  # noqa: BLE001 - the snapshot is extra; the real save below decides
+            noted("cloud/state.py:snapshot", _swallowed)
     for attempt in range(3):                        # the real save: retry a timeout / blip
         try:
             store.put(TAG, NAME, blob)
