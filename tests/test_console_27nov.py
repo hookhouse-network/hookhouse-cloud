@@ -1,9 +1,12 @@
 """27 Nov (P2b Control Center v1): every screen renders, read-only, escaped, and degraded (not crashed) when the
 shared queue is unreachable."""
-from starlette.testclient import TestClient
+import pytest
 
-from engine import autopilot
-from engine.console import app as console
+pytest.importorskip("starlette")                  # the Control Center is PC-only; CI installs the cloud requirements
+from starlette.testclient import TestClient  # noqa: E402
+
+from engine import autopilot  # noqa: E402
+from engine.console import app as console  # noqa: E402
 
 
 def test_every_screen_renders_and_degrades(monkeypatch):
