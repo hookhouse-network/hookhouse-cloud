@@ -1102,6 +1102,7 @@ def _daily(log) -> None:
         from . import discover, stats_fetch, telegram_bot as tb
         for name, fn in (("campaigns", lambda: discover.discover(hours=30, log=log)),
                          ("stats", lambda: stats_fetch.fetch(log=log)), ("digest", tb.digest), ("report", tb.report),
+                         ("health", lambda: tb.send(tb.health_digest())),     # 27 Nov P2b: health + needs-you
                          ("logins", _check_logins), ("waiting", _morning_waiting), ("branding", _branding),
                          ("threads", _threads_refresh), ("retention", lambda: _retention(log)),
                          ("studio_button", tb.studio_button),                 # 19 Nov: Studio inside Telegram

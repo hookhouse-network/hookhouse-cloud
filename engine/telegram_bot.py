@@ -427,6 +427,19 @@ def report() -> None:
     send_dashboard()
 
 
+def health_digest() -> str:
+    """P2b daily health digest (27 Nov): what is broken (the /health answer) and what needs the owner (the /tasks
+    answer), in one morning message, so the owner reads one thing instead of asking."""
+    parts = ["🩺 Morning health check"]
+    for title, fn in (("System", health_text), ("Needs you", tasks_text)):
+        try:
+            body = (fn() or "").strip()
+        except Exception as e:  # noqa: BLE001 - one part failing still sends the other (said in the message)
+            body = f"(could not read: {type(e).__name__})"
+        parts.append(f"— {title} —\n{body[:1500] or 'nothing'}")
+    return "\n\n".join(parts)
+
+
 def send_songs() -> None:
     """The Bloop songs (data/products/music) as phone-friendly MP3s, to listen before releasing them."""
     from .media import ffmpeg

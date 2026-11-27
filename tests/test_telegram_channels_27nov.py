@@ -47,3 +47,12 @@ def test_the_channel_menu_and_pick_flow(monkeypatch, tmp_path):
     assert made == [("Why cats purr", "brain_snack")] and sent[-1][0] == "Picked: Why cats purr for brain_snack"
     tb.handle(_cb("chm:9"))
     assert "expired" in sent[-1][0]
+
+
+def test_the_morning_health_digest_combines_health_and_owner_tasks(monkeypatch):
+    monkeypatch.setattr(tb, "health_text", lambda: "All good: 6 posted today")
+    monkeypatch.setattr(tb, "tasks_text", lambda: "Connect PayPal in Payhip")
+    d = tb.health_digest()
+    assert d.startswith("🩺 Morning health check") and "6 posted today" in d and "Connect PayPal" in d
+    monkeypatch.setattr(tb, "tasks_text", lambda: (_ for _ in ()).throw(RuntimeError("x")))
+    assert "could not read" in tb.health_digest() and "6 posted today" in tb.health_digest()
