@@ -606,12 +606,76 @@ def send_queue() -> None:
 # Owner 17 Nov 2026: "make the telegram smooth and easily understandable, i got confused". Six plain buttons stay at
 # the bottom of the chat (a reply keyboard); every one maps to a command, so nothing has to be remembered.
 MENU = {"📋 My tasks": "/tasks", "📥 Waiting for me": "/queue", "📊 Today": "/status", "💰 Campaigns": "/campaigns",
-        "📈 Numbers": "/channels", "🛠️ Anything broken?": "/health", "❓ Help": "/help"}
+        "📈 Numbers": "/channels", "🛠️ Anything broken?": "/health", "❓ Help": "/help", "📺 Channels": "/pickmenu"}
 MENU_KB = {"keyboard": [[{"text": "📋 My tasks"}, {"text": "📥 Waiting for me"}],
                         [{"text": "📊 Today"}, {"text": "💰 Campaigns"}],
                         [{"text": "📈 Numbers"}, {"text": "🛠️ Anything broken?"}],
-                        [{"text": "❓ Help"}]],
+                        [{"text": "📺 Channels"}, {"text": "❓ Help"}]],
            "resize_keyboard": True, "is_persistent": True}
+
+
+# ---- P2b Telegram 2.0 (27 Nov): 📺 Channels -> one channel's menu -> 💡 Pick a topic in demand -> [Make it] ----
+def channel_list_kb() -> dict:
+    """One button per live channel."""
+    from .config import channels
+    rows, row = [], []
+    for ch in channels():
+        if not ch.get("enabled", True):
+            continue
+        row.append({"text": ch.get("name", ch["id"])[:28], "callback_data": f"chn:{ch['id']}"})
+        if len(row) == 2:
+            rows.append(row)
+            row = []
+    if row:
+        rows.append(row)
+    return {"inline_keyboard": rows}
+
+
+def channel_menu(cid: str) -> tuple[str, dict]:
+    """One channel: videos waiting for approval, the next slots, and the Pick button."""
+    from . import autopilot
+    from .config import channel
+    ch = channel(cid)
+    items = [it for _s, it in autopilot.items(0, 3) if it.get("channel") == cid]
+    waiting = sum(1 for it in items if it.get("status") == "made")
+    nxt = [it for it in items if it.get("status") in ("planned", "redo", "making")][:3]
+    lines = [f"📺 {ch.get('name', cid)}", f"Waiting for approval: {waiting}"]
+    lines += ["Next:"] + [f"• {str(it.get('publish_at', ''))[5:16].replace('T', ' ')} {(it.get('topic') or '')[:60]}"
+                          for it in nxt] if nxt else ["Nothing planned in the next 3 days."]
+    kb = {"inline_keyboard": [[{"text": "💡 Pick a topic in demand", "callback_data": f"chp:{cid}"}],
+                              [{"text": "⬅️ All channels", "callback_data": "chl:"}]]}
+    return "\n".join(lines), kb
+
+
+def pick_menu(cid: str, brain=None, log=print) -> tuple[str, dict]:
+    """picker.suggest: topics with demand on YouTube NOW; each gets a [Make it] button (kept in state by number)."""
+    from . import picker
+    try:
+        ideas = picker.suggest(cid, n=5, brain=brain, log=log)
+    except Exception as e:  # noqa: BLE001 - the owner gets a plain answer, not silence
+        return f"I couldn't look up topics right now ({type(e).__name__}). Try again in a few minutes.", {}
+    if not ideas:
+        return "No topic shows strong demand right now for this channel. Try again later today.", {}
+    st = _load()
+    st["pick"] = {"channel": cid, "ideas": [{"topic": i.get("topic", ""), "demand": i.get("demand", "")}
+                                            for i in ideas[:5]]}
+    _save(st)
+    lines = ["💡 In demand now:"] + [f"{n}. {i.get('topic', '')[:80]}" + (f" ({i['demand'][:50]})" if i.get("demand")
+                                                                            else "") for n, i in enumerate(ideas[:5], 1)]
+    kb = {"inline_keyboard": [[{"text": f"✅ Make {n}", "callback_data": f"chm:{n - 1}"}]
+                              for n in range(1, min(5, len(ideas)) + 1)]}
+    return "\n".join(lines), kb
+
+
+def pick_make(idx: int, log=print) -> str:
+    """[Make n]: the picked topic goes onto the channel's next unmade slot (picker.pick_topic)."""
+    from . import picker
+    p = _load().get("pick") or {}
+    ideas = p.get("ideas") or []
+    if not (0 <= idx < len(ideas)):
+        return "That list has expired: open 📺 Channels again."
+    i = ideas[idx]
+    return picker.pick_topic(i["topic"], p["channel"], demand=i.get("demand", ""), log=log)
 
 HELP = ("👋 HookHouse, in short\n\n"
         "Fastest: tap 🎬 Studio (left of the message box) to watch, approve, change or reject every video in one place.\n\n"
@@ -841,6 +905,8 @@ def handle(update: dict, conn=None) -> None:
             send_voices()
         elif cmd == "/channels":
             send(channels_text())
+        elif cmd == "/pickmenu":                           # P2b Telegram 2.0: 📺 Channels -> one channel -> Pick
+            send("📺 Which channel?", reply_markup=channel_list_kb())
         elif cmd == "/review":
             from . import daily_review
             send(daily_review.telegram_text(text[len("/review"):].strip() or None))
@@ -901,6 +967,23 @@ def handle(update: dict, conn=None) -> None:
         except Exception as _swallowed:  # noqa: BLE001
             noted("telegram_bot.py:893", _swallowed)
             pass
+        return
+    if data.startswith(("chl:", "chn:", "chp:", "chm:")):     # P2b Telegram 2.0: channel menu + Pick
+        try:
+            api("answerCallbackQuery", callback_query_id=cb["id"],
+                text="Looking up topics in demand…" if data.startswith("chp:") else "")
+        except Exception as _swallowed:  # noqa: BLE001 - the answer below still goes out
+            noted("telegram_bot.py:channel_menu_ack", _swallowed)
+        if data.startswith("chl:"):
+            send("📺 Which channel?", reply_markup=channel_list_kb())
+        elif data.startswith("chn:"):
+            text_, kb = channel_menu(data[4:])
+            send(text_, reply_markup=kb)
+        elif data.startswith("chp:"):
+            text_, kb = pick_menu(data[4:])
+            send(text_, reply_markup=kb) if kb else send(text_)
+        else:
+            send(pick_make(int(data[4:]) if data[4:].isdigit() else -1))
         return
     if data == "aa:all":                                       # approve every video already shown
         from . import autopilot
