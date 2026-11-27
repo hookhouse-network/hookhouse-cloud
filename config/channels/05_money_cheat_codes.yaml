@@ -5,6 +5,7 @@ backup_names: [Pocket Economics, Rich Brain]
 market: US
 language: en
 type: story
+data_story: true          # P3b: may tell a data story (charts) when the free pictures are used up (settings data_story)
 niche: Money and tech explained simply (incl. how AI companies and AI tools make or save money)
 topic_hints:   # research 10 Nov: AI-tools content has high ad rates and sponsor demand; education only, never buy/sell calls
   - "How an AI company actually makes money (or loses it)"

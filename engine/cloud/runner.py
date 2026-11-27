@@ -489,8 +489,9 @@ def _due_to_make(kinds: set | None, skip: set, connected_only: bool = False,
         if (it.get("retry_at") or 0) > time.time() or (it.get("attempts") or 0) >= 3:
             continue
         if pictures_out and it.get("kind") in ("short", "long", "story") and _storyboarded(it["channel"]) \
-                and not _clip_slot(it):
+                and not _clip_slot(it) and not (it.get("kind") == "short" and _data_story(it["channel"])):
             continue                                       # no free pictures left today: wait, never word cards
+            # (P3b: a channel allowed to tell a data story makes its Short with charts instead)
             # (a clip slot cuts campaign footage and needs no pictures, 20 Nov)
         due.append((s, it))
     def live(it: dict) -> bool:                           # a connected account can actually post it
@@ -559,6 +560,16 @@ def _storyboarded(channel_id: str) -> bool:
         return storyboard.enabled(channel(channel_id))
     except Exception as _swallowed:  # noqa: BLE001
         noted("cloud/runner.py:553", _swallowed)
+        return False
+
+
+def _data_story(channel_id: str) -> bool:
+    """P3b: this channel may tell a data story while the pictures are out (channel data_story + settings switch)."""
+    from ..config import channel, settings
+    try:
+        return bool(channel(channel_id).get("data_story")) and str((settings() or {}).get("data_story", "off")) == "on"
+    except Exception as _swallowed:  # noqa: BLE001
+        noted("cloud/runner.py:data_story", _swallowed)
         return False
 
 

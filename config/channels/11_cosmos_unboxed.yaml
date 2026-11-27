@@ -5,6 +5,7 @@ backup_names: [Deep Space Files, Orbit Stories]
 market: US
 language: en
 type: story
+data_story: true          # P3b: may tell a data story (charts) when the free pictures are used up (settings data_story)
 niche: Space and astronomy stories and documentaries (real missions, discoveries, cosmic mysteries)
 bio: "The universe, one jaw-dropping fact at a time."
 earns_from: [youtube_ads, dubbing]

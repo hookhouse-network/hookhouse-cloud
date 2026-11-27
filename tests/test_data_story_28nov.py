@@ -1,0 +1,46 @@
+"""28 Nov (P3b data story): when the free pictures are used up, a channel allowed to (data_story: true, settings
+switch on) writes its Short with charts on most beats; the renderer then allows up to DATA_CHARTS_MAX charts and a
+repeated type. Off by default; other channels keep waiting for pictures."""
+from engine import story, storyboard
+
+
+def _switch(monkeypatch, on="on", blocked=True):
+    monkeypatch.setattr("engine.config.settings", lambda: {"data_story": on})
+    monkeypatch.setattr(storyboard, "images_blocked", lambda: blocked)
+
+
+def test_data_story_needs_the_channel_the_switch_and_no_pictures(monkeypatch):
+    _switch(monkeypatch)
+    assert story.data_story_on({"data_story": True})
+    assert not story.data_story_on({})                                   # channel not allowed
+    _switch(monkeypatch, on="off")
+    assert not story.data_story_on({"data_story": True})                 # switch off (the default)
+    _switch(monkeypatch, blocked=False)
+    assert not story.data_story_on({"data_story": True})                 # pictures available: normal video
+
+
+def test_the_renderer_allows_more_charts_and_repeats_in_a_data_story(monkeypatch, tmp_path):
+    from engine.media import html_scene
+    monkeypatch.setattr(html_scene, "check_chart", lambda chart, said: (chart, ""))
+    monkeypatch.setattr(html_scene, "chart_video", lambda ch, chart, size, s, out: out)
+    beat = {"chart": {"type": "compare", "items": []}, "narration": "x"}
+    normal, data = set(), {story.DATA_MARK}
+    got = [story._chart_visual(beat, 3.0, tmp_path, i, normal, (1080, 1920), {"id": "c"}) for i in range(3)]
+    assert got[0] and got[1] is None                                     # normal: one chart per type
+    got = [story._chart_visual(beat, 3.0, tmp_path, i, data, (1080, 1920), {"id": "c"}) for i in range(10)]
+    assert sum(1 for g in got if g) == story.DATA_CHARTS_MAX             # data story: repeats, up to the cap
+    assert all(g["source"] == "chart" for g in got if g)                 # charts are not word cards
+
+
+def test_the_writer_rule_states_rules_only():
+    r = story.DATA_STORY_RULE
+    assert "chart" in r and "at least 6 beats" in r and "Nov" not in r   # prompt text: rules, no history
+
+
+def test_scheduler_lets_a_data_story_channel_through(monkeypatch):
+    from engine.cloud import runner
+    monkeypatch.setattr("engine.config.settings", lambda: {"data_story": "on"})
+    monkeypatch.setattr("engine.config.channel", lambda cid: {"data_story": cid == "cosmos_unboxed"})
+    assert runner._data_story("cosmos_unboxed") and not runner._data_story("itihaas_ke_raaz")
+    monkeypatch.setattr("engine.config.settings", lambda: {"data_story": "off"})
+    assert not runner._data_story("cosmos_unboxed")

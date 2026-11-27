@@ -1399,8 +1399,10 @@ def _chart_visual(beat: dict, seconds: float, work: Path, i: int, used: set, siz
     spoken in this beat or the two before it (`said`), so the screen never shows a number the viewer didn't hear."""
     from .media import html_scene
     kind = str((beat.get("chart") or {}).get("type") or "") if isinstance(beat.get("chart"), dict) else ""
-    if channel is None or sum(1 for u in used if str(u).startswith("chart:")) >= CHARTS_MAX \
-            or f"chart:{kind}" in used:
+    data = DATA_MARK in used                      # P3b data story: more charts, a type may come back
+    count = sum(1 for u in used if str(u).startswith("chart:"))
+    if channel is None or count >= (DATA_CHARTS_MAX if data else CHARTS_MAX) \
+            or (not data and f"chart:{kind}" in used):
         return None
     chart, why = html_scene.check_chart(beat.get("chart"), said or beat.get("narration", ""))
     if chart and chart["type"] == "map":            # the point comes from Wikipedia, never from the writer
@@ -1413,12 +1415,34 @@ def _chart_visual(beat: dict, seconds: float, work: Path, i: int, used: set, siz
     except Exception as e:  # noqa: BLE001 - a missing browser must not stop the video
         log(f"  beat {i + 1}: chart recording failed ({e}); using a picture")
         return None
-    used.add(f"chart:{chart['type']}")
+    used.add(f"chart:{chart['type']}:{i}" if data else f"chart:{chart['type']}")
     return {"kind": "video", "path": path, "frame": "full", "credit": "", "source": "chart", "graphic": True,
             "match": 1.0}
 
 
 CHARTS_MAX = 3                                     # animated charts per video, each of a different type
+# P3b data story (28 Nov): when the free pictures are used up, a channel with `data_story: true` (and the settings
+# switch data_story: "on") still makes its Short: the writer puts a chart (compare/timeline/scale/depth/map) on most
+# beats, a type may repeat, and every number shown is still one the viewer heard. Charts are not word cards.
+DATA_MARK = "data_story"
+DATA_CHARTS_MAX = 8
+DATA_STORY_RULE = (
+    "DATA STORY: this video is told with animated charts instead of pictures. Pick the facts of this story that are "
+    "numbers, dates, sizes, depths or places, and give a 'chart' on at least 6 beats (a chart type may repeat; never "
+    "the same type 3 beats in a row). Each chart beat says its numbers out loud. The other beats name a real place, "
+    "object or person a photo library holds (photo query). Keep the hook, the turn and the payoff; the charts serve "
+    "the story, they never replace it.")
+
+
+def data_story_on(channel: dict) -> bool:
+    """A data story is made for this channel now: its config allows it, the switch is on, the pictures are out."""
+    if not channel.get("data_story"):
+        return False
+    from .config import settings
+    if str((settings() or {}).get("data_story", "off")) != "on":
+        return False
+    from . import storyboard
+    return bool(storyboard.images_blocked())
 
 
 _SEE_STOP = {"a", "an", "the", "of", "in", "on", "at", "with", "and", "or", "to", "from", "by", "for", "is", "are", "his",
@@ -2153,6 +2177,8 @@ def render(channel: dict, script: dict, out_dir: Path, fmt: str = "short", log=p
     # 3. Visuals -> shots (split long beats so the picture changes every ~2.5 s)
     log("Visuals: AI images / footage / evidence photos")
     credits, used, shots, labels, bigs, stick, events = [], set(), [], [], [], [], []
+    if script.get("data_story"):                  # P3b: a data story may show a chart on most beats
+        used.add(DATA_MARK)
     transitions = look_cfg["transitions"]
     moves = ["push_in", "pan_left", "push_in", "pan_right", "drift_up"]   # never pull out after a push in
     pal = dict(SFX_DEFAULT, **SFX_PALETTE.get(channel["id"], {}))
@@ -2689,6 +2715,10 @@ def _write_fresh(brain, channel: dict, topic: str | None, fmt: str, memory, log,
     from . import patterns, series
     ser, pat, ref = plan["ser"], plan["pat"], plan["ref"]
     extra = "\n".join(x for x in (plan["extra"], notes) if x)
+    data = fmt == "short" and data_story_on(channel)
+    if data:
+        extra = "\n".join(x for x in (extra, DATA_STORY_RULE) if x)
+        log("   Pictures are used up: writing a data story (charts on most beats)")
     log(f"Script: writing '{topic}' for {channel['name']}" + (f" (series: {ser['name']})" if ser else "")
         + (f" (structure: {pat['name']})" if pat else "")
         + (f" (grounded on: {', '.join(ref['titles'])})" if ref["titles"] else "")
@@ -2717,6 +2747,8 @@ def _write_fresh(brain, channel: dict, topic: str | None, fmt: str, memory, log,
     script = legends.from_sources(brain, script, channel, log)
     if channel.get("content_rules", {}).get("fact_check"):
         script = check_and_fix(brain, channel, script, topic, fmt, memory, log)
+    if data:
+        script["data_story"] = True                # the renderer allows more charts (kept with the checkpoint)
     return script
 
 

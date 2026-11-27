@@ -5,6 +5,7 @@ backup_names: [Abyss Stories, Ocean Uncharted]
 market: US
 language: en
 type: story
+data_story: true          # P3b: may tell a data story (charts) when the free pictures are used up (settings data_story)
 niche: Ocean stories and documentaries (deep-sea creatures, shipwrecks, expeditions, ocean mysteries)
 bio: "95% of the ocean is unexplored. Let's go."
 earns_from: [youtube_ads, dubbing]
