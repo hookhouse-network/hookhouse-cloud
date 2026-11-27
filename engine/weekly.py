@@ -1161,8 +1161,11 @@ def make_item(plan: dict, item: dict, brain, memory=None, log=print) -> None:
         item["out_dir"], item["file"] = _make_clip(plan, item, brain, ch, memory, log)
     elif ch["type"] == "kids":
         from . import kids
+        ck = checkpoint(item)                          # 27 Nov (P3): a stopped episode resumes from its plan
         out, _ = kids.make(brain, ch, topic=topic or None, memory=memory, log=log,
-                           fmt="long" if item["kind"] == "long" else "short")
+                           fmt="long" if item["kind"] == "long" else "short",
+                           planned=(ck or {}).get("script"), on_plan=lambda e: save_checkpoint(item, e))
+        clear_checkpoint(item)
         item["out_dir"], item["file"] = str(out), "video.mp4"
     else:
         raise RuntimeError(f"Channel type '{ch['type']}' has no video maker yet")

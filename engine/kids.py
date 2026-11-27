@@ -1344,13 +1344,24 @@ def short_lines(lines: list[dict]) -> list[dict]:
 
 
 def make(brain, channel: dict, topic: str | None = None, memory=None, log=print, seed: int | None = None,
-         fmt: str = "long") -> tuple[Path, dict]:
-    """fmt="long": the 16:9 episode (2-2.5 min). fmt="short": a 9:16 mini-episode (30-60 s)."""
+         fmt: str = "long", planned: dict | None = None, on_plan=None) -> tuple[Path, dict]:
+    """fmt="long": the 16:9 episode (2-2.5 min). fmt="short": a 9:16 mini-episode (30-60 s).
+    27 Nov (P3 checkpoints): planned = the kept plan of a stopped try (its AI call is not repeated; same seed, so the
+    same cast and pictures); on_plan(plan) is called once a fresh plan is written, so a crash later resumes from it."""
+    if planned and planned.get("lines"):
+        seed = int(planned.get("seed") or 0) if seed is None else seed
     seed = seed if seed is not None else int(time.time()) % 1_000_000
     short = fmt == "short"
     use_layout("short" if short else "long")
     try:
-        episode = plan_episode(brain, seed, topic, max_n=6 if short else 10)
+        if planned and planned.get("lines"):
+            episode = json.loads(json.dumps(planned))           # a copy: the kept plan stays as it was
+            log("   Resuming the last try's episode plan (its AI call is not repeated)")
+        else:
+            episode = plan_episode(brain, seed, topic, max_n=6 if short else 10)
+            episode["seed"] = seed
+            if on_plan:
+                on_plan(episode)
         duo = None
         if short:
             episode["lines"], duo = duo_lines(short_lines(episode["lines"]), seed)
