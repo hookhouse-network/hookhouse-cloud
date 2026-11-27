@@ -43,3 +43,13 @@ def test_next_action_priorities():
     assert "'potential' (5 videos)" in ob.next_action(0, [("potential", 5)], [], 3)
     assert "keep the PC on" in ob.next_action(0, [], ["a", "b", "c"], 3)
     assert "Nothing posted" in ob.next_action(0, [], [], 0)
+
+
+def test_picture_free_share(monkeypatch):
+    from engine import config
+    monkeypatch.setattr(config, "channels", lambda: [{"id": "snack", "type": "brainrot"}, {"id": "cosmos", "type": "story"}])
+    rows = [{"platform": "youtube", "channel": "snack", "item_id": "1127_0500_snack_short", "what": "upload", "done": True},
+            {"platform": "instagram", "channel": "snack", "item_id": "1127_0500_snack_short", "what": "publish", "done": True},
+            {"platform": "youtube", "channel": "cosmos", "item_id": "1127_0500_cosmos_short", "what": "upload", "done": True},
+            {"platform": "youtube", "channel": "cosmos", "item_id": "1127_0500_cosmos_long", "what": "upload", "done": True}]
+    assert ob.picture_free_share(rows) == (1, 2)

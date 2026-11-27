@@ -57,6 +57,18 @@ def held(rows: list[dict]) -> list[tuple[str, int]]:
     return sorted(((k, len(v)) for k, v in per.items()), key=lambda x: -x[1])
 
 
+PICTURE_FREE_TYPES = ("brainrot", "clips", "kids")    # makers that draw no generated pictures (P3b acceptance)
+
+
+def picture_free_share(rows: list[dict]) -> tuple[int, int]:
+    """(picture-free, all) distinct Shorts posted in these rows: P3b wants >= 40 % a day."""
+    from .config import channels
+    types = {c["id"]: c.get("type") for c in channels()}
+    shorts = {(r.get("channel"), r["item_id"]) for r in rows if _is_post(r) and "_short" in r["item_id"]}
+    free = sum(1 for ch, _i in shorts if types.get(ch) in PICTURE_FREE_TYPES)
+    return free, len(shorts)
+
+
 def making_gap() -> list[str]:
     """Videos whose slot passed in the last 24 h without a made video."""
     from . import autopilot, weekly
@@ -122,7 +134,15 @@ def brief(now: float | None = None, log_path: Path | None = None) -> str:
         noted("operator_brief.heal", ex)
         high = 0
     inr, usd = earnings()
-    lines = [f"Posted (24 h): {sum(posts.values())} - " + (", ".join(f"{p} {n}" for p, n in posts.items()) or "none"),
+    try:
+        free, shorts = picture_free_share(rows)
+    except Exception as ex:  # noqa: BLE001
+        from .core.quiet import noted
+        noted("operator_brief.picture_free", ex)
+        free, shorts = 0, 0
+    lines = [f"Posted (24 h): {sum(posts.values())} - " + (", ".join(f"{p} {n}" for p, n in posts.items()) or "none")
+             + (f"; Shorts with no generated pictures {free}/{shorts} ({100 * free // shorts} %, target 40 %)"
+                if shorts else ""),
              "Held: " + (", ".join(f"{r} {n}" for r, n in holds[:4]) or "none"),
              "Slots passed unmade: " + (f"{len(gap)} ({', '.join(sorted(set(gap))[:5])})" if gap else "none"),
              "Quotas used up: " + (", ".join(out_pics + [f"AI {a}" for a in ai_hits]) or "none")
