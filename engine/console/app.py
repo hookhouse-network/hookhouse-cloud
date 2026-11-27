@@ -187,9 +187,27 @@ async def set_pause(request):
     return RedirectResponse("/workers", status_code=303)
 
 
+BUDGETS = ENV.from_string("""<h3>AI calls today</h3><table><tr><th>Provider</th><th>Calls</th><th>Errors</th>
+<th>Daily limit hit</th></tr>{% for r in ai %}<tr><td>{{ r.provider }}</td><td>{{ r.calls }}</td><td>{{ r.errors }}</td>
+<td class="{{ 'bad' if r.quota_hits else 'ok' }}">{{ r.quota_hits or '—' }}</td></tr>{% else %}<tr><td colspan="4"
+class="muted">no AI calls recorded today on this PC</td></tr>{% endfor %}</table><h3>Picture sources</h3><table>
+<tr><th>Source</th><th>State</th></tr>{% for p in pics %}<tr><td>{{ p.source }}</td><td class="{{ 'ok' if p.open else
+'bad' }}">{{ 'open' if p.open else 'used up until ' ~ p.until }}</td></tr>{% endfor %}<tr><td>PC local pictures</td>
+<td class="{{ 'ok' if not local.why_not else 'bad' }}">{{ local.used }} / {{ local.cap }} today{{ ' · ' ~ local.why_not
+if local.why_not else '' }}</td></tr></table><p class="muted">When a budget is used up, work waits for its reset (no
+video is failed for it).</p>""")
+
+
+async def budgets_page(request):
+    from .. import budgets
+    s = budgets.summary()
+    return _page("Budgets", BUDGETS.render(ai=s["ai"], pics=s["pictures"], local=s["local"]))
+
+
 TABS.append(("/workers", "Workers"))
+TABS.append(("/budgets", "Budgets"))
 app = Starlette(routes=[Route("/", home), Route("/pipeline", pipeline), Route("/gates", gates),
-                        Route("/queue", queue), Route("/workers", workers),
+                        Route("/queue", queue), Route("/workers", workers), Route("/budgets", budgets_page),
                         Route("/workers/{what:str}", set_pause, methods=["POST"])])
 
 

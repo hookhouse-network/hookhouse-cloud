@@ -40,3 +40,15 @@ def test_pause_and_resume_from_the_workers_screen(monkeypatch, tmp_path):
     assert "Resume video making" in c.get("/workers").text
     c.post("/workers/resume", headers={"origin": "http://127.0.0.1:8765"})
     assert not (tmp_path / "paused.txt").exists()
+
+
+def test_the_budgets_screen(monkeypatch):
+    from engine import budgets
+    monkeypatch.setattr(budgets, "summary", lambda: {"ai": [{"provider": "groq", "calls": 7, "errors": 0,
+                                                              "quota_hits": 0}],
+                                                     "pictures": [{"source": "cloudflare", "open": False,
+                                                                   "until": "28 Nov 05:30"}],
+                                                     "local": {"used": 93, "cap": 120, "why_not": "the PC is in use"}})
+    monkeypatch.setattr(console, "_dash", lambda: "")
+    t = TestClient(console.app).get("/budgets").text
+    assert "groq" in t and "used up until 28 Nov 05:30" in t and "93 / 120" in t and "the PC is in use" in t
