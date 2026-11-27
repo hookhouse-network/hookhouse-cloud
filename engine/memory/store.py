@@ -76,6 +76,22 @@ class Hit:
     rank_score: float
 
 
+# P8 honest forgetting (27 Nov, plan "memory with honest forgetting"): a learned lesson (playbook) loses half its
+# weight every LESSON_HALF_LIFE_D days unless a later review confirms it (Memory.confirm), and drops out of the
+# writer's context below FORGET_BELOW (about 7 weeks unconfirmed). Examples and hooks of real videos do not decay.
+LESSON_HALF_LIFE_D = 14
+FORGET_BELOW = 0.1
+DECAYING = ("playbook",)
+
+
+def freshness(kind: str, meta: dict, created: float | None, now: float | None = None) -> float:
+    if kind not in DECAYING:
+        return 1.0
+    last = float(meta.get("confirmed") or created or 0) or (now or time.time())
+    age_d = max(0.0, ((now or time.time()) - last) / 86400)
+    return 0.5 ** (age_d / LESSON_HALF_LIFE_D)
+
+
 class Memory:
     def __init__(self, db_path: Path, embedder=None):
         self.db_path = Path(db_path)
@@ -108,6 +124,17 @@ class Memory:
         self.conn.execute("UPDATE items SET performance=? WHERE id=?", (performance, item_id))
         self.conn.commit()
 
+    def confirm(self, item_id: int, now: float | None = None) -> None:
+        """P8 honest forgetting (27 Nov): new data said the same lesson again, so it is fresh again."""
+        row = self.conn.execute("SELECT meta FROM items WHERE id=?", (item_id,)).fetchone()
+        if not row:
+            return
+        meta = json.loads(row[0] or "{}")
+        meta["confirmed"] = now or time.time()
+        meta["confirms"] = int(meta.get("confirms") or 0) + 1
+        self.conn.execute("UPDATE items SET meta=? WHERE id=?", (json.dumps(meta, ensure_ascii=False), item_id))
+        self.conn.commit()
+
     def reembed_all(self) -> int:
         """Re-calculate vectors after switching embedding model."""
         rows = self.conn.execute("SELECT id, text FROM items").fetchall()
@@ -125,7 +152,7 @@ class Memory:
 
         rank = similarity * (1 + winner_weight * performance_percentile)
         """
-        sql = "SELECT id, kind, channel, text, meta, performance, embedder, vector FROM items WHERE 1=1"
+        sql = "SELECT id, kind, channel, text, meta, performance, embedder, vector, created FROM items WHERE 1=1"
         params: list = []
         if kind:
             sql += " AND kind=?"
@@ -148,10 +175,15 @@ class Memory:
             return sum(1 for x in known if x <= p) / len(known)
 
         hits = []
+        now = time.time()
         for r, sim in zip(rows, sims):
             pct = percentile(r[5])
-            hits.append(Hit(r[0], r[1], r[2], r[3], json.loads(r[4] or "{}"), r[5], float(sim),
-                            float(sim) * (1 + winner_weight * pct)))
+            meta = json.loads(r[4] or "{}")
+            fresh = freshness(r[1], meta, r[8], now)
+            if fresh < FORGET_BELOW:
+                continue                                   # a lesson no new data confirmed for weeks: forgotten
+            hits.append(Hit(r[0], r[1], r[2], r[3], meta, r[5], float(sim),
+                            float(sim) * (1 + winner_weight * pct) * fresh))
         hits.sort(key=lambda h: h.rank_score, reverse=True)
         return hits[:k]
 

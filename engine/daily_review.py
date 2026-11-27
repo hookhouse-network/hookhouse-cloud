@@ -272,7 +272,9 @@ def run(brain=None, memory=None, log=print, now: float | None = None, send=None,
                     for rule in les.get(k, [])[:3]:
                         text = f"{k.upper()}: {rule}"
                         hits = memory.search(text, kind="playbook", channel=cid, k=1, include_global=False)
-                        if not (hits and hits[0].similarity >= 0.92):          # no near-duplicate rules
+                        if hits and hits[0].similarity >= 0.92:       # said again by new data: fresh again
+                            memory.confirm(hits[0].id)
+                        else:
                             memory.add("playbook", text, channel=cid,
                                        meta={"source": "daily_review", "day": day, "platform": platform})
         not_shown = [b for b in rep["bad"] if "0 views" in b]
