@@ -483,6 +483,9 @@ def problems(it: dict, ch: dict, meta: dict, brain_fn=None, led=None) -> list[st
                                     validate=lambda a: isinstance(a, dict) and isinstance(a.get("scores"), dict))
         except Exception as e:  # noqa: BLE001 - not judged = not passed
             return [f"{PREFIX}: not judged yet ({type(e).__name__}: {str(e)[:80]}); it tries again"]
+        if not meta.get("campaign"):                  # P8 shadow test (owner 27 Nov): records, never blocks
+            from .relative_bar import observe
+            observe(it, ch, meta, verdict, brain, led=led)
     else:
         verdict = cp["artifact"]
     cfg = _cfg()

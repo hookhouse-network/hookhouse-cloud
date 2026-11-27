@@ -29,7 +29,12 @@ platforms:
   telegram:    {max_mb: 48}
 
 temporary_bar:                # owner 21 Nov ("Temporary 85 bar"): 0 of 53 posts went out in 24 h under 100/100.
-  until: "2026-11-28"         # last day it applies (IST); then the strict bars below come back by themselves
+  until: "2026-12-12"         # last day it applies (IST); then the strict bars below come back by themselves.
+                              # Owner 27 Nov ("Keep coaching" + "Keep 7 / min 6"): extended from 28 Nov; over 32
+                              # videos posted under B the rubric's scores did not predict views (Spearman -0.22, same
+                              # median views at weakest >= 6 or < 6, none at 9 on every point). The relative bar
+                              # (beat the channel's own posted median) shadow-runs until then (P8) and replaces this
+                              # only if it predicts views
   min_quality: 85             # quality score; 'bad' issues still block, only small craft warnings may remain
   min_each: 8                 # potential rubric per criterion (9 normally)
   potential: coach            # owner 22 Nov 23:10 ("B"): the judge's 1-10 rubric only coaches until `until` (it

@@ -148,7 +148,9 @@ def _no_real_ledger(monkeypatch, tmp_path):
     monkeypatch.setenv("LEDGER_DB", str(tmp_path / "ledger_test.db"))
     monkeypatch.setattr(led, "_DEFAULT", None)
     monkeypatch.setattr(heal, "QUEUE", tmp_path / "heal_queue_test.json")
-    import engine.allocator as alloc                       # 20 Nov: no test plans with the real volume allocation
+    import engine.relative_bar as relbar                   # 27 Nov: nor reads the PC's real views for the shadow bar
+    monkeypatch.setattr(relbar, "DB", tmp_path / "analytics_relbar_test.db")
+    import engine.allocator as alloc                      # 20 Nov: no test plans with the real volume allocation
     monkeypatch.setattr(alloc, "FILE", tmp_path / "allocation_test.json")
     import engine.cloud.kv_budget as kvb                   # 20 Nov: no test reads Cloudflare analytics or real counts
     monkeypatch.setattr(kvb, "FILE", tmp_path / "kv_usage_test.json")
