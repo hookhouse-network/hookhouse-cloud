@@ -5,6 +5,7 @@ live, views lower than mid-November): "do as you recommendations".
    held the read-fast format, the most watched); facts, copyright, ad-safety, the AI label, the AI-phrase count and
    campaign clips still block.
 3) At most one remake per video (remakes spent the picture budget; new slots stayed unmade)."""
+import json
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -59,7 +60,10 @@ def week(tmp_path, monkeypatch):
              for w in first.values()]
     items.append({"id": "1125_0500_money_cheat_codes_short", "channel": "money_cheat_codes", "kind": "short",
                   "publish_at": "2026-11-25T05:00:00+05:30", "status": "planned", "topic": "t"})
-    weekly.save_plan({"start": start.isoformat(), "created": 0, "items": items})
+    folder = weekly.week_dir(start.isoformat())                      # seed an existing week as a file (a fixture
+    folder.mkdir(parents=True, exist_ok=True)                        # is not a status change, so no audit)
+    (folder / "plan.json").write_text(json.dumps({"start": start.isoformat(), "created": 0, "items": items}),
+                                      encoding="utf-8")
     return now, start
 
 

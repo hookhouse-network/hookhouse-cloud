@@ -116,7 +116,9 @@ def test_only_approved_items_are_planned(sandbox, monkeypatch):
     (out / "upload.json").write_text(json.dumps({"title": "Spiral", "format": "short"}))
     (out / "reel.json").write_text(json.dumps({"caption": "cap #brainsnack"}))
     for k, it in enumerate(plan["items"]):
-        it["status"], it["out_dir"], it["file"] = ("approved" if k == 0 else "made"), str(out), "video.mp4"
+        it["status"], it["out_dir"], it["file"] = "made", str(out), "video.mp4"
+    weekly.save_plan(plan)                               # planned -> made -> approved (legal steps)
+    plan["items"][0]["status"] = "approved"
     weekly.save_plan(plan)
     acts = publish.plan_uploads("2026-11-16")
     assert [a.platform for a in acts] == ["youtube", "instagram", "instagram", "facebook"]   # one approved item (Reel + Story teaser)
@@ -152,7 +154,9 @@ def test_failed_fact_check_is_never_uploaded(sandbox, monkeypatch):
     (out / "video.mp4").write_bytes(b"1")
     (out / "upload.json").write_text(json.dumps({"title": "x", "format": "short",
                                                  "fact_check": {"checked": True, "ok": False, "problems": ["wrong date"]}}))
-    plan["items"][0].update(status="approved", out_dir=str(out), file="video.mp4")
+    plan["items"][0].update(status="made", out_dir=str(out), file="video.mp4")
+    weekly.save_plan(plan)                                   # planned -> made -> approved (legal steps)
+    plan["items"][0]["status"] = "approved"
     weekly.save_plan(plan)
     acts = publish.plan_uploads("2026-11-30")
     assert len(acts) == 1 and "SKIPPED" in acts[0].what and acts[0].result["error"] == "fact-check failed"

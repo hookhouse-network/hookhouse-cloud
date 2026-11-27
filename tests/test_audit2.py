@@ -55,7 +55,8 @@ def test_double_tap_approve_uploads_once(env):
 
 def test_failed_remake_cannot_be_approved_from_old_message(env):
     tok = _tok()
-    autopilot.update_item("2099-01-05", "a", status="failed")
+    autopilot.update_item("2099-01-05", "a", status="making")      # the real path: a remake starts ...
+    autopilot.update_item("2099-01-05", "a", status="failed")      # ... and fails
     assert "couldn't be finished" in autopilot.decide(tok, "approve")
     assert env["uploads"] == []
 

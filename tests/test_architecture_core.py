@@ -21,6 +21,7 @@ def test_every_state_has_rules_and_terminal_states_stay_put():
 
 
 def test_audit_logs_changes_and_reports_illegal_ones(monkeypatch):
+    monkeypatch.setenv("LIFECYCLE_MODE", "observe")       # observe mode's behaviour (enforce is the default since 27 Nov)
     before = {"items": [{"id": "a", "status": "posted", "channel": "c"}, {"id": "b", "status": "planned"}]}
     after = {"items": [{"id": "a", "status": "making", "channel": "c"}, {"id": "b", "status": "making"},
                        {"id": "n", "status": "planned"}]}
@@ -209,3 +210,12 @@ def test_an_incomplete_result_does_not_count_as_done(tmp_path):
     with pytest.raises(ValueError):
         led.run_stage("v1", "script", lambda: {"title": ""}, lambda a: bool(a.get("title")))
     assert led.checkpoint("v1", "script")["status"] == "failed"
+
+
+def test_lifecycle_enforces_by_default(monkeypatch):
+    """27 Nov (P9): 655 status changes in the cloud ledger, 0 illegal: the default became enforce."""
+    from engine.core import lifecycle
+    monkeypatch.delenv("LIFECYCLE_MODE", raising=False)
+    assert lifecycle.mode() == "enforce"
+    monkeypatch.setenv("LIFECYCLE_MODE", "observe")
+    assert lifecycle.mode() == "observe"

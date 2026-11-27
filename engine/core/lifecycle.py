@@ -5,7 +5,8 @@ stuck ("making" for ever), skipped, or re-made after posting, and nobody could t
 Every status change still ends in weekly.save_plan(); that function now calls `audit()` with the plan before and
 after, so every transition is checked against TRANSITIONS and written to the event log (engine/core/ledger.py).
 
-Mode "observe" (now): an illegal transition is logged and reported to the heal queue but still saved, so production
+Mode "enforce" (default since 27 Nov: 655 cloud changes, 0 illegal): an illegal transition raises IllegalTransition
+before anything is saved. Mode "observe" (LIFECYCLE_MODE=observe, the old default): an illegal transition is logged and reported to the heal queue but still saved, so production
 cannot break while the rules are learned from real traffic. Once a week passes with no violations, MODE becomes
 "enforce" and illegal transitions raise IllegalTransition before anything is saved."""
 from __future__ import annotations
@@ -49,7 +50,8 @@ class IllegalTransition(RuntimeError):
 
 
 def mode() -> str:
-    return os.environ.get("LIFECYCLE_MODE", "observe")
+    # 27 Nov (P9): 655 cloud status changes, 0 illegal; the 4 unlisted transitions were test shortcuts (fixed)
+    return os.environ.get("LIFECYCLE_MODE", "enforce")
 
 
 def allowed(old: str | None, new: str) -> bool:
