@@ -40,6 +40,8 @@ def _no_real_clip_records(monkeypatch, tmp_path):
     monkeypatch.setattr(crf, "KICK_STATE", tmp_path / "kick_state_test.json")
     import engine.clips as clips                    # 27 Nov: nor the PC's kept transcripts (a fake one would be reused)
     monkeypatch.setattr(clips, "TRANSCRIPTS", tmp_path / "transcripts_test")
+    import engine.content_tuning as ct              # 27 Nov: nor the format bandit's records
+    monkeypatch.setattr(ct, "FORMATS_FILE", tmp_path / "snack_formats_test.json")
 
 
 @pytest.fixture(autouse=True)

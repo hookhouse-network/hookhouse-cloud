@@ -1162,6 +1162,9 @@ def make_item(plan: dict, item: dict, brain, memory=None, log=print) -> None:
                                planned=(ck or {}).get("script"), on_plan=lambda sp: save_checkpoint(item, sp))
         clear_checkpoint(item)
         item["out_dir"], item["file"] = str(out), (sorted(out.glob("*.mp4")) or [Path("")])[0].name
+        if Path(out).name.count("_") >= 2:             # P8: the format bandit learns from this video's views
+            from .content_tuning import record_format
+            record_format(item["id"], Path(out).name.split("_", 2)[2])
         if item.get("topic") and not (meta or {}).get("used_topic"):     # a physics game: the plan shows what was
             if not item.get("planned_topic"):                            # made; the planned idea is kept ONCE
                 item["planned_topic"] = item["topic"]

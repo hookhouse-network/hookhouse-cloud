@@ -120,8 +120,17 @@ def choose_format(history: list[dict], wanted: str | None = None, made: list[str
             from .ladder import category_for
             if not category_for(topic):
                 options.remove("ladder")
-    weights = [0.5 if f in recent else 1.0 for f in options]
-    return random.choices(options, weights=weights)[0]
+    if len(options) == 1:
+        return options[0]
+    try:                                                 # P8 (27 Nov): Thompson sampling on the formats' own views
+        from ..bandit import pick
+        from ..content_tuning import format_scores
+        return pick(options, format_scores())[0]
+    except Exception as e:  # noqa: BLE001 - no numbers readable: the old weighted draw
+        from ..core.quiet import noted
+        noted("snack.choose_format", e)
+        weights = [0.5 if f in recent else 1.0 for f in options]
+        return random.choices(options, weights=weights)[0]
 
 
 def new_spec(fmt: str, history: list[dict], seed: int) -> dict:

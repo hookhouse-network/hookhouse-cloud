@@ -77,9 +77,15 @@ def hook_scores(cid: str, db: Path | None = None) -> dict[str, list[float]]:
                  if v.get("channel") == cid}
     except (OSError, ValueError):
         hooks = {}
+    return label_scores(cid, hooks, db)
+
+
+def label_scores(cid: str, labels: dict[str, str], db: Path | None = None) -> dict[str, list[float]]:
+    """label -> scores of this channel's YouTube videos carrying it (stayed % when measured, else views relative to
+    the median). Shared by the hook loop and the Brain Snack format bandit."""
     latest: dict[str, dict] = {}
     for r in _rows(cid, db):
-        if r["item_id"] in hooks and r["platform"] == "youtube":
+        if r["item_id"] in labels and r["platform"] == "youtube":
             latest[r["item_id"]] = r
     if not latest:
         return {}
@@ -88,22 +94,38 @@ def hook_scores(cid: str, db: Path | None = None) -> dict[str, list[float]]:
     out: dict[str, list[float]] = {}
     for iid, r in latest.items():
         score = float(r["stayed_pct"]) if r.get("stayed_pct") is not None else 50.0 * float(r["views"] or 0) / med
-        out.setdefault(hooks[iid], []).append(score)
+        out.setdefault(labels[iid], []).append(score)
     return out
+
+
+FORMATS_FILE = ROOT / "data" / "state" / "snack_formats.json"   # item id -> Brain Snack format (memory bundle)
+
+
+def record_format(item_id: str, fmt: str) -> None:
+    import json
+    try:
+        d = json.loads(FORMATS_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        d = {}
+    d[item_id] = fmt
+    from .core.atomic import write_json
+    write_json(FORMATS_FILE, d)
+
+
+def format_scores(cid: str = "brain_snack", db: Path | None = None) -> dict[str, list[float]]:
+    import json
+    try:
+        labels = json.loads(FORMATS_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        labels = {}
+    return label_scores(cid, labels, db)
 
 
 def next_hook(cid: str, db: Path | None = None, rng=None) -> tuple[str, str]:
     """(hook type, why) for this channel's next script: untested types first, then mostly the measured winner."""
-    import random
-    rng = rng or random.Random()
-    scores = hook_scores(cid, db)
-    untested = [h for h in HOOK_TYPES if len(scores.get(h, [])) < MIN_TESTS]
-    tested = {h: statistics.median(v) for h, v in scores.items() if len(v) >= MIN_TESTS}
-    if tested and (not untested or rng.random() > EXPLORE):
-        best = max(tested, key=tested.get)
-        return best, f"best so far on this channel (score {tested[best]:.0f} over {len(scores[best])} videos)"
-    pick = min(untested, key=lambda h: (len(scores.get(h, [])), rng.random()))
-    return pick, f"testing this hook type ({len(scores.get(pick, []))}/{MIN_TESTS} videos so far)"
+    # P8 (27 Nov): Thompson sampling (engine/bandit.py) instead of 'MIN_TESTS each, then explore 30 %'
+    from .bandit import pick
+    return pick(list(HOOK_TYPES), hook_scores(cid, db), rng=rng)
 
 
 def _rows(cid: str, db: Path | None = None) -> list[dict]:
