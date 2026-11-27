@@ -427,6 +427,12 @@ def report() -> None:
     send_dashboard()
 
 
+def operator_text() -> str:
+    """P8 operator brief (master plan 5.6): yesterday's evidence and one next action; Mondays the earnings board."""
+    from .operator_brief import brief
+    return brief()
+
+
 def learning_text() -> str:
     """P8 (27 Nov): what the learning loop is testing and how its predictions do against real views."""
     from .experiments import brief_text
@@ -438,7 +444,8 @@ def health_digest() -> str:
     """P2b daily health digest (27 Nov): what is broken (the /health answer) and what needs the owner (the /tasks
     answer), in one morning message, so the owner reads one thing instead of asking."""
     parts = ["🩺 Morning health check"]
-    for title, fn in (("System", health_text), ("Needs you", tasks_text), ("Learning", learning_text)):
+    for title, fn in (("Yesterday", operator_text), ("System", health_text), ("Needs you", tasks_text),
+                      ("Learning", learning_text)):
         try:
             body = (fn() or "").strip()
         except Exception as e:  # noqa: BLE001 - one part failing still sends the other (said in the message)
