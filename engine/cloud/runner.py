@@ -148,6 +148,7 @@ def _make_and_hand_over(store, start: str, it: dict, log=_log) -> Path:
 # always fails the same way would be tried again every 5 h forever. Now a failed make frees its claim and the PC
 # keeps its own small retry list: free daily limits wait for their reset (tries kept), other failures wait an hour
 # and count; after PC_MAX_TRIES the PC leaves the video to the cloud's own checks for the day.
+PAUSE_FILE = ROOT / "data" / "pc" / "paused.txt"    # 27 Nov (P2b): the Control Center's Pause (the helper idles between videos)
 PC_FAILS = ROOT / "data" / "pc" / "make_fails.json"
 PC_MAX_TRIES = 3
 
@@ -923,7 +924,17 @@ def helper(once: bool = False, every_s: int = 300, log=_log, videos_only: bool =
     if not once:                                      # Phase 2: presence history + (later) claims from the scheduler
         from .sched import start_pc_heartbeat
         hb = start_pc_heartbeat(log)
+    said_paused = False
     while True:
+        if not once and PAUSE_FILE.exists():          # 27 Nov (P2b): the Control Center's Pause (between videos only)
+            if not said_paused:
+                log("helper: paused from the Control Center; no new videos until Resume")
+                said_paused = True
+            time.sleep(min(every_s, 60))
+            continue
+        if said_paused:
+            log("helper: resumed")
+            said_paused = False
         if not once and _new_code(started):           # between videos only: never cuts a video short
             log("helper: new code on this PC; stopping so the wrapper starts it again with the new code")
             if hb:

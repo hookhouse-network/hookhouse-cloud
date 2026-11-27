@@ -139,8 +139,58 @@ async def queue(request):
     return _page("Queue", ENV_BODY["queue"].render(jobs=jobs[-50:]), err)
 
 
+WORKERS = ENV.from_string("""<div class="cards"><div class="card"><div class="muted">PC video maker</div>
+<div class="big {{ 'bad' if paused else ('ok' if alive else 'bad') }}">{{ 'Paused' if paused else ('Running' if alive
+else 'Not seen') }}</div><div class="muted">last log line {{ age }}</div></div><div class="card"><div class="muted">
+Shared queue</div>{% for w in online %}<div class="ok">● {{ w.id }} ({{ w.kind }})</div>{% else %}<div class="muted">
+no worker online</div>{% endfor %}</div></div><form method="post" action="/workers/{{ 'resume' if paused else
+'pause' }}" style="margin-top:14px"><button class="btn" style="border:0;cursor:pointer;background:{{ '#2e9e55' if
+paused else '#c0392b' }};color:#fff;padding:9px 18px;border-radius:8px">{{ 'Resume video making' if paused else
+'Pause video making' }}</button></form><p class="muted">Pause stops NEW videos after the current one finishes; the cloud
+keeps posting what is ready. Resume starts again within a minute.</p>""")
+
+
+def _alive() -> tuple[bool, str]:
+    p = ROOT / "data" / "logs" / "pc_maker.log"
+    try:
+        age = time.time() - p.stat().st_mtime
+    except OSError:
+        return False, "never"
+    mins = int(age // 60)
+    return age < 20 * 60, (f"{mins} min ago" if mins else "just now")
+
+
+async def workers(request):
+    from ..cloud.runner import PAUSE_FILE
+    s, serr = _sched()
+    alive, age = _alive()
+    return _page("Workers", WORKERS.render(paused=PAUSE_FILE.exists(), alive=alive, age=age,
+                                           online=s.get("online") or []), serr)
+
+
+def _same_origin(request) -> bool:
+    """Only the console's own page may press its buttons (a form post from another site is refused)."""
+    origin = request.headers.get("origin") or request.headers.get("referer") or ""
+    return origin == "" or origin.startswith(("http://127.0.0.1:8765", "http://localhost:8765"))
+
+
+async def set_pause(request):
+    from starlette.responses import PlainTextResponse, RedirectResponse
+    from ..cloud.runner import PAUSE_FILE
+    if not _same_origin(request):
+        return PlainTextResponse("refused: not from the Control Center", status_code=403)
+    if request.path_params["what"] == "pause":
+        PAUSE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        PAUSE_FILE.write_text(datetime.now().strftime("%Y-%m-%d %H:%M"), encoding="utf-8")
+    else:
+        PAUSE_FILE.unlink(missing_ok=True)
+    return RedirectResponse("/workers", status_code=303)
+
+
+TABS.append(("/workers", "Workers"))
 app = Starlette(routes=[Route("/", home), Route("/pipeline", pipeline), Route("/gates", gates),
-                        Route("/queue", queue)])
+                        Route("/queue", queue), Route("/workers", workers),
+                        Route("/workers/{what:str}", set_pause, methods=["POST"])])
 
 
 def main(port: int = 8765) -> None:

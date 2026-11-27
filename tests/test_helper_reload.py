@@ -98,3 +98,25 @@ def test_the_scheduler_setting_is_a_string():
     """26 Nov: a bare `scheduler: on` is the YAML boolean True, which mode() reads as 'off'."""
     from engine.config import settings
     assert isinstance(settings().get("scheduler"), str)
+
+
+def test_the_helper_idles_while_paused(monkeypatch, tmp_path):
+    """27 Nov (P2b): the Control Center's Pause stops new videos between makes."""
+    flag = tmp_path / "paused.txt"
+    flag.write_text("x")
+    monkeypatch.setattr(runner, "PAUSE_FILE", flag)
+    monkeypatch.setattr(runner, "_one_helper", lambda: True)
+    monkeypatch.setattr(runner, "_code_version", lambda root=None: "same")
+    from engine.cloud import sched
+    monkeypatch.setattr(sched, "start_pc_heartbeat", lambda log: None)
+    sleeps, lines = [], []
+
+    def sleep(s):
+        sleeps.append(s)
+        if len(sleeps) >= 2:
+            raise KeyboardInterrupt
+    monkeypatch.setattr(runner.time, "sleep", sleep)
+    import pytest
+    with pytest.raises(KeyboardInterrupt):
+        runner.helper(videos_only=True, log=lines.append)
+    assert sum("paused from the Control Center" in ln for ln in lines) == 1        # said once, not every minute

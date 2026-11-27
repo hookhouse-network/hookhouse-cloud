@@ -25,3 +25,18 @@ def test_every_screen_renders_and_degrades(monkeypatch):
     assert "potential: hook 5" in c.get("/gates").text
     assert c.get("/queue").status_code == 200
     assert "Approve / act (cloud)" in home.text                     # actions open the cloud dashboard
+
+
+def test_pause_and_resume_from_the_workers_screen(monkeypatch, tmp_path):
+    from engine.cloud import runner
+    monkeypatch.setattr(runner, "PAUSE_FILE", tmp_path / "paused.txt")
+    monkeypatch.setattr(console, "_sched", lambda: ({"online": []}, ""))
+    monkeypatch.setattr(console, "_dash", lambda: "")
+    c = TestClient(console.app)
+    assert "Pause video making" in c.get("/workers").text
+    assert c.post("/workers/pause", headers={"origin": "https://evil.example"}).status_code == 403   # other sites refused
+    r = c.post("/workers/pause", headers={"origin": "http://127.0.0.1:8765"}, follow_redirects=False)
+    assert r.status_code == 303 and (tmp_path / "paused.txt").exists()
+    assert "Resume video making" in c.get("/workers").text
+    c.post("/workers/resume", headers={"origin": "http://127.0.0.1:8765"})
+    assert not (tmp_path / "paused.txt").exists()
