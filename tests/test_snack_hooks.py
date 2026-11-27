@@ -34,7 +34,7 @@ def test_make_item_keeps_the_planned_idea_once(monkeypatch, tmp_path):
                               {"used_topic": False, "title": "1 bounce = 2 balls inside a blob 🧠"},
                               {"used_topic": True, "title": "Space quiz 🧠"}])
 
-    def fake_make(brain, ch, topic=None, memory=None, log=print):
+    def fake_make(brain, ch, topic=None, memory=None, log=print, **_kw):
         seen.append(topic)
         return tmp_path, next(results)
     monkeypatch.setattr(maker, "make", fake_make)

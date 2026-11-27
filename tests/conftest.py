@@ -38,6 +38,8 @@ def _no_real_clip_records(monkeypatch, tmp_path):
     import engine.weekly as wk
     monkeypatch.setattr(wk, "PC_CLIP_USED", tmp_path / "pc_clip_used_test.json")
     monkeypatch.setattr(crf, "KICK_STATE", tmp_path / "kick_state_test.json")
+    import engine.clips as clips                    # 27 Nov: nor the PC's kept transcripts (a fake one would be reused)
+    monkeypatch.setattr(clips, "TRANSCRIPTS", tmp_path / "transcripts_test")
 
 
 @pytest.fixture(autouse=True)

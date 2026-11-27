@@ -209,6 +209,43 @@ def hotspots(levels: list[float], window: int = 300, top: int = 6) -> list[tuple
     return sorted(chosen)
 
 
+# P3 checkpoints (27 Nov): the slow stage of a clip is the Whisper transcript of its footage. It is kept per footage
+# (source + how it was transcribed + length), so a stopped or retried clip of the same footage does not transcribe
+# again. Kept 3 days; a footage of another length (re-cut, re-downloaded) is transcribed fresh.
+TRANSCRIPTS = ROOT / "data" / "cache" / "transcripts"
+TRANSCRIPT_KEEP_D = 3
+
+
+def _words_path(source, mode: str) -> Path:
+    import hashlib
+    return TRANSCRIPTS / (hashlib.sha1(f"{source}|{mode}".encode("utf-8")).hexdigest()[:20] + ".json")
+
+
+def kept_words(source, mode: str, duration: float) -> list[Word] | None:
+    p = _words_path(source, mode)
+    try:
+        if time.time() - p.stat().st_mtime > TRANSCRIPT_KEEP_D * 86400:
+            return None
+        rec = json.loads(p.read_text(encoding="utf-8"))
+        if abs(float(rec.get("duration") or 0) - float(duration)) > 1.0:
+            return None
+        return [Word(w[0], float(w[1]), float(w[2])) for w in rec["words"]]
+    except (OSError, ValueError, KeyError, TypeError, IndexError):
+        return None
+
+
+def keep_words(source, mode: str, duration: float, words: list[Word]) -> None:
+    try:
+        TRANSCRIPTS.mkdir(parents=True, exist_ok=True)
+        for old in TRANSCRIPTS.glob("*.json"):                   # the cache cleans itself
+            if time.time() - old.stat().st_mtime > TRANSCRIPT_KEEP_D * 86400:
+                old.unlink(missing_ok=True)
+        _words_path(source, mode).write_text(json.dumps({"duration": float(duration), "words": [
+            [w.text, round(w.start, 3), round(w.end, 3)] for w in words]}, ensure_ascii=False), encoding="utf-8")
+    except (OSError, TypeError, ValueError) as _swallowed:
+        noted("clips.keep_words", _swallowed)
+
+
 def transcribe_hotspots(video: Path, language: str = "en", log=print, window: int = 300,
                         top: int = 6) -> list[Word]:
     """Transcribe only the hot windows of a long source; word times stay absolute (seconds in the full video)."""
@@ -843,10 +880,19 @@ def make_clips(brain, source: str, channel: dict, campaign: dict | None = None, 
         if src_dur > LONG_SOURCE_S:                           # streams / long videos / gameplay sessions
             keep = max(keep, min(MAX_CLIPS_PER_SOURCE, int(src_dur // 1100)))     # ~1 clip per 18 min, up to 15
             log(f"Long source ({src_dur / 3600:.1f} h): aiming for {keep} clips")
-            words = transcribe_hotspots(video, language="en", log=log, top=min(MAX_CLIPS_PER_SOURCE + 3, keep + 3))
+            top = min(MAX_CLIPS_PER_SOURCE + 3, keep + 3)
+            words = kept_words(source, f"hotspots{top}", src_dur)
+            if words is None:
+                words = transcribe_hotspots(video, language="en", log=log, top=top)
+                keep_words(source, f"hotspots{top}", src_dur, words)
         else:
-            log("Transcribing (Whisper)…")
-            words = transcribe(video, language="en")
+            words = kept_words(source, "whole", src_dur)
+            if words is None:
+                log("Transcribing (Whisper)…")
+                words = transcribe(video, language="en")
+                keep_words(source, "whole", src_dur, words)
+            else:
+                log("   Reusing this footage's transcript from the last try")
     mutes = []
     if campaign:                                    # 20 Nov: swear words and slurs muted, f*** in captions (brief allows)
         from . import profanity

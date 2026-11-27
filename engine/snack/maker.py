@@ -453,25 +453,41 @@ def save_cover(video: Path, at_s: float, dest: Path) -> None:
 
 
 def make(brain, channel: dict, topic: str | None = None, fmt: str | None = None, memory=None, log=print,
-         seed: int | None = None) -> tuple[Path, dict]:
+         seed: int | None = None, planned: dict | None = None, on_plan=None) -> tuple[Path, dict]:
+    """27 Nov (P3 checkpoints): planned = the kept spec of a stopped try (same format and look; a quiz or fact the AI
+    already wrote is reused, not asked again); on_plan(spec) is called before the render and again if the render
+    stops after the AI wrote its words, so the next try resumes from them."""
     history = load_history()
-    seed = seed if seed is not None else int(time.time()) % 1_000_000
-    fmt = choose_format(history, fmt, made=made_formats(channel["id"]), topic=topic)
-    spec = new_spec(fmt, history, seed)
-    used = bool(topic) and fmt in TOPIC_FORMATS          # physics formats don't use (or use up) the planned topic
-    if used and fmt == "ladder":                         # 22 Nov: the quiz is about the idea's own category
-        from .ladder import category_for
-        cat = category_for(topic)
-        if cat:
-            spec["category"] = cat
-        else:
-            used = False                                 # no quiz category carries it: the idea waits for a fact video
-    if used:
-        spec["topic"] = topic
+    if planned and planned.get("format"):
+        spec = json.loads(json.dumps(planned))           # a copy: the kept spec stays as it was
+        fmt, used = spec["format"], bool(spec.get("topic"))
+        topic = spec.get("topic") or topic
+        log(f"   Resuming the last try's Brain Snack '{fmt}' (kept words are not asked again)")
+    else:
+        seed = seed if seed is not None else int(time.time()) % 1_000_000
+        fmt = choose_format(history, fmt, made=made_formats(channel["id"]), topic=topic)
+        spec = new_spec(fmt, history, seed)
+        used = bool(topic) and fmt in TOPIC_FORMATS      # physics formats don't use (or use up) the planned topic
+        if used and fmt == "ladder":                     # 22 Nov: the quiz is about the idea's own category
+            from .ladder import category_for
+            cat = category_for(topic)
+            if cat:
+                spec["category"] = cat
+            else:
+                used = False                             # no quiz category carries it: the idea waits for a fact video
+        if used:
+            spec["topic"] = topic
+        if on_plan:
+            on_plan(spec)
     out_dir = ROOT / "output" / channel["id"] / f"{time.strftime('%Y%m%d_%H%M%S')}_{fmt}"
     out_dir.mkdir(parents=True, exist_ok=True)
     log(f"Brain Snack v3: format '{fmt}', spec {spec}")
-    info = render_spec(spec, out_dir, brain=brain, channel=channel, log=log)
+    try:
+        info = render_spec(spec, out_dir, brain=brain, channel=channel, log=log)
+    except Exception:
+        if on_plan and (spec.get("quiz") or spec.get("fact")):
+            on_plan(spec)                                # the AI's words are kept for the next try
+        raise
     shown = describe(spec, info)
     (out_dir / "script.json").write_text(json.dumps({"title": fmt, "topic": topic if used else None,
                                                      "shown": shown, "spec": spec},

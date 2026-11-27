@@ -35,3 +35,46 @@ def test_a_kept_plan_skips_the_ai_call(monkeypatch):
         kids.make(None, {"id": "bloop_and_friends"}, planned={"lines": [{"t": "kept"}], "count_to": 3,
                                                               "object": "apple", "seed": 7})
     assert seen["lines"] == [{"t": "kept"}]
+
+
+def test_brain_snack_keeps_the_ai_words_when_the_render_stops(monkeypatch, tmp_path):
+    from engine.snack import maker
+    monkeypatch.setattr(maker, "ROOT", tmp_path)
+    monkeypatch.setattr(maker, "load_history", lambda: [])
+
+    def render(spec, out_dir, brain=None, channel=None, log=print):
+        spec["quiz"] = spec.get("quiz") or {"q": "written by the AI"}
+        raise Stop()
+    monkeypatch.setattr(maker, "render_spec", render)
+    kept = []
+    with pytest.raises(Stop):
+        maker.make(None, {"id": "brain_snack"}, fmt="ladder", topic=None, on_plan=lambda sp: kept.append(dict(sp)))
+    assert kept[0]["format"] == "ladder" and "quiz" not in kept[0]      # before the render
+    assert kept[-1]["quiz"] == {"q": "written by the AI"}               # the AI's words kept after the stop
+    monkeypatch.setattr(maker, "choose_format", lambda *a, **k: pytest.fail("a kept spec is not re-chosen"))
+    seen = {}
+    monkeypatch.setattr(maker, "render_spec", lambda spec, *a, **k: seen.update(spec) or (_ for _ in ()).throw(Stop()))
+    with pytest.raises(Stop):
+        maker.make(None, {"id": "brain_snack"}, planned=kept[-1])
+    assert seen["quiz"] == {"q": "written by the AI"}
+
+
+def test_a_kept_plan_is_resumed_at_most_twice(monkeypatch, tmp_path):
+    from engine import weekly
+    monkeypatch.setattr(weekly, "CHECKPOINTS", tmp_path)
+    item = {"id": "1127_0900_brain_snack_short", "channel": "brain_snack"}
+    weekly.save_checkpoint(item, {"format": "ladder"})
+    assert weekly.checkpoint(item) and weekly.checkpoint(item)
+    assert weekly.checkpoint(item) is None
+
+
+def test_a_footage_transcript_is_kept_for_the_next_try(monkeypatch, tmp_path):
+    from engine import clips
+    from engine.media.captions import Word
+    monkeypatch.setattr(clips, "TRANSCRIPTS", tmp_path)
+    assert clips.kept_words("kick:abc", "whole", 600.0) is None
+    clips.keep_words("kick:abc", "whole", 600.0, [Word("hello", 1.0, 1.4)])
+    got = clips.kept_words("kick:abc", "whole", 600.4)
+    assert got and got[0].text == "hello" and got[0].start == 1.0
+    assert clips.kept_words("kick:abc", "whole", 900.0) is None        # another length: transcribed fresh
+    assert clips.kept_words("kick:abc", "hotspots7", 600.0) is None    # another way of transcribing

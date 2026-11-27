@@ -967,6 +967,7 @@ def snack_theme(item: dict) -> str:
 # it (scene pictures come from the cache). A quality redo or an owner change (new note) writes a fresh script.
 CHECKPOINTS = ROOT / "data" / "checkpoints"
 CHECKPOINT_MAX_H = 24
+CHECKPOINT_RESUMES = 2                                 # a kept plan is resumed at most this often
 CK_FIELDS = ("topic", "angle", "why", "feeling", "now_hook", "planned_topic")
 
 
@@ -997,6 +998,13 @@ def checkpoint(item: dict) -> dict | None:
     if (item.get("note") or None) != (rec.get("note") or None) or \
             (item.get("gate_note") or None) != (rec.get("gate_note") or None):
         return None
+    if int(rec.get("resumed") or 0) >= CHECKPOINT_RESUMES:   # 27 Nov: a kept plan that keeps stopping the same way
+        return None                                         # is dropped; the next try starts fresh
+    rec["resumed"] = int(rec.get("resumed") or 0) + 1
+    try:
+        _ck_path(item).write_text(json.dumps(rec, ensure_ascii=False, default=str), encoding="utf-8")
+    except OSError as _swallowed:
+        noted("weekly.checkpoint", _swallowed)
     return rec
 
 
@@ -1149,7 +1157,10 @@ def make_item(plan: dict, item: dict, brain, memory=None, log=print) -> None:
         from .snack import maker as snack              # Brain Snack v3: five rotating game formats
         if item.get("status") == "redo" and item.get("gate_note"):
             log(f"Brain Snack remake; the last version's findings are fixed in the formats: {item['gate_note'][:160]}")
-        out, meta = snack.make(brain, ch, topic=snack_theme(item) or None, memory=memory, log=log)
+        ck = checkpoint(item)                          # 27 Nov (P3): a stopped try resumes from its kept spec
+        out, meta = snack.make(brain, ch, topic=snack_theme(item) or None, memory=memory, log=log,
+                               planned=(ck or {}).get("script"), on_plan=lambda sp: save_checkpoint(item, sp))
+        clear_checkpoint(item)
         item["out_dir"], item["file"] = str(out), (sorted(out.glob("*.mp4")) or [Path("")])[0].name
         if item.get("topic") and not (meta or {}).get("used_topic"):     # a physics game: the plan shows what was
             if not item.get("planned_topic"):                            # made; the planned idea is kept ONCE
