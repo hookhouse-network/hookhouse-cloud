@@ -151,6 +151,7 @@ def _make_and_hand_over(store, start: str, it: dict, log=_log) -> Path:
 PAUSE_FILE = ROOT / "data" / "pc" / "paused.txt"    # 27 Nov (P2b): the Control Center's Pause (the helper idles between videos)
 PC_FAILS = ROOT / "data" / "pc" / "make_fails.json"
 PC_MAX_TRIES = 3
+NEEDS_SOURCE_HOLD_S = 6 * 3600                        # a channel without clip footage is looked at again after this
 
 
 def _pc_fails() -> dict:
@@ -171,7 +172,10 @@ def _pc_failed(store, it: dict, e: Exception, log=_log) -> None:
     fails = _pc_fails()
     rec = fails.get(it["id"]) or {"n": 0, "day": time.strftime("%Y-%m-%d")}
     wait = autopilot.free_limit_wait(e)
-    if wait:                                          # a free daily limit: wait for it, keep the tries
+    from .. import weekly as _wk
+    if isinstance(e, _wk.NeedsSource):                # 27 Nov heal: no footage yet; not a try, look again later
+        rec["until"] = time.time() + NEEDS_SOURCE_HOLD_S
+    elif wait:                                        # a free daily limit: wait for it, keep the tries
         rec["until"] = wait
     else:
         rec["n"] = int(rec.get("n") or 0) + 1
@@ -798,6 +802,12 @@ def render(budget_min: float = 40, log=_log) -> int:
             if job is not None:
                 _sched.finish_job(gh, job, error=e, log=log)
             wait = autopilot.free_limit_wait(e)
+            from .. import weekly as _wk
+            if isinstance(e, _wk.NeedsSource):             # 27 Nov heal: no footage is not a failure to retry hourly
+                autopilot.update_item(start, it["id"], status="needs_source", error=str(e))   # (Hot Take HQ: 11
+                log(f"{it.get('channel_name')}: waits for clip footage (owner told daily)")   # 'failed' in 4 days)
+                state.push(store)
+                continue
             if wait:                                       # a daily free limit: wait for the reset, keep the tries
                 autopilot.update_item(start, it["id"], status="failed", error=f"{type(e).__name__}: {e}", retry_at=wait)
                 log(f"{it.get('channel_name')}: free limit reached; waits until the reset")

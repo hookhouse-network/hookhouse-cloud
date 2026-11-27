@@ -93,3 +93,21 @@ def test_yesterdays_failures_are_forgotten(pc):
 def test_the_helper_skips_videos_on_the_pc_retry_list():
     import inspect
     assert "_pc_waiting(it[\"id\"])" in inspect.getsource(runner.helper)
+
+
+def test_no_footage_is_not_a_try(pc):
+    """27 Nov heal: Hot Take HQ had no clip footage and every slot burned its tries hourly ('failed' 11 times in 4
+    days); now it waits 6 h without counting a try (the cloud marks it needs_source and tells the owner daily)."""
+    from engine import weekly
+    store, errors = pc
+    errors.append(weekly.NeedsSource("No clip footage left for this channel"))
+    with pytest.raises(weekly.NeedsSource):
+        runner._make_and_hand_over(store, "2026-11-16", IT, log=lambda *a: None)
+    rec = json.loads(runner.PC_FAILS.read_text())[IT["id"]]
+    assert rec["n"] == 0 and rec["until"] == pytest.approx(time.time() + runner.NEEDS_SOURCE_HOLD_S, abs=5)
+
+
+def test_the_cloud_render_marks_missing_footage_needs_source():
+    import inspect
+    src = inspect.getsource(runner.render)
+    assert "isinstance(e, _wk.NeedsSource)" in src and 'status="needs_source"' in src
