@@ -429,8 +429,9 @@ def report() -> None:
 
 def learning_text() -> str:
     """P8 (27 Nov): what the learning loop is testing and how its predictions do against real views."""
+    from .experiments import brief_text
     from .relative_bar import report
-    return report()["line"]
+    return brief_text() + "\n" + report()["line"]
 
 
 def health_digest() -> str:

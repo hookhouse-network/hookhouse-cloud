@@ -97,6 +97,8 @@ def learn(log=print, conn=None) -> dict:
         out["channels"][ch["id"]] = rec
         if rec["slots"] != (old.get(ch["id"]) or {}).get("slots", rec["default"]):
             changed.append(f"{ch['name']}: {', '.join(rec['slots'])} ({rec['why']})")
+            from .experiments import record                   # P8: the change and its effect in the brief
+            record("slots", ch["id"], f"{', '.join(rec['slots'])} ({rec['why']})")
     STATE.parent.mkdir(parents=True, exist_ok=True)
     STATE.write_text(json.dumps(out, indent=1), encoding="utf-8")
     if changed:

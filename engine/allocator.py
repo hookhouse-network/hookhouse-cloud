@@ -195,6 +195,11 @@ def build(log=print, conn=None, now: datetime | None = None, plan_items: list[di
                             **({"note": notes[c]} if c in notes else {})} for c in alloc}}
     from .core.atomic import write_json
     write_json(FILE, out)
+    from .experiments import record                           # P8: volume changes in the experiment log
+    for c in alloc:
+        was = (prev_ch.get(c) or {}).get("shorts_per_day")
+        if was is not None and int(was) != alloc[c]:
+            record("volume", c, f"{int(was)} -> {alloc[c]} Shorts a day" + (f" ({notes[c]})" if c in notes else ""))
     from .core import ledger
     ledger.event("allocation", data={"total": total, "reason": reason,
                                      "channels": {c: alloc[c] for c in alloc}})

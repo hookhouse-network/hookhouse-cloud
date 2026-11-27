@@ -210,6 +210,9 @@ def run_all(channel_ids: list[str], now: float | None = None, db: Path | None = 
     for d in out:
         st = state.setdefault(d["channel"], {"kept": [], "history": []})
         st["days"] = (st.get("days", []) + [{"day": day, "change": d["change"], "why": d["why"]}])[-30:]
+        if d["change"] and "verdict" not in d:            # P8: a new writer-rule experiment in the experiment log
+            from .experiments import record
+            record("rule", d["channel"], f"{d['signal']}: {RULES.get(d['signal'], '')}", now=now, db=db)
     _save(state)
     log(f"scorecard: {sum(d['change'] for d in out)} change(s), {sum(not d['change'] for d in out)} reasoned no-change")
     return out
