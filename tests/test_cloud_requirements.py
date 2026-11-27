@@ -18,6 +18,9 @@ PC_ONLY = {
     "parler_tts": "optional local voice, PC only, guarded import",
     "torch": "installed by the workflow from the CPU index before the requirements",
     "dotenv": "PC .env loading; the cloud gets the environment from secrets",
+    "starlette": "Control Center (engine/console), runs on the owner's PC only",
+    "uvicorn": "Control Center (engine/console), runs on the owner's PC only",
+    "jinja2": "Control Center (engine/console), runs on the owner's PC only",
     "gradio_client": "listed with a version pin",
     "huggingface_hub": "listed with a version pin",
 }

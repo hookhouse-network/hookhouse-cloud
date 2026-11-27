@@ -573,11 +573,47 @@ def open_dashboard() -> str:
     except Exception as _swallowed:  # noqa: BLE001 - the dashboard opens either way
         noted("pc_fallback.py:569", _swallowed)
         pass
+    if console_up() or start_console():           # 27 Nov (P2b): the icon opens the Control Center; its button
+        webbrowser.open(CONSOLE_URL)              # opens the cloud dashboard for approvals
+        return started + "Control Center opened in your browser."
     link = dash_link()
     if not link:
         return started + "No DASH_KEY in .env: ask Claude to set up the dashboard key."
     webbrowser.open(link)
     return started + "Dashboard opened in your browser."
+
+
+CONSOLE_URL = "http://127.0.0.1:8765"
+
+
+def console_up(timeout: float = 1.5) -> bool:
+    """Is the Control Center answering on this PC?"""
+    import urllib.request
+    try:
+        with urllib.request.urlopen(CONSOLE_URL + "/queue", timeout=timeout) as r:
+            return r.status == 200
+    except OSError:
+        return False
+
+
+def start_console(wait_s: float = 12.0) -> bool:
+    """Start the Control Center hidden (no window) and wait until it answers."""
+    import subprocess
+    import sys
+    import time
+    try:
+        logf = open(ROOT / "data" / "logs" / "console.log", "a", encoding="utf-8")   # noqa: SIM115 - child owns it
+        subprocess.Popen([sys.executable, "-m", "engine.console.app"], cwd=str(ROOT), stdout=logf,
+                         stderr=subprocess.STDOUT, creationflags=0x08000000)
+    except OSError as e:
+        print(f"console did not start: {e}")
+        return False
+    end = time.time() + wait_s
+    while time.time() < end:
+        if console_up(timeout=1.0):
+            return True
+        time.sleep(0.5)
+    return False
 
 
 def new_dash_key() -> str:

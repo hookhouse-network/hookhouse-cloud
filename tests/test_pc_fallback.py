@@ -196,6 +196,8 @@ def test_open_dashboard_starts_the_system_only_when_needed(monkeypatch, tmp_path
         stdout = "PC video maker started (hidden)."
     monkeypatch.setattr("subprocess.run", lambda *a, **k: makers.append(a) or Done())
     monkeypatch.setattr("engine.cleanup.due_on_pc", lambda: False)
+    monkeypatch.setattr(pf, "console_up", lambda timeout=1.5: False)    # 27 Nov: the Control Center is not running
+    monkeypatch.setattr(pf, "start_console", lambda wait_s=12.0: False)  # and does not start: the cloud dashboard
     monkeypatch.setattr(pf, "standin_running", lambda port=47615: True)
     assert pf.open_dashboard() == "Dashboard opened in your browser." and not started
     monkeypatch.setattr(pf, "standin_running", lambda port=47615: False)
@@ -205,3 +207,14 @@ def test_open_dashboard_starts_the_system_only_when_needed(monkeypatch, tmp_path
     msg = pf.open_dashboard()
     assert len(started) == 1 and len(opened) == 3        # after the handover: the stand-in is never restarted
     assert len(makers) == 1 and "Video maker started" in msg
+
+
+def test_the_icon_opens_the_control_center_when_it_answers(monkeypatch, tmp_path):
+    """27 Nov (P2b): the desktop icon opens the Control Center (its button leads to the cloud dashboard)."""
+    monkeypatch.setattr(pf, "HANDED_FILE", tmp_path / "missing.txt")
+    monkeypatch.setattr(pf, "standin_running", lambda port=47615: True)
+    monkeypatch.setattr("engine.cleanup.due_on_pc", lambda: False)
+    opened = []
+    monkeypatch.setattr("webbrowser.open", lambda u: opened.append(u))
+    monkeypatch.setattr(pf, "console_up", lambda timeout=1.5: True)
+    assert pf.open_dashboard() == "Control Center opened in your browser." and opened == [pf.CONSOLE_URL]
