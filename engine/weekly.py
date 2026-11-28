@@ -975,10 +975,27 @@ def _ck_path(item: dict) -> Path:
     return CHECKPOINTS / f"{re.sub(r'[^A-Za-z0-9_.-]', '_', str(item.get('id') or 'item'))}.json"
 
 
+def _read_checkpoint(item: dict) -> dict | None:
+    p = _ck_path(item)
+    if not p.exists():
+        return None
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        noted("weekly.checkpoint_read", e)
+        return None
+
+
 def save_checkpoint(item: dict, script: dict) -> None:
     CHECKPOINTS.mkdir(parents=True, exist_ok=True)
     rec = {"at": time.time(), "item": {k: item.get(k) for k in CK_FIELDS},
            "note": item.get("note"), "gate_note": item.get("gate_note"), "script": script}
+    # 28 Nov: a resumed try saves the SAME script again; keep its resume count (it was reset to 0, so a script that
+    # kept failing was resumed for ever instead of written fresh on the third try)
+    old = _read_checkpoint(item)
+    if old and json.dumps(old.get("script"), sort_keys=True, default=str) == \
+            json.dumps(script, sort_keys=True, default=str):
+        rec["resumed"], rec["at"] = int(old.get("resumed") or 0), float(old.get("at") or rec["at"])
     _ck_path(item).write_text(json.dumps(rec, ensure_ascii=False, default=str), encoding="utf-8")
 
 

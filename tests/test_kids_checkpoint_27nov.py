@@ -78,3 +78,19 @@ def test_a_footage_transcript_is_kept_for_the_next_try(monkeypatch, tmp_path):
     assert got and got[0].text == "hello" and got[0].start == 1.0
     assert clips.kept_words("kick:abc", "whole", 900.0) is None        # another length: transcribed fresh
     assert clips.kept_words("kick:abc", "hotspots7", 600.0) is None    # another way of transcribing
+
+
+def test_saving_the_same_script_again_keeps_the_resume_count(monkeypatch, tmp_path):
+    """28 Nov: the story maker re-saves the resumed script; that reset the count, so a script whose charts kept
+    failing (Cosmos, 3 tries) was resumed for ever instead of written fresh on the third try."""
+    from engine import weekly
+    monkeypatch.setattr(weekly, "CHECKPOINTS", tmp_path)
+    item = {"id": "1122_0500_cosmos_unboxed_short", "channel": "cosmos_unboxed"}
+    weekly.save_checkpoint(item, {"beats": [1]})
+    assert weekly.checkpoint(item)
+    weekly.save_checkpoint(item, {"beats": [1]})          # the resumed try saves it again
+    assert weekly.checkpoint(item)
+    weekly.save_checkpoint(item, {"beats": [1]})
+    assert weekly.checkpoint(item) is None                 # third try: a fresh script
+    weekly.save_checkpoint(item, {"beats": [2]})           # a new script starts its own count
+    assert weekly.checkpoint(item)
