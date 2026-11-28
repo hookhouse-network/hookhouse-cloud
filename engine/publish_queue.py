@@ -314,7 +314,8 @@ def _settle(start, it, acts, new_done, dead, waits, led, log, notify) -> None:
                 share_packs.send_now(it, log)
             except Exception as e:  # noqa: BLE001
                 log(f"share now: {e}")
-        notify(f"📤 Posted {it['channel_name']}: {it.get('topic') or ''}\n" + "\n".join(lines))
+        autopilot.video_update(item_id, f"📤 Posted {it['channel_name']}: {it.get('topic') or ''}\n"   # P10: the
+                               + "\n".join(lines))                       # video's own message, edited in place
         log(f"Posted {item_id}: {lines}")
         return
     if it.get("status") == "posted":                         # a later platform: quiet unless it gave up
@@ -332,8 +333,8 @@ def _settle(start, it, acts, new_done, dead, waits, led, log, notify) -> None:
             return
         autopilot._update_state(lambda st: st.setdefault("posted", {}).__setitem__(item_id, time.time()))
         reasons = [f"{p.title()}: {why[:120]}" for p, why in dead]
-        notify(f"ℹ️ Nothing posted for {it['channel_name']}: {it.get('topic') or ''}" +
-               ("\n" + "\n".join(reasons) if reasons else ""))
+        autopilot.video_update(item_id, f"ℹ️ Nothing posted for {it['channel_name']}: {it.get('topic') or ''}" +
+                               ("\n" + "\n".join(reasons) if reasons else ""))
         return
     soon = min(j["run_after"] for j in pending)               # mirrors for the Studio / old readers
     tries = max([j["attempts"] for j in pending] + [0])

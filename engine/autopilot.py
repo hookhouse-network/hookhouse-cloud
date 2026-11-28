@@ -409,11 +409,51 @@ def _auto_approved(start: str, it: dict, tok: str, tb) -> bool:
     from .core import ledger
     ledger.event("auto_approved", item=it["id"], channel=it.get("channel") or "", data={"why": why})
     kb = {"inline_keyboard": [[{"text": "❌ Stop it", "callback_data": f"rj:{tok}"}]]}
-    msg = tb.send(f"🤖 Auto-approved (every gate passed, quality 100/100; {why}).\n{approval_text(fresh, False)}\n"
-                  f"{reply}\nTap ❌ Stop it to cancel before it posts.", reply_markup=kb)
+    text = (f"🤖 Auto-approved (every gate passed, quality 100/100; {why}).\n{approval_text(fresh, False)}\n"
+            f"{reply}\nTap ❌ Stop it to cancel before it posts.")
+    msg = tb.send(text, reply_markup=kb)
     remember_buttons(it["id"], msg)
+    video_message(it["id"], text, msg)
     _update_state(lambda s: s.setdefault("asked", {}).__setitem__(it["id"], time.time()))
     return True
+
+
+# ---------------- one message per video (P10, 28 Nov): later news edits the same message --------------------------
+VIDEO_MSG_KEEP_S = 3 * 86400
+
+
+def video_message(item_id: str, text: str, msg) -> None:
+    """Remember the video's Telegram message (id + text), so 'Posted' / 'Not posted' edit it instead of a new one."""
+    mid = (msg or {}).get("message_id") if isinstance(msg, dict) else None
+    if not mid:
+        return
+
+    def put(s):
+        vm = s.setdefault("video_msgs", {})
+        vm[item_id] = {"id": mid, "text": text[:3800], "at": time.time()}
+        for k in [k for k, v in vm.items() if time.time() - float(v.get("at") or 0) > VIDEO_MSG_KEEP_S]:
+            vm.pop(k, None)
+    _update_state(put)
+
+
+def video_update(item_id: str, line: str) -> bool:
+    """Add a status line to the video's message (its buttons end: the video is posted or settled). Falls back to a
+    new alert when there is no message to edit. True when the message was edited."""
+    from . import telegram_bot as tb
+    rec = (_load().get("video_msgs") or {}).get(item_id)
+    if rec and time.time() - float(rec.get("at") or 0) <= VIDEO_MSG_KEEP_S:
+        text = f"{rec.get('text', '')}\n\n{line}"[:4096]
+        try:
+            tb.api("editMessageText", chat_id=tb._chat(), message_id=rec["id"], text=text,
+                   disable_web_page_preview=True, reply_markup={"inline_keyboard": []})
+            _update_state(lambda s: s.setdefault("video_msgs", {}).setdefault(item_id, {}).update(
+                text=text[:3800], at=time.time()))
+            return True
+        except Exception as e:  # noqa: BLE001 - an old or deleted message: a new alert instead
+            from .core.quiet import noted
+            noted("autopilot.video_update", e)
+    tb.notify(line)
+    return False
 
 
 # ---------------- buttons work once (owner 17 Nov: reminders repeat the buttons; taps on old copies confused) -------
