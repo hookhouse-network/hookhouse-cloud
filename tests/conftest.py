@@ -44,6 +44,10 @@ def _no_real_clip_records(monkeypatch, tmp_path):
     monkeypatch.setattr(ct, "FORMATS_FILE", tmp_path / "snack_formats_test.json")
     import engine.owner_settings as owner_set       # 28 Nov: nor the owner's switches (a test could turn one off)
     monkeypatch.setattr(owner_set, "STATE", tmp_path / "owner_settings_test.json")
+    import engine.mail_watch as mail_w              # 28 Nov: never the real inbox (the HookHouse Chrome runs on the PC)
+    monkeypatch.setattr(mail_w, "SEEN", tmp_path / "mail_seen_test.json")
+    monkeypatch.setattr(mail_w, "STATE", tmp_path / "mail_watch_test.txt")
+    monkeypatch.setattr(mail_w, "read_inbox", lambda days=2, port=9333: [])
 
 
 @pytest.fixture(autouse=True)

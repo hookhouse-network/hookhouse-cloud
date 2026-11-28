@@ -864,6 +864,22 @@ def _daily_pins(log=_log, per_day: int = 2) -> int:
     return sum(1 for x in out if x.startswith("pinned"))
 
 
+def _daily_mail_watch(log=_log) -> int:
+    """Once a day while the HookHouse Chrome is open (owner 28 Nov: warning mails sat unread): report new
+    restriction / failure / policy mails in Telegram (engine/mail_watch.py; reads the inbox list only)."""
+    import urllib.request
+    try:
+        urllib.request.urlopen("http://127.0.0.1:9333/json/version", timeout=3).read()
+    except OSError:
+        return 0
+    from .. import mail_watch
+    try:
+        return mail_watch.run(log=log)
+    except Exception as e:  # noqa: BLE001 - the mail check never stops video making
+        log(f"mail watch: {type(e).__name__}: {str(e)[:120]}")
+        return 0
+
+
 BOOKS_STATE = ROOT / "data" / "state" / "books_job.txt"
 
 
@@ -968,6 +984,7 @@ def helper(once: bool = False, every_s: int = 300, log=_log, videos_only: bool =
                 _daily_pins(log)                           # Pinterest needs the signed-in PC browser
         except Exception as e:  # noqa: BLE001 - marketing never stops video making
             log(f"pins: {e}")
+        _daily_mail_watch(log)                             # 28 Nov: warning mails to Telegram (also videos-only)
         if not videos_only:
             try:
                 _books_job(log)                            # KDP needs the signed-in PC browser too
