@@ -19,7 +19,7 @@ def test_every_screen_renders_and_degrades(monkeypatch):
     monkeypatch.setattr(console, "_dash", lambda: "https://example.invalid/d")
     c = TestClient(console.app)
     home = c.get("/")
-    assert home.status_code == 200 and "Degraded: shared queue unreachable" in home.text and "Waiting approval" in home.text
+    assert home.status_code == 200 and "can't be reached right now" in home.text and "Waiting approval" in home.text
     pipe = c.get("/pipeline")
     assert pipe.status_code == 200 and "&lt;b&gt;X&lt;/b&gt;" in pipe.text and "<b>X</b>" not in pipe.text   # escaped
     assert "potential: hook 5" in c.get("/gates").text
@@ -121,3 +121,18 @@ def test_queue_screen_has_no_internal_ids(monkeypatch):
     t = TestClient(console.app).get("/queue").text
     assert "26 Nov 05:00 Short" in t and "Facebook" in t and "/retry" in t
     assert "post:1126" not in t and "1795609527" not in t
+
+
+def test_accessibility_basics_and_friendly_failures(monkeypatch):
+    monkeypatch.setattr(console, "_dash", lambda: "")
+    monkeypatch.setattr(console, "_sched", lambda: ({}, "shared queue unreachable (ConnectionError)"))
+    monkeypatch.setattr(autopilot, "items", lambda back=3, ahead=9: [])
+    c = TestClient(console.app, raise_server_exceptions=False)
+    home = c.get("/").text
+    assert '<html lang="en">' in home and 'aria-label="Control Center screens"' in home and 'aria-current="page"' in home
+    assert 'role="alert"' in home and "can't be reached right now" in home
+    assert "ConnectionError" not in home.split("<main>", 1)[1]           # the raw detail stays in the tooltip
+    from engine import budgets
+    monkeypatch.setattr(budgets, "summary", lambda: (_ for _ in ()).throw(RuntimeError("boom")))
+    r = c.get("/budgets")
+    assert r.status_code == 500 and "couldn't load just now" in r.text and "boom" not in r.text

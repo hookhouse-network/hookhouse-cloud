@@ -18,7 +18,7 @@ from starlette.routing import Route
 from ..config import ROOT
 
 ENV = Environment(autoescape=True)
-PAGE = ENV.from_string("""<!doctype html><html><head><meta charset="utf-8"><meta name="viewport"
+PAGE = ENV.from_string("""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport"
 content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="30"><title>HookHouse · {{ title }}</title>
 <style>body{font:15px/1.45 system-ui,sans-serif;margin:0;background:#0f1115;color:#e8e8ea}
 nav{display:flex;gap:4px;padding:10px 14px;background:#171a21;flex-wrap:wrap}nav a{color:#cfd3dc;text-decoration:none;
@@ -29,9 +29,12 @@ border-collapse:collapse;margin-top:8px}td,th{padding:6px 8px;border-bottom:1px 
 vertical-align:top}.banner{background:#5a3b10;color:#ffd79a;padding:8px 14px}.ok{color:#7ddc8f}.bad{color:#ff8a80}
 pre{background:#0a0c10;padding:10px;border-radius:8px;overflow:auto;font-size:12px;max-height:380px}
 a.btn{display:inline-block;background:#3d6df2;color:#fff;padding:7px 14px;border-radius:8px;text-decoration:none}
-</style></head><body><nav>{% for href, name in tabs %}<a href="{{ href }}" class="{{ 'on' if name == title else '' }}">
-{{ name }}</a>{% endfor %}{% if dash %}<a class="btn" href="{{ dash }}" target="_blank">Approve / act (cloud)</a>
-{% endif %}</nav>{% if degraded %}<div class="banner">Degraded: {{ degraded }} (showing the PC's last copy)</div>
+a:focus-visible,button:focus-visible,summary:focus-visible{outline:3px solid #8fb3ff;outline-offset:2px}
+</style></head><body><nav aria-label="Control Center screens">{% for href, name in tabs %}<a href="{{ href }}"
+class="{{ 'on' if name == title else '' }}"{% if name == title %} aria-current="page"{% endif %}>{{ name }}</a>
+{% endfor %}{% if dash %}<a class="btn" href="{{ dash }}" target="_blank" rel="noopener">Approve / act (cloud)</a>
+{% endif %}</nav>{% if degraded %}<div class="banner" role="alert" title="{{ degraded }}">
+Some live information can't be reached right now, so this page shows the PC's last copy. Nothing needs doing unless it lasts for hours.</div>
 {% endif %}<main>{{ body|safe }}<p class="muted">Updated {{ now }} · refreshes every 30 s · read-only</p></main>
 </body></html>""")
 TABS = [("/", "Home"), ("/pipeline", "Pipeline"), ("/gates", "Gates"), ("/queue", "Queue")]
@@ -446,7 +449,18 @@ TABS.append(("/growth", "Growth"))
 TABS.append(("/products", "Products"))
 TABS.append(("/settings", "Settings"))
 TABS.append(("/help", "Help"))
-app = Starlette(routes=[Route("/", home), Route("/pipeline", pipeline), Route("/gates", gates),
+async def friendly_error(request, exc):
+    """P10 design pass: a screen that fails shows plain words, never a raw error page (the detail goes to the log)."""
+    from ..core.quiet import noted
+    noted(f"console:{request.url.path}", exc)
+    body = ("<p>This screen couldn't load just now. The rest of the Control Center still works; try again in a "
+            "minute. If it keeps happening, tell Claude which screen it was.</p>")
+    resp = _page("Error", body)
+    resp.status_code = 500
+    return resp
+
+
+app = Starlette(exception_handlers={500: friendly_error, Exception: friendly_error}, routes=[Route("/", home), Route("/pipeline", pipeline), Route("/gates", gates),
                         Route("/queue", queue), Route("/workers", workers), Route("/budgets", budgets_page),
                         Route("/calendar", calendar), Route("/money", money), Route("/help", help_page),
                         Route("/growth", growth), Route("/products", products), Route("/settings", settings_page),
