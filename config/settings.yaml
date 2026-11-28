@@ -31,7 +31,8 @@ legend_check: {enabled: true, channels: []}
 
 # P3r characters (owner 21 Nov: "introduce some humans"): human friends (config/characters.yaml) join the kids Shorts
 # where their faces can be made (DiceBear + browser, the PC). Set false for the toon friends only.
-kids_puppets: true
+kids_toddlers: true          # owner 28 Nov ("like CoComelon", bright cartoon): our own drawn toddler cast (engine/media/toddler.py) as the human friends; false = toon friends only
+kids_puppets: false          # owner 28 Nov: the DiceBear "friends" looked like stiff, creepy dolls; off until the new CoComelon-style original cast replaces them
 
 # AI pictures (Cloudflare FLUX.1-schnell, free 10,000 neurons/day). 23 Nov, from Cloudflare's own usage records: the
 # step price is charged PER TILE, so a 1024x1024 picture costs 4 tiles x (4.8 + steps x 9.6): 4 steps = 172.8 neurons

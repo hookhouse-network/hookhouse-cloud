@@ -10,6 +10,17 @@ from engine import kids
 from engine.media import characters, puppet
 
 
+@pytest.fixture(autouse=True)
+def _dicebear_friends(monkeypatch):
+    """These tests cover the DiceBear puppet path; since 28 Nov the live config uses our toddlers instead
+    (kids_toddlers), so the friends are rebuilt here with the toddlers switched off (never the live setting)."""
+    monkeypatch.setattr(kids, "toddlers_on", lambda: False)
+    humans = kids._humans()
+    monkeypatch.setattr(kids, "HUMANS", humans)
+    monkeypatch.setattr(kids, "GUESTS", {k: v for k, v in kids.GUESTS.items()
+                                         if not str(v[1]).startswith("toddler:")} | humans)
+
+
 def _fake_files(tmp_path):
     def files(cid, states, height):
         out = {}

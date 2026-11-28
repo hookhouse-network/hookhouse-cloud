@@ -86,9 +86,24 @@ GUESTS = {"Kiki": ("#B9A7F2", "pointy", 400, "bf_isabella", 0),
 FRIENDS = ["Pip", "Mo", "Dee", "Kiki", "Hop", "Zip"]
 
 
+def toddlers_on() -> bool:
+    """Owner 28 Nov ("totally change the animations ... like CoComelon", bright cartoon look): our own toddler cast
+    (engine/media/toddler.py) replaces the DiceBear dolls. Pure code: no browser or DiceBear needed."""
+    try:
+        from .config import settings
+        return bool(settings().get("kids_toddlers", False))
+    except Exception as e:  # noqa: BLE001
+        print(f"kids: toddlers off ({type(e).__name__}: {e})")
+        return False
+
+
 def _humans() -> dict:
-    """Human friends (owner 21 Nov: "instead of just shapes, we can introduce some humans"): puppets with DiceBear Toon
-    Head faces (CC BY 4.0, credited) on bodies our own code draws (engine/media/puppet.py); config/characters.yaml."""
+    """Human friends (owner 21 Nov: "instead of just shapes, we can introduce some humans"). Since 28 Nov our own
+    CoComelon-style toddlers (kids_toddlers); before, puppets with DiceBear Toon Head faces (CC BY 4.0, credited) on
+    bodies our own code draws (engine/media/puppet.py; config/characters.yaml)."""
+    if toddlers_on():
+        from .media.toddler import TODDLERS
+        return {t["name"]: ("#" + t["top"], f"toddler:{cid}", 560, t["voice"], 0) for cid, t in TODDLERS.items()}
     try:
         from .media import characters
         # size 520 (21 Nov live render: at 430 Mia read as a background extra next to Bloop's 440 blob)
@@ -106,6 +121,8 @@ GUESTS.update(HUMANS)
 
 def puppets_on() -> bool:
     """Human puppets need DiceBear + a browser on this machine (the PC) and the settings switch kids_puppets."""
+    if toddlers_on():
+        return bool(HUMANS)                      # our own drawn toddlers: always available
     try:
         from .config import settings
         from .media import characters
@@ -127,8 +144,14 @@ def friends() -> list[str]:
 
 
 def is_puppet(name: str) -> bool:
+    """A human friend with arms (waves, claps, cheers, points): a DiceBear puppet or one of our toddlers."""
     spec = {**_BASE_CAST, **GUESTS}.get(name)
-    return bool(spec) and str(spec[1]).startswith("puppet:")
+    return bool(spec) and str(spec[1]).startswith(("puppet:", "toddler:"))
+
+
+def needs_credit(name: str) -> bool:
+    spec = {**_BASE_CAST, **GUESTS}.get(name)
+    return bool(spec) and str(spec[1]).startswith("puppet:")    # DiceBear faces (CC BY 4.0); toddlers are ours
 
 
 def puppet_action(cur: dict | None, name: str, kind: str, age: float, tt: float, count_until: float | None) -> str | None:
@@ -1104,7 +1127,10 @@ def make_cast(seed: int = 0) -> dict:
     """The drawn cast for this layout: toon Mascots, and Puppets for the human friends (puppet:<id>)."""
     cast = {}
     for k, (name, (col, shape, sz, _v, _x)) in enumerate(CAST.items()):
-        if str(shape).startswith("puppet:"):
+        if str(shape).startswith("toddler:"):
+            from .media.toddler import Toddler
+            cast[name] = Toddler(str(shape).split(":", 1)[1], size=sz, seed=seed + k)
+        elif str(shape).startswith("puppet:"):
             from .media.puppet import Puppet
             cast[name] = Puppet(str(shape).split(":", 1)[1], size=sz, seed=seed)
         else:
@@ -1114,7 +1140,7 @@ def make_cast(seed: int = 0) -> dict:
 
 def credits_line(names) -> str:
     """CC BY 4.0 credit when a human friend (Toon Head face) is on screen."""
-    if not any(is_puppet(n) for n in names or ()):
+    if not any(needs_credit(n) for n in names or ()):
         return ""
     try:
         from .media import characters
