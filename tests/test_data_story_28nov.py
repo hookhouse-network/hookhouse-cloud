@@ -66,3 +66,15 @@ def test_digits_inside_a_spoken_name_are_part_of_the_name():
     ok, _ = hs.check_chart(chart, "Stephenson 2-18 is about 50 times wider than the Sun.")
     assert ok
     assert hs.check_chart(chart, "This giant is about 50 times wider than the Sun.")[0] is None   # name not said
+
+
+def test_numbers_said_in_words_count_as_said():
+    from engine.media import html_scene as hs
+    s = hs._spoken("Mount Everest rises five and a half miles; the blast was fifteen kilotons, "
+                   "about three thousand metres down, twenty-one times, two point five billion years.")
+    for n in (5.5, 15, 3000, 21, 2.5e9):
+        assert n in s, n
+    chart = {"type": "compare", "items": [{"label": "Hiroshima", "value": 15, "text": "15 kilotons"},
+                                          {"label": "Tsar Bomba", "value": 50000, "text": "50,000 kilotons"}]}
+    assert hs.check_chart(chart, "Hiroshima was fifteen kilotons; Tsar Bomba fifty thousand.")[0]
+    assert hs.check_chart(chart, "Hiroshima was big; Tsar Bomba was bigger.")[0] is None

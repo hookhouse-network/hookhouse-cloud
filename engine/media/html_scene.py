@@ -118,9 +118,58 @@ def _name_said(label: str, narration: str) -> bool:
     return bool(re.search(r"\d", lab)) and lab in re.sub(r"\s+", " ", (narration or "").lower())
 
 
+_UNITS = {w: i for i, w in enumerate("zero one two three four five six seven eight nine ten eleven twelve thirteen "
+                                      "fourteen fifteen sixteen seventeen eighteen nineteen".split())}
+_TENS = {w: 10 * (i + 2) for i, w in enumerate("twenty thirty forty fifty sixty seventy eighty ninety".split())}
+_SCALES = {"hundred": 100, "thousand": 1_000, "million": 1_000_000, "billion": 1_000_000_000}
+
+
+def _word_runs(text: str) -> set[float]:
+    """Numbers said in words, incl. compounds: 'fifteen', 'three thousand', 'five and a half', 'two point five',
+    'twenty-one', '4.5 billion' (28 Nov: data-story charts showed 15 / 3,000 / 5.5 the narrator said in words)."""
+    toks = re.findall(r"[a-z]+|\d[\d,]*(?:\.\d+)?", (text or "").lower().replace("-", " "))
+    out: set[float] = set()
+    i = 0
+    while i < len(toks):
+        total, cur, used, j = 0.0, 0.0, False, i
+        while j < len(toks):
+            w = toks[j]
+            if w in _UNITS:
+                cur += _UNITS[w]
+            elif w in _TENS:
+                cur += _TENS[w]
+            elif w[0].isdigit() and not used:
+                cur += float(w.replace(",", ""))
+            elif w in _SCALES and used:
+                if w == "hundred":
+                    cur *= 100
+                else:
+                    total += (cur or 1) * _SCALES[w]
+                    cur = 0.0
+            elif w == "point" and used and j + 1 < len(toks) and toks[j + 1] in _UNITS:
+                cur += _UNITS[toks[j + 1]] / 10
+                j += 1
+            elif w == "and" and used and j + 2 < len(toks) and toks[j + 1] == "a" and toks[j + 2] == "half":
+                cur += 0.5
+                j += 2
+            elif w == "and" and used:
+                pass                                   # 'one hundred and five'
+            else:
+                break
+            used = True
+            j += 1
+        if used:
+            out.add(total + cur)
+            i = j
+        else:
+            i += 1
+    return out
+
+
 def _spoken(narration: str) -> set[float]:
     words = set(re.findall(r"[a-z]+", (narration or "").lower()))
-    return set(_numbers(narration)) | {v for w, v in WORD_NUMBERS.items() if w in words}
+    return (set(_numbers(narration)) | {v for w, v in WORD_NUMBERS.items() if w in words}
+            | _word_runs(narration))
 
 
 def check_chart(chart: dict | None, narration: str) -> tuple[dict | None, str]:
