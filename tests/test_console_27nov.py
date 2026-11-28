@@ -107,3 +107,17 @@ def test_settings_screen(monkeypatch):
                                                           "other": "off", "other_why": "waits for your tap"}])
     t = TestClient(console.app).get("/settings").text
     assert "Automatic approval" in t and "ON" in t and "/settings" in t
+
+
+def test_queue_screen_has_no_internal_ids(monkeypatch):
+    from engine.core import ledger
+
+    class Led:
+        def jobs(self, state=None, kind=None):
+            return [{"key": "post:1126_0500_unsolved_after_dark_short:1795609527:facebook", "state": "dead",
+                     "attempts": 5, "last_error": "Facebook refused the Reel: (#200) no permission"}]
+    monkeypatch.setattr(ledger, "default", lambda: Led())
+    monkeypatch.setattr(console, "_dash", lambda: "")
+    t = TestClient(console.app).get("/queue").text
+    assert "26 Nov 05:00 Short" in t and "Facebook" in t and "/retry" in t
+    assert "post:1126" not in t and "1795609527" not in t

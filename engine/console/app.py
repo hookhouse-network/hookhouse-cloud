@@ -89,7 +89,8 @@ ENV_BODY = {
 <div class="big">{{ v }}</div></div>{% endfor %}</div><h3>Publish queue</h3><p>{% for k, v in queue.items() %}
 {{ k }}: <b>{{ v }}</b> · {% endfor %}</p><h3>Workers</h3><p>{% for w in online %}<span class="ok">● {{ w.id }}
 ({{ w.kind }})</span> {% else %}<span class="muted">no worker online in the shared queue</span>{% endfor %}</p>
-<h3>PC video maker (live log)</h3><pre>{{ log }}</pre>"""),
+<details><summary class="muted" style="cursor:pointer">PC video maker: technical log (for Claude)</summary>
+<pre>{{ log }}</pre></details>"""),
     "pipeline": ENV.from_string("""<table><tr><th>Slot</th><th>Channel</th><th>Kind</th><th>Status</th><th>Topic</th></tr>
 {% for it in items %}<tr><td>{{ it.publish_at[5:16].replace('T', ' ') }}</td><td>{{ it.channel_name or it.channel }}</td>
 <td>{{ it.kind }}</td><td class="{{ 'ok' if it.status in ('posted', 'approved') else ('bad' if it.status in
@@ -97,10 +98,11 @@ ENV_BODY = {
     "gates": ENV.from_string("""{% for iid, v in held %}<div class="card" style="margin-bottom:8px"><b>{{ v.channel or ''
 }}</b> · {{ slot(iid) }}<div class="muted">{{ (v.problems or [''])[0][:400] }}</div></div>{% else %}<p class="ok">
 Nothing is held right now.</p>{% endfor %}"""),
-    "queue": ENV.from_string("""<table><tr><th>Job</th><th>State</th><th>Tries</th><th>Last error</th></tr>
-{% for j in jobs %}<tr><td>{{ j.key }}</td><td class="bad">{{ j.state }}</td><td>{{ j.attempts }}</td>
-<td>{{ (j.last_error or '')[:200] }}</td></tr>{% else %}<tr><td colspan="4" class="ok">No post gave up.</td></tr>
-{% endfor %}</table>"""),
+    "queue": ENV.from_string("""<table><tr><th>Video</th><th>Platform</th><th>Why it gave up</th></tr>
+{% for j in jobs %}<tr><td>{{ j.video }}</td><td>{{ j.platform }}</td><td class="bad">{{ j.why }}</td></tr>{% else %}
+<tr><td colspan="3" class="ok">No post gave up.</td></tr>{% endfor %}</table><p class="muted">Held by a gate: the
+video is remade automatically. A login or permission problem: fix it, then send <b>/retry</b> in Telegram and tap 🔁.
+</p>"""),
 }
 
 
@@ -139,7 +141,14 @@ async def queue(request):
         err = ""
     except Exception as e:  # noqa: BLE001 - degraded banner, never a crash page
         jobs, err = [], f"ledger unreadable ({type(e).__name__})"
-    return _page("Queue", ENV_BODY["queue"].render(jobs=jobs[-50:]), err)
+    from ..operator_brief import reason_of
+    rows = []
+    for j in jobs[-50:]:
+        parts = str(j.get("key") or "").split(":")             # post:<item>:<version>:<platform>
+        plat = parts[-1] if len(parts) >= 4 else ""
+        rows.append({"video": slot_label(parts[1]) if len(parts) >= 4 else "a video", "platform": plat.title(),
+                     "why": reason_of(str(j.get("last_error") or "unknown"), plat)})
+    return _page("Queue", ENV_BODY["queue"].render(jobs=rows), err)
 
 
 WORKERS = ENV.from_string("""<div class="cards"><div class="card"><div class="muted">PC video maker</div>
