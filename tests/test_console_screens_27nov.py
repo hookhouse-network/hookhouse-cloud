@@ -58,7 +58,7 @@ def test_every_screen_fits_phone_and_desktop(server, tmp_path):
         try:
             for size, (w, h) in SIZES.items():
                 page = browser.new_page(viewport={"width": w, "height": h})
-                for path in ("/", "/pipeline", "/gates", "/queue", "/workers", "/budgets", "/calendar", "/money", "/help"):
+                for path in ("/", "/pipeline", "/gates", "/queue", "/workers", "/budgets", "/calendar", "/money", "/help", "/growth", "/products"):
                     page.goto(server + path)
                     over = page.evaluate("document.documentElement.scrollWidth - window.innerWidth")
                     page.screenshot(path=str(tmp_path / f"{size}{path.replace('/', '_') or '_home'}.png"),

@@ -290,6 +290,80 @@ async def calendar(request):
     return _page("Calendar", CALENDAR.render(days=list(days.items()), states=STATES))
 
 
+GROWTH = ENV.from_string("""<table><tr><th>Channel</th>{% for w in weeks %}<th>{{ w }}</th>{% endfor %}<th>Trend</th></tr>
+{% for r in rows %}<tr><td>{{ r.name }}</td>{% for v in r.views %}<td>{{ '{:,.0f}'.format(v) }}</td>{% endfor %}
+<td class="{{ 'ok' if r.trend > 0 else ('bad' if r.trend < 0 else 'muted') }}">{{ '▲' if r.trend > 0 else ('▼' if r.trend
+< 0 else '–') }}</td></tr>{% else %}<tr><td colspan="6" class="muted">no measured videos yet</td></tr>{% endfor %}
+</table><p class="muted">Views of the videos posted in each week (newest week on the right), all platforms.</p>""")
+
+PRODUCTS = ENV.from_string("""<h3>Store products ({{ products|length }})</h3><table><tr><th>Product</th><th>Price</th>
+<th>Store</th></tr>{% for p in products %}<tr><td>{{ p.title }}</td><td>{{ p.price }}</td><td>{% if p.url %}<a
+href="{{ p.url }}" target="_blank" style="color:#8fb3ff">open</a>{% else %}<span class="muted">draft</span>{% endif %}
+</td></tr>{% else %}<tr><td colspan="3" class="muted">no products listed yet</td></tr>{% endfor %}</table>
+<h3>Campaigns</h3><div class="cards">{% for k, v in camps %}<div class="card"><div class="muted">{{ k }}</div>
+<div class="big">{{ v }}</div></div>{% endfor %}</div><p class="muted">Joined campaigns get clips made from their
+footage; ticked ones wait for your ✅ Confirm in Telegram (the system checks footage and joins).</p>""")
+CAMP_LABELS = [("joined", "Joined"), ("picked", "Ticked, not joined"), ("eligible", "Found, fits us"),
+               ("review", "Being checked"), ("ended", "Ended")]
+
+
+def _weekly_views(weeks: int = 4) -> tuple[list[str], list[dict]]:
+    import sqlite3
+    now = time.time()
+    labels = [datetime.fromtimestamp(now - (weeks - i) * 7 * 86400).strftime("%d %b") for i in range(weeks)]
+    per: dict[str, list[float]] = {}
+    try:
+        c = sqlite3.connect(str(ROOT / "data" / "analytics.db"))
+        rows = c.execute("SELECT channel, posted_at, MAX(views) FROM video_metrics WHERE posted_at >= ? "
+                         "GROUP BY channel, item_id, platform", (now - weeks * 7 * 86400,)).fetchall()
+        c.close()
+    except sqlite3.Error as e:
+        from ..core.quiet import noted
+        noted("console:growth", e)
+        rows = []
+    for ch, at, v in rows:
+        i = min(weeks - 1, max(0, int((float(at or now) - (now - weeks * 7 * 86400)) // (7 * 86400))))
+        per.setdefault(ch, [0.0] * weeks)[i] += float(v or 0)
+    names = {}
+    try:
+        from ..config import channels
+        names = {c["id"]: c.get("name") or c["id"] for c in channels()}
+    except Exception as e:  # noqa: BLE001
+        from ..core.quiet import noted
+        noted("console:growth_names", e)
+    out = [{"name": names.get(ch, ch), "views": v, "trend": (v[-1] > v[-2]) - (v[-1] < v[-2]) if weeks > 1 else 0}
+           for ch, v in per.items()]
+    return labels, sorted(out, key=lambda r: -sum(r["views"]))
+
+
+async def growth(request):
+    weeks, rows = _weekly_views()
+    return _page("Growth", GROWTH.render(weeks=weeks, rows=rows))
+
+
+async def products(request):
+    err = ""
+    try:
+        from ..store_publish import listed
+        items = []
+        for pid, stores in listed().items():
+            p = (stores or {}).get("payhip") or next(iter((stores or {}).values()), {})
+            price = p.get("price_usd")
+            items.append({"title": str(p.get("title") or pid)[:80], "price": f"${price:g}" if price else "",
+                          "url": p.get("public") or ""})
+    except Exception as e:  # noqa: BLE001 - degraded, never a crash page
+        items, err = [], f"store list unreadable ({type(e).__name__})"
+    camps = []
+    try:
+        from collections import Counter
+        from .. import db
+        n = Counter(c.get("status") for c in db.list_campaigns(db.connect()))
+        camps = [(label, n.get(k, 0)) for k, label in CAMP_LABELS]
+    except Exception as e:  # noqa: BLE001
+        err = err or f"campaigns unreadable ({type(e).__name__})"
+    return _page("Products", PRODUCTS.render(products=sorted(items, key=lambda x: x["title"]), camps=camps), err)
+
+
 def md_html(text: str) -> str:
     """The owner guide's small markdown (headings, bullets, bold, `code`, tables) as safe HTML (escaped first)."""
     import html
@@ -351,10 +425,13 @@ TABS.append(("/workers", "Workers"))
 TABS.append(("/budgets", "Budgets"))
 TABS.append(("/calendar", "Calendar"))
 TABS.append(("/money", "Money"))
+TABS.append(("/growth", "Growth"))
+TABS.append(("/products", "Products"))
 TABS.append(("/help", "Help"))
 app = Starlette(routes=[Route("/", home), Route("/pipeline", pipeline), Route("/gates", gates),
                         Route("/queue", queue), Route("/workers", workers), Route("/budgets", budgets_page),
                         Route("/calendar", calendar), Route("/money", money), Route("/help", help_page),
+                        Route("/growth", growth), Route("/products", products),
                         Route("/workers/{what:str}", set_pause, methods=["POST"])])
 
 

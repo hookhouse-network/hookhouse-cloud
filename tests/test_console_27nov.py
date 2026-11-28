@@ -81,3 +81,19 @@ def test_help_screen_shows_the_guide_safely(monkeypatch):
     out = console.md_html("- a **b** <script>x</script>\n  more\n\n| A | B |\n|---|---|\n| 1 | 2 |")
     assert "&lt;script&gt;" in out and "<script>" not in out and "<li>a <b>b</b>" in out and "more</li>" in out
     assert "<td>1</td>" in out
+
+
+def test_growth_and_products_screens(monkeypatch):
+    monkeypatch.setattr(console, "_dash", lambda: "")
+    monkeypatch.setattr(console, "_weekly_views", lambda weeks=4: (["01 Nov", "08 Nov", "15 Nov", "22 Nov"], [
+        {"name": "Brain Snack", "views": [100.0, 200.0, 300.0, 21361.0], "trend": 1}]))
+    from engine import store_publish, db
+    monkeypatch.setattr(store_publish, "listed", lambda: {"p1": {"payhip": {"title": "Debt Planner", "price_usd": 4.0,
+                                                                            "public": "https://payhip.com/b/x"}}})
+    monkeypatch.setattr(db, "connect", lambda *a, **k: None)
+    monkeypatch.setattr(db, "list_campaigns", lambda conn, status=None: [{"status": "joined"}, {"status": "picked"}])
+    c = TestClient(console.app)
+    g = c.get("/growth").text
+    assert "Brain Snack" in g and "21,361" in g and "▲" in g
+    p = c.get("/products").text
+    assert "Debt Planner" in p and "$4" in p and "Ticked, not joined" in p
