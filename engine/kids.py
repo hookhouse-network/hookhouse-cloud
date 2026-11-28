@@ -653,7 +653,48 @@ def scene_plate(scene: str, rng) -> tuple[np.ndarray, dict]:
     extras["dy"], extras["cloud_dy"] = DY, 0                              # clouds stay in the top sky
     if scene == "room":
         extras["bunting"] = -320                                          # the free wall above the window and shelf
+    _foreground(img, scene, DY + sub.shape[0], rng)
     return img, extras
+
+
+def _foreground(img: np.ndarray, scene: str, y0: int, rng) -> None:
+    """28 Nov (owner: the kids sets looked empty): detail on the Short's empty ground below the cast, at the sides
+    only (the cast stands in the middle) and above the bottom quarter (Shorts buttons and title)."""
+    if scene == "night":
+        return
+    y_max = int(CH * 0.74)
+    xs = [int(CW * f) for f in (0.07, 0.21, 0.79, 0.93)]
+    ys = [int(y0 + (y_max - y0) * f) for f in (0.25, 0.7, 0.4, 0.8)]
+    if scene == "room":
+        x, y = xs[0], ys[1]                                               # a striped ball
+        cv2.circle(img, (x, y), 46, PAL["coral"], -1, cv2.LINE_AA)
+        cv2.ellipse(img, (x, y), (46, 16), 0, 0, 360, PAL["white"], 10, cv2.LINE_AA)
+        cv2.circle(img, (x, y), 46, (89, 58, 46), 3, cv2.LINE_AA)
+        for k, col in enumerate(("teal", "sun", "lavender")):              # stacked blocks
+            bx, by = xs[3] - 40, ys[3] - 70 * k
+            rounded_rect(img, bx, by - 64, bx + 70, by, 12, PAL[col])
+        x, y = xs[2], ys[0]                                               # a round plush toy
+        for ex in (-30, 30):
+            cv2.circle(img, (x + ex, y - 46), 18, PAL["wood2"], -1, cv2.LINE_AA)
+        cv2.circle(img, (x, y), 46, PAL["wood2"], -1, cv2.LINE_AA)
+        cv2.circle(img, (x - 15, y - 6), 6, (60, 40, 30), -1, cv2.LINE_AA)
+        cv2.circle(img, (x + 15, y - 6), 6, (60, 40, 30), -1, cv2.LINE_AA)
+        cv2.ellipse(img, (x, y + 12), (12, 7), 0, 0, 180, (60, 40, 30), 3, cv2.LINE_AA)
+        return
+    for x, y in zip(xs, ys):                                              # flowers and grass tufts
+        for k in range(3):
+            fx, fy = x - 40 + 40 * k + int(rng.uniform(-8, 8)), y + int(rng.uniform(-10, 10))
+            cv2.line(img, (fx, fy), (fx, fy + 46), PAL["leaf2"], 6, cv2.LINE_AA)
+            col = PAL[CRITTER_COLOURS[(k + x) % len(CRITTER_COLOURS)]]
+            for p in range(5):
+                a = p * 2 * math.pi / 5
+                cv2.circle(img, (fx + int(14 * math.cos(a)), fy + int(14 * math.sin(a))), 11, col, -1, cv2.LINE_AA)
+            cv2.circle(img, (fx, fy), 9, PAL["sun"], -1, cv2.LINE_AA)
+        for k in range(4):
+            gx = x - 60 + 40 * k
+            pts = np.array([(gx - 10, y + 60), (gx - 4, y + 30), (gx, y + 60), (gx + 6, y + 26), (gx + 12, y + 60)],
+                           np.int32)
+            cv2.fillPoly(img, [pts], PAL["leaf"], cv2.LINE_AA)
 
 
 CRITTER_COLOURS = ["coral", "lavender", "sun", "teal"]
