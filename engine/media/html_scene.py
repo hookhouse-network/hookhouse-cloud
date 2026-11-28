@@ -22,7 +22,8 @@ from . import ffmpeg as ff
 from .fonts import font_file
 
 SCENES = Path(__file__).resolve().parent / "scenes"
-CHART_TYPES = {"compare": (2, 4), "timeline": (3, 5), "scale": (2, 3), "depth": (1, 1), "map": (1, 1)}
+CHART_TYPES = {"compare": (2, 4), "timeline": (2, 5),   # 28 Nov: 'then and now' is a fine timeline
+ "scale": (2, 3), "depth": (1, 1), "map": (1, 1)}
 # Map (23 Nov, P3b): the globe turns to the place the narrator names, dives in and drops a pin. Land, lakes and
 # country borders: Natural Earth 1:50m (public domain, naturalearthdata.com), simplified to 0.02 degrees. The point
 # comes from the place's Wikipedia article (never from the writer), the subtitle from its Wikipedia short description.

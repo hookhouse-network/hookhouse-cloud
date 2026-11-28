@@ -34,7 +34,7 @@ def test_the_renderer_allows_more_charts_and_repeats_in_a_data_story(monkeypatch
 
 def test_the_writer_rule_states_rules_only():
     r = story.DATA_STORY_RULE
-    assert "chart" in r and "at least 6 beats" in r and "Nov" not in r   # prompt text: rules, no history
+    assert "chart" in r and "at least 9" in r and "Nov" not in r   # prompt text: rules, no history
 
 
 def test_scheduler_lets_a_data_story_channel_through(monkeypatch):
@@ -78,3 +78,32 @@ def test_numbers_said_in_words_count_as_said():
                                           {"label": "Tsar Bomba", "value": 50000, "text": "50,000 kilotons"}]}
     assert hs.check_chart(chart, "Hiroshima was fifteen kilotons; Tsar Bomba fifty thousand.")[0]
     assert hs.check_chart(chart, "Hiroshima was big; Tsar Bomba was bigger.")[0] is None
+
+
+def test_failing_charts_go_back_to_the_writer_before_drawing():
+    from engine import story
+
+    class Brain:
+        def __init__(self):
+            self.calls = 0
+
+        def ask_json(self, task, prompt, temperature=0.4):
+            self.calls += 1
+            assert "Asteroid" in prompt and "never said" in prompt
+            return {"beats": [{"i": 1, "narration": "The asteroid was 6 miles wide, Everest is 5.5 miles tall."}]}, None
+    script = {"beats": [
+        {"narration": "A rock fell.", "visual": "photo"},
+        {"narration": "It was huge.", "visual": "chart", "chart": {"type": "scale", "items": [
+            {"label": "Everest", "value": 5.5, "text": "5.5 miles"}, {"label": "Asteroid", "value": 6, "text": "6 miles"}]}}]}
+    assert story.chart_problems(script)
+    b = Brain()
+    out = story.repair_charts(b, script, log=lambda *a: None)
+    assert b.calls == 1 and story.chart_problems(out) == []
+    assert "6 miles" in out["beats"][1]["narration"]
+
+
+def test_two_date_timelines_are_fine():
+    from engine.media import html_scene as hs
+    ok, _ = hs.check_chart({"type": "timeline", "items": [{"label": "1985", "text": "found"},
+                                                         {"label": "2024", "text": "today"}]}, "Found in 1985; in 2024 it rests.")
+    assert ok

@@ -1428,15 +1428,75 @@ DATA_MARK = "data_story"
 DATA_CHARTS_MAX = 8
 DATA_STORY_RULE = (
     "DATA STORY: this video is told with animated charts instead of pictures. Pick the facts of this story that are "
-    "numbers, dates, sizes, depths or places, and give a 'chart' on at least 6 beats (a chart type may repeat; never "
+    "numbers, dates, sizes, depths or places, and give a 'chart' on MOST beats, at least 9 (a chart type may repeat; never "
     "the same type 3 beats in a row). Each chart beat SAYS every number its chart shows, in words the viewer hears: "
     "narration 'Sirius is about twice as wide as the Sun' -> scale items Sun value 1 text '1x', Sirius value 2 text "
     "'2x'; a number that is only on the chart and not in the narration makes the chart fail. Write those numbers "
     "in the narration as digits exactly as on the chart (5.5, 15, 3,000), name every map place as written, and give "
-    "a timeline 3 to 5 dates. Use at least 3 chart "
+    "a timeline 2 to 5 dates. Use at least 3 chart "
     "types across the video (compare, timeline, scale, map, depth). The other beats name a real place, "
     "object or person a photo library holds (photo query). Keep the hook, the turn and the payoff; the charts serve "
     "the story, they never replace it.")
+
+
+CHART_FIX_PROMPT = """Some charts in this short video script break a rule: every number a chart shows must be said in
+that beat's narration (or the 2 beats before it), every map place must be named in the narration, a compare needs 2-4
+items, a scale 2-3, a timeline 2-5. Fix ONLY these beats, keeping the story, the facts and the length. For each one,
+either change the narration so it says the chart's numbers (as digits, exactly as on the chart), or change the chart so
+it shows only numbers the narration says. Never invent a number.
+
+Beats to fix (index, narration, chart, what is wrong):
+{bad}
+
+Return JSON: {{"beats": [{{"i": index, "narration": "...", "chart": {{...}}}}]}}"""
+CHART_FIX_ROUNDS = 2
+
+
+def chart_problems(script: dict) -> list[tuple[int, str]]:
+    """[(beat index, why)] for chart beats the renderer would skip (the same check it runs, html_scene.check_chart)."""
+    from .media import html_scene
+    beats = script.get("beats") or []
+    out = []
+    for i, b in enumerate(beats):
+        if b.get("visual") != "chart" or not isinstance(b.get("chart"), dict):
+            continue
+        said = " ".join(x.get("narration", "") for x in beats[max(0, i - 2): i + 1])
+        ok, why = html_scene.check_chart(b["chart"], said)
+        if not ok:
+            out.append((i, why))
+    return out
+
+
+def repair_charts(brain, script: dict, log=print) -> dict:
+    """P3b data story (28 Nov): the writer kept showing numbers its narration never says (Cosmos, 4 tries held for
+    word cards). Before anything is drawn, the failing chart beats go back to the writer with the exact reason."""
+    for rnd in range(CHART_FIX_ROUNDS):
+        bad = chart_problems(script)
+        if not bad or brain is None:
+            break
+        beats = script["beats"]
+        lines = "\n".join(f"{i}: narration={beats[i].get('narration', '')!r} chart={json.dumps(beats[i].get('chart'))} "
+                          f"wrong: {why}" for i, why in bad)
+        log(f"   Charts: fixing {len(bad)} chart beat(s) that break the said-number rule (round {rnd + 1})")
+        try:
+            data, _ = brain.ask_json("writer", CHART_FIX_PROMPT.format(bad=lines), temperature=0.3)
+        except Exception as e:  # noqa: BLE001 - the renderer skips what is still wrong (a photo instead)
+            log(f"   Charts: fix call failed ({type(e).__name__}); the renderer skips those charts")
+            break
+        for fix in (data or {}).get("beats") or []:
+            try:
+                i = int(fix.get("i"))
+            except (TypeError, ValueError):
+                continue
+            if 0 <= i < len(beats) and beats[i].get("visual") == "chart":
+                if isinstance(fix.get("narration"), str) and fix["narration"].strip():
+                    beats[i]["narration"] = fix["narration"].strip()
+                if isinstance(fix.get("chart"), dict):
+                    beats[i]["chart"] = fix["chart"]
+    left = chart_problems(script)
+    if left:
+        log(f"   Charts: {len(left)} still break the rule (shown as photos instead)")
+    return script
 
 
 def data_story_on(channel: dict) -> bool:
@@ -2753,6 +2813,7 @@ def _write_fresh(brain, channel: dict, topic: str | None, fmt: str, memory, log,
     if channel.get("content_rules", {}).get("fact_check"):
         script = check_and_fix(brain, channel, script, topic, fmt, memory, log)
     if data:
+        script = repair_charts(brain, script, log)     # every chart says its numbers BEFORE anything is drawn
         script["data_story"] = True                # the renderer allows more charts (kept with the checkpoint)
     return script
 
