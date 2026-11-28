@@ -52,3 +52,23 @@ def test_the_budgets_screen(monkeypatch):
     monkeypatch.setattr(console, "_dash", lambda: "")
     t = TestClient(console.app).get("/budgets").text
     assert "groq" in t and "used up until 28 Nov 05:30" in t and "93 / 120" in t and "the PC is in use" in t
+
+
+def test_money_and_calendar_screens_and_no_internal_ids(monkeypatch):
+    from engine import operator_brief
+    monkeypatch.setattr(operator_brief, "earnings", lambda: (1500.0, 2.25))
+    monkeypatch.setattr(console, "_board", lambda days=7: [{"channel": "Brain Snack", "posts": 16, "views": 21361.0}])
+    monkeypatch.setattr(console, "_dash", lambda: "")
+    monkeypatch.setattr(autopilot, "items", lambda back=3, ahead=9: [("s", {
+        "id": "1128_0500_x_short", "channel": "x", "channel_name": "Cosmos", "kind": "short", "status": "made",
+        "publish_at": "2026-11-28T05:00:00+05:30", "topic": "t"})])
+    monkeypatch.setattr(autopilot, "gate_held", lambda: {"1128_0500_x_short": {"problems": ["quality 79"],
+                                                                                "channel": "Cosmos", "at": 1}})
+    c = TestClient(console.app)
+    m = c.get("/money").text
+    assert "Rs 1,500" in m and "$2.25" in m and "Brain Snack" in m and "21,361" in m
+    cal = c.get("/calendar").text
+    assert "Sat 28 Nov" in cal and "waiting approval" in cal and "Cosmos" in cal
+    g = c.get("/gates").text
+    assert "28 Nov 05:00 Short" in g and "1128_0500_x_short" not in g
+    assert console.slot_label("weird") == "a video"

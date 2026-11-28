@@ -95,8 +95,8 @@ ENV_BODY = {
 <td>{{ it.kind }}</td><td class="{{ 'ok' if it.status in ('posted', 'approved') else ('bad' if it.status in
 ('failed', 'missed') else '') }}">{{ it.status }}</td><td>{{ (it.topic or '')[:70] }}</td></tr>{% endfor %}</table>"""),
     "gates": ENV.from_string("""{% for iid, v in held %}<div class="card" style="margin-bottom:8px"><b>{{ v.channel or ''
-}}</b> · {{ iid }}<div class="muted">{{ (v.problems or [''])[0][:400] }}</div></div>{% else %}<p class="ok">Nothing is
-held right now.</p>{% endfor %}"""),
+}}</b> · {{ slot(iid) }}<div class="muted">{{ (v.problems or [''])[0][:400] }}</div></div>{% else %}<p class="ok">
+Nothing is held right now.</p>{% endfor %}"""),
     "queue": ENV.from_string("""<table><tr><th>Job</th><th>State</th><th>Tries</th><th>Last error</th></tr>
 {% for j in jobs %}<tr><td>{{ j.key }}</td><td class="bad">{{ j.state }}</td><td>{{ j.attempts }}</td>
 <td>{{ (j.last_error or '')[:200] }}</td></tr>{% else %}<tr><td colspan="4" class="ok">No post gave up.</td></tr>
@@ -126,7 +126,17 @@ async def pipeline(request):
 async def gates(request):
     from .. import autopilot
     held = sorted(autopilot.gate_held().items(), key=lambda kv: -float((kv[1] or {}).get("at") or 0))
-    return _page("Gates", ENV_BODY["gates"].render(held=held))
+    return _page("Gates", ENV_BODY["gates"].render(held=held, slot=slot_label))
+
+
+def slot_label(item_id: str) -> str:
+    """'1127_0500_x_short' -> '27 Nov 05:00 Short' (P10: no internal IDs in the main view)."""
+    import re
+    m = re.match(r"(\d{2})(\d{2})_(\d{2})(\d{2})_.*_(short|long|clip)$", item_id or "")
+    if not m:
+        return "a video"
+    month = datetime(2000, int(m.group(1)), 1).strftime("%b") if 1 <= int(m.group(1)) <= 12 else ""
+    return f"{int(m.group(2))} {month} {m.group(3)}:{m.group(4)} {m.group(5).capitalize()}"
 
 
 async def queue(request):
@@ -204,10 +214,89 @@ async def budgets_page(request):
     return _page("Budgets", BUDGETS.render(ai=s["ai"], pics=s["pictures"], local=s["local"]))
 
 
+MONEY = ENV.from_string("""<div class="cards"><div class="card"><div class="muted">Campaign money received</div>
+<div class="big">Rs {{ '{:,.0f}'.format(inr) }}</div></div><div class="card"><div class="muted">Campaign money pending</div>
+<div class="big">${{ '{:,.2f}'.format(usd) }}</div></div><div class="card"><div class="muted">Store products listed</div>
+<div class="big">{{ listed }}</div></div></div><h3>Last 7 days per channel</h3><table><tr><th>Channel</th><th>Posts</th>
+<th>Views</th></tr>{% for r in board %}<tr><td>{{ r.channel }}</td><td>{{ r.posts }}</td><td>{{ '{:,.0f}'.format(r.views)
+}}</td></tr>{% else %}<tr><td colspan="3" class="muted">no posts in the last 7 days</td></tr>{% endfor %}</table>
+<p class="muted">Store sales are paid out by Payhip once a payout method is connected there.</p>""")
+
+CALENDAR = ENV.from_string("""{% for day, rows in days %}<h3>{{ day }}</h3><table><tr><th>Time</th><th>Channel</th>
+<th>Kind</th><th>State</th></tr>{% for it in rows %}<tr><td>{{ it.publish_at[11:16] }}</td><td>{{ it.channel_name or
+it.channel }}</td><td>{{ it.kind }}</td><td class="{{ 'ok' if it.status in ('posted', 'approved') else ('bad' if
+it.status in ('failed', 'missed') else '') }}">{{ states.get(it.status, it.status) }}</td></tr>{% endfor %}</table>
+{% else %}<p class="muted">Nothing planned in the next 7 days.</p>{% endfor %}""")
+STATES = {"planned": "to make", "making": "being made", "made": "waiting approval", "approved": "approved, waits slot",
+          "posted": "posted", "redo": "being remade", "failed": "failed, retrying", "missed": "missed",
+          "needs_source": "needs footage"}
+
+
+def _board(days: int = 7) -> list[dict]:
+    """[{channel, posts, views}] for the last days, most viewed first (operator_brief's earnings board numbers)."""
+    import sqlite3
+    from collections import Counter
+    from .. import operator_brief as ob
+    since = time.time() - days * 86400
+    posts: Counter = Counter()
+    seen = set()
+    for r in ob._log_rows(since):
+        if ob._is_post(r) and (r["item_id"], r.get("channel")) not in seen:
+            seen.add((r["item_id"], r.get("channel")))
+            posts[r.get("channel") or "?"] += 1
+    views: dict[str, float] = {}
+    try:
+        c = sqlite3.connect(str(ROOT / "data" / "analytics.db"))
+        for ch, v in c.execute("SELECT channel, SUM(mv) FROM (SELECT channel, item_id, platform, MAX(views) AS mv FROM "
+                               "video_metrics WHERE posted_at >= ? GROUP BY channel, item_id, platform) GROUP BY channel",
+                               (since,)):
+            views[ch] = float(v or 0)
+        c.close()
+    except sqlite3.Error as e:
+        from ..core.quiet import noted
+        noted("console:board", e)
+    names = {}
+    try:
+        from ..config import channels
+        names = {c["id"]: c.get("name") or c["id"] for c in channels()}
+    except Exception as e:  # noqa: BLE001 - ids are shown instead of names
+        from ..core.quiet import noted
+        noted("console:names", e)
+    return sorted(({"channel": names.get(c, c), "posts": posts.get(c, 0), "views": views.get(c, 0.0)}
+                   for c in set(posts) | set(views)), key=lambda r: -r["views"])
+
+
+async def money(request):
+    from .. import operator_brief as ob
+    inr, usd = ob.earnings()
+    try:
+        from ..store_publish import listed
+        n = sum(1 for v in listed().values() if v)
+        err = ""
+    except Exception as e:  # noqa: BLE001 - degraded, never a crash page
+        n, err = 0, f"store list unreadable ({type(e).__name__})"
+    return _page("Money", MONEY.render(inr=inr, usd=usd, listed=n, board=_board()), err)
+
+
+async def calendar(request):
+    items = sorted(_items(0, 7), key=lambda it: it.get("publish_at", ""))
+    days: dict[str, list] = {}
+    for it in items:
+        try:
+            label = datetime.fromisoformat(str(it["publish_at"])).strftime("%a %d %b")
+        except (KeyError, ValueError):
+            continue
+        days.setdefault(label, []).append(it)
+    return _page("Calendar", CALENDAR.render(days=list(days.items()), states=STATES))
+
+
 TABS.append(("/workers", "Workers"))
 TABS.append(("/budgets", "Budgets"))
+TABS.append(("/calendar", "Calendar"))
+TABS.append(("/money", "Money"))
 app = Starlette(routes=[Route("/", home), Route("/pipeline", pipeline), Route("/gates", gates),
                         Route("/queue", queue), Route("/workers", workers), Route("/budgets", budgets_page),
+                        Route("/calendar", calendar), Route("/money", money),
                         Route("/workers/{what:str}", set_pause, methods=["POST"])])
 
 
