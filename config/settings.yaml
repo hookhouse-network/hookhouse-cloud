@@ -13,7 +13,7 @@ tele_store: do
 # Phase 2 scheduler (cloud/worker/scheduler.js in the LedgerDO): off | shadow (workers heartbeat and build the 7-day
 # presence history; the PC still claims through the old claim files) | on (claims come from the shared queue).
 scheduler: "on"             # 26 Nov: on (owner: complete the plan as soon as possible); queue order = the PC's, an empty answer falls back to the claim files; "shadow" to undo
-data_story: "off"           # P3b 28 Nov: "on" lets channels with data_story: true make their Short with charts (compare/timeline/scale/depth/map) when the free pictures are used up; off until a measured test video
+data_story: "on"            # P3b 28 Nov (on after a test: quality 93, judge avg 6.7, human_feel 6): lets channels with data_story: true make their Short with charts (compare/timeline/scale/depth/map) when the free pictures are used up; "off" undoes
 
 # P3r (owner 21 Nov): picture-free formats rendered by HyperFrames on the PC (Brain Snack "colorsort" first).
 # Only machines with HyperFrames installed pick them; set false to switch them off everywhere.

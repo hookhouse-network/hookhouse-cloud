@@ -106,6 +106,23 @@ def _numbers(s: str) -> list[float]:
     return [float(x.replace(",", "")) for x in re.findall(r"\d[\d,]*(?:\.\d+)?", s or "")]
 
 
+# 28 Nov: narration says small numbers in words ("twice as wide", "three times"); they count as spoken
+WORD_NUMBERS = {"one": 1, "two": 2, "twice": 2, "double": 2, "three": 3, "thrice": 3, "triple": 3, "four": 4,
+                "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
+                "twenty": 20, "fifty": 50, "hundred": 100, "half": 0.5, "dozen": 12}
+
+
+def _name_said(label: str, narration: str) -> bool:
+    """A name with digits in it ('Stephenson 2-18', 'Apollo 11') said as written: its digits are part of the name."""
+    lab = re.sub(r"\s+", " ", (label or "").strip().lower())
+    return bool(re.search(r"\d", lab)) and lab in re.sub(r"\s+", " ", (narration or "").lower())
+
+
+def _spoken(narration: str) -> set[float]:
+    words = set(re.findall(r"[a-z]+", (narration or "").lower()))
+    return set(_numbers(narration)) | {v for w, v in WORD_NUMBERS.items() if w in words}
+
+
 def check_chart(chart: dict | None, narration: str) -> tuple[dict | None, str]:
     """(clean chart, "") or (None, reason). Every number shown must be one the narrator says (on-screen numbers must
     match the spoken ones), compare/scale values must be positive, item counts stay readable."""
@@ -118,7 +135,7 @@ def check_chart(chart: dict | None, narration: str) -> tuple[dict | None, str]:
     lo, hi = CHART_TYPES[kind]
     if not lo <= len(items) <= hi:
         return None, f"{kind} needs {lo}-{hi} items, got {len(items)}"
-    spoken = set(_numbers(narration))
+    spoken = _spoken(narration)
     if kind == "map":                         # one place, named as spoken; its point comes from Wikipedia (locate)
         label, text = str(items[0]["label"]).strip()[:28], str(items[0].get("text") or "").strip()[:40]
         place = str(items[0].get("place") or label).strip()[:90]
@@ -153,7 +170,9 @@ def check_chart(chart: dict | None, narration: str) -> tuple[dict | None, str]:
                 return None, f"{label}: value is not a number"
             if value <= 0:
                 return None, f"{label}: value must be above 0"
-            shown = _numbers(text) + _numbers(label)
+            shown = _numbers(text) + (_numbers(label) if not _name_said(label, narration) else [])
+            if kind == "scale" and value == 1 and place_said(label, narration):
+                shown = [n for n in shown if n != 1]   # the named unit of a comparison ("the Sun" = 1x) is honest
         missing = [n for n in shown if n not in spoken]
         if missing:
             return None, f"{label}: {missing[0]:g} is shown but never said"

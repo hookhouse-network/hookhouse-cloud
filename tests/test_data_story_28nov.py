@@ -44,3 +44,25 @@ def test_scheduler_lets_a_data_story_channel_through(monkeypatch):
     assert runner._data_story("cosmos_unboxed") and not runner._data_story("itihaas_ke_raaz")
     monkeypatch.setattr("engine.config.settings", lambda: {"data_story": "off"})
     assert not runner._data_story("cosmos_unboxed")
+
+
+def test_a_scale_charts_named_unit_and_number_words_count_as_said():
+    from engine.media import html_scene as hs
+    chart = {"type": "scale", "items": [{"label": "Sun", "value": 1, "text": "1x"},
+                                        {"label": "Sirius", "value": 2, "text": "2x"}]}
+    ok, why = hs.check_chart(chart, "Sirius is about twice as wide as the Sun.")
+    assert ok and not why
+    bad, why = hs.check_chart(chart, "First, Sirius, shining bright.")       # the Sun not named, 2 never said
+    assert bad is None and "never said" in why
+    assert hs.check_chart({"type": "compare", "items": [{"label": "A", "value": 1, "text": "1"},
+                                                        {"label": "B", "value": 3, "text": "3"}]},
+                          "A and B: three.")[0] is None                       # the unit rule is for scale only
+
+
+def test_digits_inside_a_spoken_name_are_part_of_the_name():
+    from engine.media import html_scene as hs
+    chart = {"type": "scale", "items": [{"label": "Sun", "value": 1, "text": "1x"},
+                                        {"label": "Stephenson 2-18", "value": 50, "text": "50x"}]}
+    ok, _ = hs.check_chart(chart, "Stephenson 2-18 is about 50 times wider than the Sun.")
+    assert ok
+    assert hs.check_chart(chart, "This giant is about 50 times wider than the Sun.")[0] is None   # name not said

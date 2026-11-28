@@ -1429,7 +1429,10 @@ DATA_CHARTS_MAX = 8
 DATA_STORY_RULE = (
     "DATA STORY: this video is told with animated charts instead of pictures. Pick the facts of this story that are "
     "numbers, dates, sizes, depths or places, and give a 'chart' on at least 6 beats (a chart type may repeat; never "
-    "the same type 3 beats in a row). Each chart beat says its numbers out loud. The other beats name a real place, "
+    "the same type 3 beats in a row). Each chart beat SAYS every number its chart shows, in words the viewer hears: "
+    "narration 'Sirius is about twice as wide as the Sun' -> scale items Sun value 1 text '1x', Sirius value 2 text "
+    "'2x'; a number that is only on the chart and not in the narration makes the chart fail. Use at least 3 chart "
+    "types across the video (compare, timeline, scale, map, depth). The other beats name a real place, "
     "object or person a photo library holds (photo query). Keep the hook, the turn and the payoff; the charts serve "
     "the story, they never replace it.")
 

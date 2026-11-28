@@ -281,4 +281,7 @@ def test_campaign_clip_slots_go_first_even_without_pictures(monkeypatch):
     assert [it["id"] for _, it in runner._due_to_make(None, set())][:2] == ["s1", "s2"]
     from engine import storyboard
     monkeypatch.setattr(storyboard, "images_blocked", lambda: True)
+    monkeypatch.setattr(runner, "_data_story", lambda cid: False)
     assert [it["id"] for _, it in runner._due_to_make(None, set())] == ["s1", "s2"]   # pictures out: clips still made
+    monkeypatch.setattr(runner, "_data_story", lambda cid: cid == "deep_blue_files")
+    assert "d1" in [it["id"] for _, it in runner._due_to_make(None, set())]           # 28 Nov: a data story instead
