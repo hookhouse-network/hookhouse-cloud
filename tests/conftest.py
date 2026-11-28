@@ -42,6 +42,8 @@ def _no_real_clip_records(monkeypatch, tmp_path):
     monkeypatch.setattr(clips, "TRANSCRIPTS", tmp_path / "transcripts_test")
     import engine.content_tuning as ct              # 27 Nov: nor the format bandit's records
     monkeypatch.setattr(ct, "FORMATS_FILE", tmp_path / "snack_formats_test.json")
+    import engine.owner_settings as owner_set       # 28 Nov: nor the owner's switches (a test could turn one off)
+    monkeypatch.setattr(owner_set, "STATE", tmp_path / "owner_settings_test.json")
 
 
 @pytest.fixture(autouse=True)

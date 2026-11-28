@@ -97,3 +97,13 @@ def test_growth_and_products_screens(monkeypatch):
     assert "Brain Snack" in g and "21,361" in g and "▲" in g
     p = c.get("/products").text
     assert "Debt Planner" in p and "$4" in p and "Ticked, not joined" in p
+
+
+def test_settings_screen(monkeypatch):
+    from engine import owner_settings
+    monkeypatch.setattr(console, "_dash", lambda: "")
+    monkeypatch.setattr(owner_settings, "rows", lambda: [{"key": "auto_approve", "label": "Automatic approval",
+                                                          "now": "on", "why": "approved by the system",
+                                                          "other": "off", "other_why": "waits for your tap"}])
+    t = TestClient(console.app).get("/settings").text
+    assert "Automatic approval" in t and "ON" in t and "/settings" in t

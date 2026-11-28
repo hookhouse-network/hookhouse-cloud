@@ -427,6 +427,32 @@ def report() -> None:
     send_dashboard()
 
 
+def settings_menu() -> tuple[str, dict]:
+    """P10 /settings: each owner switch, what it does now, and one button to switch it (with what that would do)."""
+    from .owner_settings import rows
+    lines, kb = ["⚙️ Your switches (the cloud uses a change from its next run):"], []
+    for r in rows():
+        lines.append(f"\n• {r['label']}: {r['now'].upper()}\n  Now: {r['why']}.\n  If {r['other']}: {r['other_why']}.")
+        kb.append([{"text": f"Turn {r['other']}: {r['label']}"[:60], "callback_data": f"set:{r['key']}={r['other']}"}])
+    return "\n".join(lines), {"inline_keyboard": kb}
+
+
+def settings_choose(key: str, value: str) -> str:
+    from . import config as _config
+    from .owner_settings import SWITCHES, choose
+    try:
+        effect = choose(key, value, by="owner (Telegram /settings)")
+    except ValueError:
+        return "That switch or value is not on the list; nothing was changed. Send /settings to see them."
+    _config.settings.cache_clear()
+    try:
+        from .core import ledger
+        ledger.event("owner_setting", data={"key": key, "value": value})
+    except Exception as _swallowed:  # noqa: BLE001 - the choice is saved either way
+        noted("telegram_bot.py:settings_event", _swallowed)
+    return f"✅ {SWITCHES[key]['label']}: {value.upper()}. From the next run: {effect}. Undo: /settings"
+
+
 def operator_text() -> str:
     """P8 operator brief (master plan 5.6): yesterday's evidence and one next action; Mondays the earnings board."""
     from .operator_brief import brief
@@ -719,6 +745,7 @@ HELP = ("👋 HookHouse, in short\n\n"
         "If something stops working, I tell you here with ⚠️ and what to do. More commands: /more")
 
 MORE = ("Extra commands (you rarely need these):\n"
+        "/settings: your switches (chart Shorts, PC pictures, automatic approval), one tap to change\n"
         "/approveall: approve every video you were already shown\n"
         "/source <link>: give me campaign footage (Google Drive / Dropbox link)\n"
         "/review [channel]: the end-of-day review (good, bad, weak points, what viewers said, lessons)\n"
@@ -926,6 +953,9 @@ def handle(update: dict, conn=None) -> None:
             send(tasks_text())
         elif cmd == "/campaigns":
             digest(conn, fresh_only=False)
+        elif cmd == "/settings":                           # P10: owner switches, three taps
+            text_, kb = settings_menu()
+            send(text_, reply_markup=kb)
         elif cmd == "/status":
             send(status_text())
         elif cmd == "/voice":
@@ -994,6 +1024,14 @@ def handle(update: dict, conn=None) -> None:
         except Exception as _swallowed:  # noqa: BLE001
             noted("telegram_bot.py:893", _swallowed)
             pass
+        return
+    if data.startswith("set:"):                                  # P10: an owner switch, value chosen
+        try:
+            api("answerCallbackQuery", callback_query_id=cb["id"], text="Saved")
+        except Exception as _swallowed:  # noqa: BLE001 - the answer below still goes out
+            noted("telegram_bot.py:settings_ack", _swallowed)
+        _key, _, _val = data[4:].partition("=")
+        send(settings_choose(_key, _val))
         return
     if data.startswith(("chl:", "chn:", "chp:", "chm:")):     # P2b Telegram 2.0: channel menu + Pick
         try:

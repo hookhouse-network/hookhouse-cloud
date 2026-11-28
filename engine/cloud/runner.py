@@ -1001,6 +1001,8 @@ def helper(once: bool = False, every_s: int = 300, log=_log, videos_only: bool =
             except Exception as e:  # noqa: BLE001
                 log(f"heartbeat: {e}")
             state.pull(store)                              # read-only copy of the cloud's plan
+            from ..config import settings as _settings     # P10: the owner's /settings choices arrive with it
+            _settings.cache_clear()
             try:                                           # joined campaigns: their footage links (signed-in browser)
                 from .. import cr_footage
                 if cr_footage.pc_job(store, log):

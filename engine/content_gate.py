@@ -36,7 +36,13 @@ QUALITY = "quality"            # problem prefix: fixable by a remake (auto-redo)
 
 @lru_cache(maxsize=1)
 def config() -> dict:
-    return yaml.safe_load(FILE.read_text(encoding="utf-8")) or {}
+    cfg = yaml.safe_load(FILE.read_text(encoding="utf-8")) or {}
+    try:                                         # P10: the owner's /settings choices (whitelisted switches only)
+        from .owner_settings import apply
+        return apply(cfg, "gates")
+    except Exception as e:  # noqa: BLE001 - the file's own gates still apply
+        print(f"owner settings not applied to gates: {type(e).__name__}: {e}")
+        return cfg
 
 
 def rules_for(ch: dict, it: dict | None = None, meta: dict | None = None) -> dict:

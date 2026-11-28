@@ -38,7 +38,13 @@ def load_env(path: Path | None = None) -> None:
 def settings() -> dict:
     load_env()
     with open(CONFIG_DIR / "settings.yaml", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+        cfg = yaml.safe_load(f)
+    try:                                         # P10: the owner's /settings choices (whitelisted switches only)
+        from .owner_settings import apply
+        return apply(cfg, "settings")
+    except Exception as e:  # noqa: BLE001 - the file's own settings still work
+        print(f"owner settings not applied: {type(e).__name__}: {e}")
+        return cfg
 
 
 def channels() -> list[dict]:

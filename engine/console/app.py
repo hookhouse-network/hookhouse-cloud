@@ -364,6 +364,21 @@ async def products(request):
     return _page("Products", PRODUCTS.render(products=sorted(items, key=lambda x: x["title"]), camps=camps), err)
 
 
+SETTINGS = ENV.from_string("""{% for r in rows %}<div class="card" style="margin-bottom:10px"><div class="muted">
+{{ r.label }}</div><div class="big {{ 'ok' if r.now == 'on' else 'bad' }}">{{ r.now|upper }}</div><div>{{ r.why }}.</div>
+<div class="muted">If {{ r.other }}: {{ r.other_why }}.</div></div>{% endfor %}<p>To change one: send <b>/settings</b>
+to the bot in Telegram and tap the switch (the cloud uses it from its next run; /settings again undoes it).</p>""")
+
+
+async def settings_page(request):
+    try:
+        from ..owner_settings import rows
+        rs, err = rows(), ""
+    except Exception as e:  # noqa: BLE001 - degraded, never a crash page
+        rs, err = [], f"settings unreadable ({type(e).__name__})"
+    return _page("Settings", SETTINGS.render(rows=rs), err)
+
+
 def md_html(text: str) -> str:
     """The owner guide's small markdown (headings, bullets, bold, `code`, tables) as safe HTML (escaped first)."""
     import html
@@ -427,11 +442,12 @@ TABS.append(("/calendar", "Calendar"))
 TABS.append(("/money", "Money"))
 TABS.append(("/growth", "Growth"))
 TABS.append(("/products", "Products"))
+TABS.append(("/settings", "Settings"))
 TABS.append(("/help", "Help"))
 app = Starlette(routes=[Route("/", home), Route("/pipeline", pipeline), Route("/gates", gates),
                         Route("/queue", queue), Route("/workers", workers), Route("/budgets", budgets_page),
                         Route("/calendar", calendar), Route("/money", money), Route("/help", help_page),
-                        Route("/growth", growth), Route("/products", products),
+                        Route("/growth", growth), Route("/products", products), Route("/settings", settings_page),
                         Route("/workers/{what:str}", set_pause, methods=["POST"])])
 
 
