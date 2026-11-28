@@ -2907,6 +2907,8 @@ def make(brain, channel: dict, topic: str | None = None, fmt: str = "short", scr
                 from .brain import Brain
                 brain = Brain()
             script = fit_length(brain, channel, script, log)
+            if script.get("data_story"):            # a kept data story gets the same chart repair before drawing
+                script = repair_charts(brain, script, log)
         if script_tells(script):                    # saved/remade script: same S10 pass (the fact-check below re-runs)
             if brain is None:
                 from .brain import Brain

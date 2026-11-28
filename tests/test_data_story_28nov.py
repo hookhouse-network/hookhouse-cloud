@@ -107,3 +107,10 @@ def test_two_date_timelines_are_fine():
     ok, _ = hs.check_chart({"type": "timeline", "items": [{"label": "1985", "text": "found"},
                                                          {"label": "2024", "text": "today"}]}, "Found in 1985; in 2024 it rests.")
     assert ok
+
+
+def test_a_resumed_data_story_is_repaired_too():
+    import inspect
+    from engine import story
+    src = inspect.getsource(story.make)
+    assert 'script.get("data_story")' in src and "repair_charts(brain, script, log)" in src
