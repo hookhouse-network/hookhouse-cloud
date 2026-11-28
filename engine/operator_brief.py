@@ -46,6 +46,17 @@ def posted(rows: list[dict]) -> dict[str, int]:
     return {p: len(v) for p, v in sorted(per.items(), key=lambda x: -len(x[1]))}
 
 
+def slot_label(item_id: str) -> str:
+    """'1127_0500_x_short' -> '27 Nov 05:00 Short' (P10: no internal IDs in what the owner reads)."""
+    import re
+    from datetime import datetime
+    m = re.match(r"(\d{2})(\d{2})_(\d{2})(\d{2})_.*_(short|long|clip)$", item_id or "")
+    if not m:
+        return "a video"
+    month = datetime(2000, int(m.group(1)), 1).strftime("%b") if 1 <= int(m.group(1)) <= 12 else ""
+    return f"{int(m.group(2))} {month} {m.group(3)}:{m.group(4)} {m.group(5).capitalize()}"
+
+
 def reason_of(problem: str, platform: str = "") -> str:
     """One readable hold reason, the same on every platform: 'not allowed on instagram (channel, kids or ...)' and
     the threads one become 'not allowed on this platform (kids or ...)'; 'quality: score 79/100 ...' -> 'quality'."""

@@ -427,6 +427,51 @@ def report() -> None:
     send_dashboard()
 
 
+RETRY_MAX_AGE_S = 3 * 86400
+
+
+def retryable(led=None, now: float | None = None) -> list[dict]:
+    """Posts that gave up for a platform reason in the last 3 days (a gate hold is never offered: the video is
+    remade instead, and retrying would only be blocked again)."""
+    from .core import ledger
+    led = led or ledger.default()
+    now = now or time.time()
+    out = []
+    for j in led.jobs(state="dead", kind="post"):
+        err = str(j.get("last_error") or "")
+        if "blocked" in err.lower() or now - float(j.get("updated") or 0) > RETRY_MAX_AGE_S:
+            continue
+        parts = str(j.get("key") or "").split(":")           # post:<item>:<version>:<platform>
+        if len(parts) >= 4:
+            out.append({"id": j["id"], "item": parts[1], "platform": parts[-1], "error": err[:120]})
+    return out
+
+
+def retry_menu(led=None) -> tuple[str, dict | None]:
+    jobs = retryable(led)
+    if not jobs:
+        return "Nothing to retry: no post gave up for a platform reason in the last 3 days.", None
+    from .operator_brief import slot_label           # (never the console module: Starlette is PC-only)
+    lines, kb = [f"🔁 {len(jobs)} post(s) gave up (fix the cause first if it is a login or permission):"], []
+    for j in jobs[:8]:
+        lines.append(f"• {slot_label(j['item'])} on {j['platform'].title()}: {j['error']}")
+        kb.append([{"text": f"🔁 {slot_label(j['item'])} · {j['platform'].title()}"[:60], "callback_data": f"rt:{j['id']}"}])
+    if len(jobs) > 1:
+        kb.append([{"text": f"🔁 Retry all {len(jobs)}", "callback_data": "rt:all"}])
+    return "\n".join(lines), {"inline_keyboard": kb}
+
+
+def retry_do(what: str, led=None) -> str:
+    from .core import ledger
+    led = led or ledger.default()
+    ids = [j["id"] for j in retryable(led)]
+    pick = ids if what == "all" else [int(what)] if what.isdigit() and int(what) in ids else []
+    if not pick:
+        return "That post is no longer waiting for a retry (already retried, posted, or too old)."
+    done = sum(1 for i in pick if led.retry_dead(i))
+    return f"🔁 {done} post(s) queued again; the next cloud run tries them with fresh attempts."
+
+
 def settings_menu() -> tuple[str, dict]:
     """P10 /settings: each owner switch, what it does now, and one button to switch it (with what that would do)."""
     from .owner_settings import rows
@@ -746,6 +791,7 @@ HELP = ("👋 HookHouse, in short\n\n"
 
 MORE = ("Extra commands (you rarely need these):\n"
         "/settings: your switches (chart Shorts, PC pictures, automatic approval), one tap to change\n"
+        "/retry: posts that gave up on a platform (after you fix a login/permission), one tap to try again\n"
         "/approveall: approve every video you were already shown\n"
         "/source <link>: give me campaign footage (Google Drive / Dropbox link)\n"
         "/review [channel]: the end-of-day review (good, bad, weak points, what viewers said, lessons)\n"
@@ -956,6 +1002,9 @@ def handle(update: dict, conn=None) -> None:
         elif cmd == "/settings":                           # P10: owner switches, three taps
             text_, kb = settings_menu()
             send(text_, reply_markup=kb)
+        elif cmd == "/retry":                              # P10: posts that gave up (platform reasons only)
+            text_, kb = retry_menu()
+            send(text_, reply_markup=kb) if kb else send(text_)
         elif cmd == "/status":
             send(status_text())
         elif cmd == "/voice":
@@ -1024,6 +1073,13 @@ def handle(update: dict, conn=None) -> None:
         except Exception as _swallowed:  # noqa: BLE001
             noted("telegram_bot.py:893", _swallowed)
             pass
+        return
+    if data.startswith("rt:"):                                   # P10: retry a post that gave up
+        try:
+            api("answerCallbackQuery", callback_query_id=cb["id"], text="Queued")
+        except Exception as _swallowed:  # noqa: BLE001 - the answer below still goes out
+            noted("telegram_bot.py:retry_ack", _swallowed)
+        send(retry_do(data[3:]))
         return
     if data.startswith("set:"):                                  # P10: an owner switch, value chosen
         try:

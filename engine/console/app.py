@@ -129,14 +129,7 @@ async def gates(request):
     return _page("Gates", ENV_BODY["gates"].render(held=held, slot=slot_label))
 
 
-def slot_label(item_id: str) -> str:
-    """'1127_0500_x_short' -> '27 Nov 05:00 Short' (P10: no internal IDs in the main view)."""
-    import re
-    m = re.match(r"(\d{2})(\d{2})_(\d{2})(\d{2})_.*_(short|long|clip)$", item_id or "")
-    if not m:
-        return "a video"
-    month = datetime(2000, int(m.group(1)), 1).strftime("%b") if 1 <= int(m.group(1)) <= 12 else ""
-    return f"{int(m.group(2))} {month} {m.group(3)}:{m.group(4)} {m.group(5).capitalize()}"
+from ..operator_brief import slot_label  # noqa: E402  (shared with Telegram; no PC-only imports there)
 
 
 async def queue(request):
