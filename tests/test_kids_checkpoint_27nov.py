@@ -92,5 +92,19 @@ def test_saving_the_same_script_again_keeps_the_resume_count(monkeypatch, tmp_pa
     assert weekly.checkpoint(item)
     weekly.save_checkpoint(item, {"beats": [1]})
     assert weekly.checkpoint(item) is None                 # third try: a fresh script
-    weekly.save_checkpoint(item, {"beats": [2]})           # a new script starts its own count
+    weekly.save_checkpoint(item, {"beats": [2]})           # after the drop, a new script starts its own count
     assert weekly.checkpoint(item)
+
+
+def test_an_edited_resumed_script_still_counts(monkeypatch, tmp_path):
+    """28 Nov 18:10: each resume repaired the charts, so the re-saved script differed and the count reset again;
+    the Cosmos item resumed its old 6-chart script four times."""
+    from engine import weekly
+    monkeypatch.setattr(weekly, "CHECKPOINTS", tmp_path)
+    item = {"id": "1122_0500_cosmos_unboxed_short", "channel": "cosmos_unboxed"}
+    weekly.save_checkpoint(item, {"beats": [1]})
+    for k in (2, 3):
+        assert weekly.checkpoint(item)                     # resumed ...
+        weekly.save_checkpoint(item, {"beats": [k]})       # ... and saved again EDITED (chart repair)
+    assert weekly.checkpoint(item) is None                 # the cap holds: the next try is fresh
+    assert not (tmp_path / f"{item['id']}.json").exists()  # the old checkpoint is gone

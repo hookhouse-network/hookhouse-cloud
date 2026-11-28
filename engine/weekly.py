@@ -990,11 +990,12 @@ def save_checkpoint(item: dict, script: dict) -> None:
     CHECKPOINTS.mkdir(parents=True, exist_ok=True)
     rec = {"at": time.time(), "item": {k: item.get(k) for k in CK_FIELDS},
            "note": item.get("note"), "gate_note": item.get("gate_note"), "script": script}
-    # 28 Nov: a resumed try saves the SAME script again; keep its resume count (it was reset to 0, so a script that
-    # kept failing was resumed for ever instead of written fresh on the third try)
+    # 28 Nov: a resumed try saves its script again (often edited on the way: the chart repair, the length fit), so the
+    # resume count of the kept checkpoint carries over whatever the script now says; only a dropped checkpoint (see
+    # checkpoint(): deleted at the cap) or a made video (clear_checkpoint) starts a new count. Before, the count reset
+    # on every save and a Cosmos script that kept failing was resumed for ever.
     old = _read_checkpoint(item)
-    if old and json.dumps(old.get("script"), sort_keys=True, default=str) == \
-            json.dumps(script, sort_keys=True, default=str):
+    if old:
         rec["resumed"], rec["at"] = int(old.get("resumed") or 0), float(old.get("at") or rec["at"])
     _ck_path(item).write_text(json.dumps(rec, ensure_ascii=False, default=str), encoding="utf-8")
 
@@ -1016,7 +1017,8 @@ def checkpoint(item: dict) -> dict | None:
             (item.get("gate_note") or None) != (rec.get("gate_note") or None):
         return None
     if int(rec.get("resumed") or 0) >= CHECKPOINT_RESUMES:   # 27 Nov: a kept plan that keeps stopping the same way
-        return None                                         # is dropped; the next try starts fresh
+        clear_checkpoint(item)                              # is dropped (28 Nov: deleted, so the fresh script that
+        return None                                         # follows starts its own count)
     rec["resumed"] = int(rec.get("resumed") or 0) + 1
     try:
         _ck_path(item).write_text(json.dumps(rec, ensure_ascii=False, default=str), encoding="utf-8")
