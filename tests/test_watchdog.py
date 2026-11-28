@@ -68,4 +68,5 @@ def test_picked_but_not_joined_reminds_with_links(monkeypatch, tmp_path):
     db.save_campaign(conn, {"id": "b", "name": "New", "status": "picked", "url": "https://cr/b", "board": "Content Rewards", "picked_at": time.time()})
     monkeypatch.setattr(db, "connect", lambda *a, **k: conn)
     out = watchdog._campaigns_waiting(time.time())
-    assert "https://cr/a" in out["campaigns"] and "https://cr/b" not in out["campaigns"]
+    assert "Vi City" in out["campaigns"] and "New" not in out["campaigns"]
+    assert "Confirm" in out["campaigns"] and "press Join" not in out["campaigns"]   # 28 Nov: our system joins

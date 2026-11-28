@@ -53,3 +53,11 @@ def test_picture_free_share(monkeypatch):
             {"platform": "youtube", "channel": "cosmos", "item_id": "1127_0500_cosmos_short", "what": "upload", "done": True},
             {"platform": "youtube", "channel": "cosmos", "item_id": "1127_0500_cosmos_long", "what": "upload", "done": True}]
     assert ob.picture_free_share(rows) == (1, 2)
+
+
+def test_hold_reasons_read_the_same_on_every_platform():
+    a = ob.reason_of("not allowed on instagram (channel, kids or campaign rules)", "instagram")
+    b = ob.reason_of("not allowed on threads (channel, kids or campaign rules)", "threads")
+    assert a == b and "this platform" in a
+    assert ob.reason_of("quality: score 79/100 (needs 85.0): narration too slow") == "quality"
+    assert ob.reason_of("youtube: 🛑 blocked: potential: hook 4", "youtube") == "potential"

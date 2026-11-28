@@ -46,14 +46,24 @@ def posted(rows: list[dict]) -> dict[str, int]:
     return {p: len(v) for p, v in sorted(per.items(), key=lambda x: -len(x[1]))}
 
 
+def reason_of(problem: str, platform: str = "") -> str:
+    """One readable hold reason, the same on every platform: 'not allowed on instagram (channel, kids or ...)' and
+    the threads one become 'not allowed on this platform (kids or ...)'; 'quality: score 79/100 ...' -> 'quality'."""
+    import re
+    p = re.sub(r"^\s*\w+:\s*🛑?\s*blocked:\s*", "", problem).strip()
+    if platform:
+        p = re.sub(rf"\b(on|to)\s+{re.escape(platform)}\b", r"\1 this platform", p, flags=re.I)
+    head = p.split(":", 1)[0].strip() if ":" in p[:30] else p
+    return (head[:60].rsplit(" ", 1)[0] + "...") if len(head) > 60 else (head or "unknown")
+
+
 def held(rows: list[dict]) -> list[tuple[str, int]]:
     """[(reason, distinct videos)] for the content-gate holds, most common first."""
     per: dict[str, set] = {}
     for r in rows:
         if str(r.get("what") or "").startswith("BLOCKED"):
             probs = (r.get("details") or {}).get("problems") or ["unknown"]
-            reason = str(probs[0]).split(":", 1)[0].strip()[:40] or "unknown"
-            per.setdefault(reason, set()).add(r.get("item_id") or "")
+            per.setdefault(reason_of(str(probs[0]), r.get("platform") or ""), set()).add(r.get("item_id") or "")
     return sorted(((k, len(v)) for k, v in per.items()), key=lambda x: -x[1])
 
 

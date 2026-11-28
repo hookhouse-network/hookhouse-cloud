@@ -110,9 +110,11 @@ def _campaigns_waiting(now: float) -> dict[str, str]:
             pass
     if not late:
         return {}
-    links = "\n".join(f"• {c.get('name', '')[:50]}: {c.get('url')}" for c in late[:8])
-    return {"campaigns": (f"{len(late)} campaign(s) you picked are not joined yet, so no clips can be made. "
-                          f"Open each and press Join Campaign:\n{links}")}
+    names = "\n".join(f"• {c.get('name', '')[:50]}" for c in late[:8])
+    # 28 Nov: joins go through our system (owner 20 Nov): the owner's Confirm is the consent, campaign_join joins
+    return {"campaigns": (f"{len(late)} campaign(s) you ticked are not joined yet, so no clips can be made. Open "
+                          f"💰 Campaigns in Telegram and tap ✅ Confirm: the system checks the footage and joins each "
+                          f"one for you (a campaign without usable footage is skipped, with the reason):\n{names}")}
 
 
 def _videos(now: float) -> dict[str, str]:
