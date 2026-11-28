@@ -39,3 +39,19 @@ def test_toddlers_are_the_friends_when_switched_on(monkeypatch):
 def test_no_toddler_copies_a_famous_signature():
     """Benji had a single curl on top (a famous show's baby signature): never again."""
     assert all(t["style"] != "tuft" for t in TODDLERS.values())
+
+
+def test_every_set_has_moving_life():
+    import numpy as np
+    kids.use_layout("short")
+    try:
+        for scene, kind in (("garden", "butterfly"), ("room", "balloon"), ("night", "firefly")):
+            plate, extras = kids.scene_plate(scene, np.random.default_rng(1))
+            assert extras["critters"] and all(c[0] == kind for c in extras["critters"])
+            a, b = plate.copy(), plate.copy()
+            kids.draw_extras(a, extras, 1.0)
+            kids.draw_extras(b, extras, 1.6)
+            assert float(np.abs(a.astype(np.int16) - b.astype(np.int16)).mean()) > 0.05   # the set moves
+        assert kids.scene_plate("room", np.random.default_rng(1))[1]["bunting"] < 0       # on the free wall
+    finally:
+        kids.use_layout("long")

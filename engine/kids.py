@@ -103,7 +103,8 @@ def _humans() -> dict:
     bodies our own code draws (engine/media/puppet.py; config/characters.yaml)."""
     if toddlers_on():
         from .media.toddler import TODDLERS
-        return {t["name"]: ("#" + t["top"], f"toddler:{cid}", 560, t["voice"], 0) for cid, t in TODDLERS.items()}
+        return {t["name"]: ("#" + t["top"], f"toddler:{cid}", 640, t["voice"], 0)   # the kids are the stars: a
+                for cid, t in TODDLERS.items()}                                       # head taller than Bloop
     try:
         from .media import characters
         # size 520 (21 Nov live render: at 430 Mia read as a background extra next to Bloop's 440 blob)
@@ -650,11 +651,59 @@ def scene_plate(scene: str, rng) -> tuple[np.ndarray, dict]:
     elif scene != "room":
         _sun(img, (CW - 230, 250), 100)
     extras["dy"], extras["cloud_dy"] = DY, 0                              # clouds stay in the top sky
+    if scene == "room":
+        extras["bunting"] = -320                                          # the free wall above the window and shelf
     return img, extras
 
 
+CRITTER_COLOURS = ["coral", "lavender", "sun", "teal"]
+
+
+def _critters(scene: str, rng) -> list[tuple]:
+    """28 Nov (owner: the kids sets looked empty and frozen; CoComelon-style sets are alive): ambient life behind
+    the cast. Butterflies outdoors, fireflies at night, floating balloons in the room. (kind, x0, y0, speed, phase,
+    colour) with y0 measured from the scene top; drawn by draw_extras on every frame."""
+    kind = {"night": "firefly", "room": "balloon"}.get(scene, "butterfly")
+    n = {"firefly": 9, "balloon": 3, "butterfly": 4}[kind]
+    out = []
+    for k in range(n):
+        y0 = rng.uniform(380, 640) if kind == "butterfly" else (rng.uniform(120, 700) if kind == "firefly"
+                                                              else rng.uniform(420, 640))
+        out.append((kind, rng.uniform(0, CW), y0, rng.uniform(35, 70) * (1 if k % 2 else -1),
+                    rng.uniform(0, 6.28), PAL[CRITTER_COLOURS[k % len(CRITTER_COLOURS)]]))
+    return out
+
+
+def _draw_critter(canvas: np.ndarray, c: tuple, t: float, dy: int) -> None:
+    kind, x0, y0, speed, ph, col = c
+    span = CW + 200
+    x = int((x0 + speed * t) % span - 100)
+    if kind == "butterfly":
+        y = int(dy + y0 + 28 * math.sin(t * 1.3 + ph))
+        flap = abs(math.sin(t * 9 + ph))                       # wings open and close
+        w, h = int(48 * (0.35 + 0.65 * flap)), 40              # big enough to see on a phone
+        for side in (-1, 1):
+            cv2.ellipse(canvas, (x + side * w // 2, y - 6), (max(3, w // 2), h // 2), 0, 0, 360, col, -1, cv2.LINE_AA)
+            cv2.ellipse(canvas, (x + side * w // 3, y + 9), (max(2, w // 3), h // 3), 0, 0, 360, col, -1, cv2.LINE_AA)
+        cv2.ellipse(canvas, (x, y), (6, 22), 0, 0, 360, (89, 58, 46), -1, cv2.LINE_AA)
+    elif kind == "firefly":
+        y = int(dy + y0 + 18 * math.sin(t * 0.9 + ph))
+        glow = 0.5 + 0.5 * math.sin(t * 3.1 + ph)              # twinkle
+        r = int(4 + 4 * glow)
+        cv2.circle(canvas, (x, y), r + 6, tuple(int(v * 0.5 + 127 * glow * 0.5) for v in PAL["moon"]), -1, cv2.LINE_AA)
+        cv2.circle(canvas, (x, y), r, PAL["moon"], -1, cv2.LINE_AA)
+    else:                                                      # balloon: bobs gently, drifts slowly
+        x = int((x0 + speed * 0.4 * t) % span - 100)
+        y = int(dy + y0 + 16 * math.sin(t * 0.8 + ph))
+        cv2.line(canvas, (x, y + 44), (x + int(8 * math.sin(t + ph)), y + 120), (120, 120, 120), 2, cv2.LINE_AA)
+        cv2.ellipse(canvas, (x, y), (36, 44), 0, 0, 360, col, -1, cv2.LINE_AA)
+        cv2.ellipse(canvas, (x - 12, y - 16), (9, 13), -20, 0, 360, tuple(min(255, v + 70) for v in col), -1,
+                    cv2.LINE_AA)
+
+
 def _scene_plate(scene: str, rng, sun: bool = True) -> tuple[np.ndarray, dict]:
-    extras: dict = {"clouds": [], "waves": False}
+    extras: dict = {"clouds": [], "waves": False, "critters": _critters(scene, rng),
+                    "bunting": 40 if scene == "garden" else 0}   # the room's goes on the Short's free wall (below)
     if scene == "room":
         img = _vgrad(PAL["wall"], PAL["wall2"], CH, CW)          # lavender nursery wall (was beige: colourfulness 46)
         img[880:] = _vgrad(PAL["wood"], PAL["wood2"], CH - 880, CW)
@@ -736,6 +785,28 @@ def draw_extras(canvas: np.ndarray, extras: dict, t: float) -> None:
             pts = np.array([(x, int(y + 6 * math.sin(x / 70 + t * 1.4 + k * 1.7))) for x in range(0, CW + 30, 30)],
                            np.int32)
             cv2.polylines(canvas, [pts], False, PAL["foam"], 5, cv2.LINE_AA)
+    if extras.get("bunting"):                                 # 28 Nov: a flag garland that flutters
+        _draw_bunting(canvas, extras["bunting"] + dy, t)
+    for c in extras.get("critters") or ():                    # 28 Nov: ambient life (butterflies / fireflies / balloons)
+        _draw_critter(canvas, c, t, dy)
+
+
+def _draw_bunting(canvas: np.ndarray, y_top: int, t: float) -> None:
+    """Two sagging strings of triangle flags across the set, each flag swinging a little (preschool-set staple)."""
+    cols = [PAL[c] for c in ("coral", "sun", "teal", "lavender", "leaf")]
+    for row, (y0, sag) in enumerate(((y_top, 60), (y_top + 95, 45))):
+        n = 11
+        pts = []
+        for i in range(n + 1):
+            x = int(i * CW / n)
+            u = i / n
+            pts.append((x, int(y0 + sag * 4 * u * (1 - u))))
+        cv2.polylines(canvas, [np.array(pts, np.int32)], False, (90, 90, 110), 3, cv2.LINE_AA)
+        for i in range(n):
+            (xa, ya), (xb, yb) = pts[i], pts[i + 1]
+            mx = (xa + xb) // 2 + int(5 * math.sin(t * 2.2 + i + row))     # the flag tip swings
+            tri = np.array([(xa + 8, ya + 2), (xb - 8, yb + 2), (mx, (ya + yb) // 2 + 62)], np.int32)
+            cv2.fillPoly(canvas, [tri], cols[(i + row * 2) % len(cols)], cv2.LINE_AA)
 
 
 def draw_object(kind: str, size: int, color=None) -> np.ndarray:
