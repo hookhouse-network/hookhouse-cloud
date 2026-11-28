@@ -1405,6 +1405,15 @@ def _chart_visual(beat: dict, seconds: float, work: Path, i: int, used: set, siz
             or (not data and f"chart:{kind}" in used):
         return None
     chart, why = html_scene.check_chart(beat.get("chart"), said or beat.get("narration", ""))
+    if not chart:                                   # 28 Nov: the writer's chart broke a rule: build one from the
+        from .media.auto_chart import auto_chart    # narration's own numbers instead of dropping to a photo
+        built = auto_chart(said or beat.get("narration", ""),
+                           depth_ok="depth" in str((channel or {}).get("id", "")) or "blue" in str((channel or {}).get("id", "")))
+        if built:
+            chart2, why2 = html_scene.check_chart(built, said or beat.get("narration", ""))
+            if chart2 and (data or f"chart:{chart2['type']}" not in used):
+                log(f"  beat {i + 1}: chart rebuilt from the narration ({chart2['type']}; the writer's: {why})")
+                chart, why = chart2, ""
     if chart and chart["type"] == "map":            # the point comes from Wikipedia, never from the writer
         chart, why = html_scene.locate(chart, language=channel.get("language", "en"))
     if not chart:
@@ -1550,6 +1559,13 @@ def find_beat_visual(beat: dict, seconds: float, palette: list[str], work: Path,
             if got:
                 return got
             kind = "photo"                         # no free picture left today: the library search (checked below)
+    if kind != "chart" and DATA_MARK in used:      # 28 Nov: in a data story a beat that SAYS numbers gets a chart built
+        from .media.auto_chart import auto_chart   # from them (honest by construction, no picture needed) before the
+        built = auto_chart(said or beat.get("narration", ""))   # photo search, which often ends in a word card
+        if built:
+            got = _chart_visual(dict(beat, chart=built), seconds, work, i, used, size, channel, log, said=said)
+            if got:
+                return got
     if kind == "chart":
         got = _chart_visual(beat, seconds, work, i, used, size, channel, log, said=said)
         if got:
