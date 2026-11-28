@@ -1159,6 +1159,7 @@ def render(episode: dict, out_dir: Path, seed: int = 0, log=print, speed: float 
 
     silent = work / "anim.mp4"
     with FrameWriter(silent, FPS, (W, H)) as wr:
+        tail_from = max((ln["hold"] for ln in lines), default=total)   # the closing jingle starts here
         for fi in range(int(total * FPS)):
             tt = fi / FPS
             canvas = plate.copy()
@@ -1236,6 +1237,10 @@ def render(episode: dict, out_dir: Path, seed: int = 0, log=print, speed: float 
                         hop = 0.7 * abs(math.sin(2 * math.pi * age / 0.9))
                     if kind == "wave":
                         dx = 14 * math.sin(2 * math.pi * 0.6 * tt + x)
+                elif tt >= tail_from:                    # 28 Nov: the cast bops to the closing jingle (a frozen
+                    beat = 2 * math.pi * 1.1 * (tt - tail_from) + x / 160.0   # 2.9 s end read as 'held end card')
+                    hop = 0.5 * abs(math.sin(beat))
+                    dx = 12 * math.sin(beat / 2)
                 if speaker in CAST and speaker != name:
                     look = 0.9 if CAST[speaker][4] > x else -0.9
                 elif cur and kind == "count" and tt < land[int(cur["n"])] + 0.3:

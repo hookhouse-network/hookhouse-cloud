@@ -218,6 +218,60 @@ def rhythm_issues(video: Path, dur: float, fmt: str) -> list[tuple[str, str]]:
     return []
 
 
+# 28 Nov (owner's repo review): measurable "AI slop" motion tells, our own code; the thresholds follow motionmaxxing
+# (Tejashmakwana/motionmaxxing, Apache-2.0, its look.py gates G2/G3): more than 3 flat (empty) frames in a row, an
+# unchanged end hold over 1.4 s, a final shot over 25 % of the film. MEASURED ONLY (rep["motion"]): they never change
+# the score until their numbers on our own videos say where they fire.
+FLAT_STD, FLAT_RANGE = 1.5, 8          # a frame is one flat field below these (luma, 96x54 analysis frame)
+FLAT_RUN_MAX = 3                       # frames
+END_HOLD_MAX_S = 1.4
+HOLD_EPS = 0.35                        # mean abs frame difference (0-255) under which the picture counts as held
+FINAL_SHOT_MAX = 0.25
+
+
+def motion_tells(video: Path, dur: float, cuts: list[float] | None = None, frames=None, fps: float | None = None) -> dict:
+    """{flat_run, flat_at, end_hold_s, final_shot_share, tells: [...]} from tiny grey frames (or `frames` in tests)."""
+    if frames is None:
+        from .media import ffmpeg
+        fps = min(30.0, float(fps or 30.0))
+        try:
+            r = subprocess.run([ffmpeg.ffmpeg_bin(), "-hide_banner", "-nostats", "-i", str(video), "-an", "-vf",
+                                f"fps={fps},scale=96:54,format=gray", "-f", "rawvideo", "-"],
+                               capture_output=True, timeout=600)
+            raw = np.frombuffer(r.stdout, dtype=np.uint8)
+            frames = raw[: raw.size // (96 * 54) * 96 * 54].reshape(-1, 54, 96).astype(np.float32)
+        except (subprocess.TimeoutExpired, ValueError, OSError):
+            return {"tells": [], "error": "frames unreadable"}
+    fps = float(fps or 30.0)
+    n = len(frames)
+    if n < 2:
+        return {"tells": [], "error": "too few frames"}
+    flat = [(float(f.std()) < FLAT_STD and float(f.max() - f.min()) < FLAT_RANGE) for f in frames]
+    best, run, at = 0, 0, None
+    for i, fl in enumerate(flat):
+        run = run + 1 if fl else 0
+        if run > best:
+            best, at = run, (i - run + 1) / fps
+    diffs = [float(np.abs(frames[i] - frames[i - 1]).mean()) for i in range(1, n)]
+    hold = 0
+    for d in reversed(diffs):
+        if d >= HOLD_EPS:
+            break
+        hold += 1
+    end_hold = round(hold / fps, 2)
+    cuts = [t for t in (cuts if cuts is not None else cut_times(video)) if 0 < t < dur]
+    final = round((dur - max(cuts)) / dur, 2) if cuts and dur else 0.0   # no cut: one continuous animated scene
+    # (kids episodes), where a 'last shot share' means nothing; their still end is caught by the end hold instead
+    tells = []
+    if best > FLAT_RUN_MAX:
+        tells.append(f"{best} empty frames in a row at {at:.1f}s")
+    if end_hold > END_HOLD_MAX_S:
+        tells.append(f"the end holds still for {end_hold:.1f}s (max {END_HOLD_MAX_S}s)")
+    if final > FINAL_SHOT_MAX:
+        tells.append(f"the last shot is {final:.0%} of the video (max {FINAL_SHOT_MAX:.0%})")
+    return {"flat_run": best, "flat_at": at, "end_hold_s": end_hold, "final_shot_share": final, "tells": tells}
+
+
 CARD_MAX = 0.2                 # share of word cards above which a video is blocked ("show the moment instead")
 
 
@@ -340,6 +394,10 @@ def check_video(ch: dict, video: Path, meta: dict, fmt: str) -> dict:
         if v.get("fact_ok") is False:
             issues.append(("bad", "fact-check failed"))
     score = max(0, 100 - sum(15 if lv == "bad" else 7 for lv, _ in issues))
+    try:                                             # measured only: never in the score (see motion_tells)
+        motion = motion_tells(video, dur) if fmt == "short" else {}
+    except Exception as e:  # noqa: BLE001 - a measurement must never change a verdict
+        motion = {"tells": [], "error": type(e).__name__}
     try:
         shown = str(video.relative_to(ROOT))
     except ValueError:
@@ -347,7 +405,8 @@ def check_video(ch: dict, video: Path, meta: dict, fmt: str) -> dict:
     return {"file": shown, "format": fmt, "seconds": round(dur, 1), "lufs": lufs, "peak": peak,
             "silences": gaps[:5], "black_p1": None if p1 is None else round(p1, 1),
             "first_brightness": round(first, 1), "last_brightness": round(last, 1), "colour": round(colour, 1),
-            "score": score, "issues": issues, "made": time.strftime("%d %b", time.localtime(video.stat().st_mtime))}
+            "score": score, "issues": issues, "motion": motion,
+            "made": time.strftime("%d %b", time.localtime(video.stat().st_mtime))}
 
 
 def fix_peaks(video: Path, log=print) -> bool:
