@@ -72,3 +72,12 @@ def test_money_and_calendar_screens_and_no_internal_ids(monkeypatch):
     g = c.get("/gates").text
     assert "28 Nov 05:00 Short" in g and "1128_0500_x_short" not in g
     assert console.slot_label("weird") == "a video"
+
+
+def test_help_screen_shows_the_guide_safely(monkeypatch):
+    monkeypatch.setattr(console, "_dash", lambda: "")
+    h = TestClient(console.app).get("/help").text
+    assert "<h3>Start it</h3>" in h and "<th>Screen</th>" in h and "<b>Money</b>" in h
+    out = console.md_html("- a **b** <script>x</script>\n  more\n\n| A | B |\n|---|---|\n| 1 | 2 |")
+    assert "&lt;script&gt;" in out and "<script>" not in out and "<li>a <b>b</b>" in out and "more</li>" in out
+    assert "<td>1</td>" in out

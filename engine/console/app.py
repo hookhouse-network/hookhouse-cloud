@@ -290,13 +290,71 @@ async def calendar(request):
     return _page("Calendar", CALENDAR.render(days=list(days.items()), states=STATES))
 
 
+def md_html(text: str) -> str:
+    """The owner guide's small markdown (headings, bullets, bold, `code`, tables) as safe HTML (escaped first)."""
+    import html
+    import re
+
+    def inline(s: str) -> str:
+        s = html.escape(s)
+        s = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", s)
+        return re.sub(r"`(.+?)`", r"<code>\1</code>", s)
+    out, in_list, table = [], False, []
+
+    def flush_table():
+        if table:
+            rows = [r for r in table if not re.match(r"^\|[\s|:-]+\|$", r)]
+            cells = [[c.strip() for c in r.strip("|").split("|")] for r in rows]
+            head, body = cells[0], cells[1:]
+            out.append("<table><tr>" + "".join(f"<th>{inline(c)}</th>" for c in head) + "</tr>" + "".join(
+                "<tr>" + "".join(f"<td>{inline(c)}</td>" for c in r) + "</tr>" for r in body) + "</table>")
+            table.clear()
+    for line in (text or "").splitlines():
+        if line.startswith("|"):
+            table.append(line)
+            continue
+        flush_table()
+        if line.startswith("- "):
+            if not in_list:
+                out.append("<ul>")
+                in_list = True
+            out.append(f"<li>{inline(line[2:])}</li>")
+            continue
+        if line.startswith("  ") and in_list and out and out[-1].endswith("</li>"):
+            out[-1] = out[-1][:-5] + " " + inline(line.strip()) + "</li>"    # a wrapped bullet line
+            continue
+        if in_list:
+            out.append("</ul>")
+            in_list = False
+        m = re.match(r"^(#{1,3}) (.*)", line)
+        if m:
+            n = len(m.group(1)) + 1
+            out.append(f"<h{n}>{inline(m.group(2))}</h{n}>")
+        elif line.strip():
+            out.append(f"<p>{inline(line)}</p>")
+    flush_table()
+    if in_list:
+        out.append("</ul>")
+    return "\n".join(out)
+
+
+async def help_page(request):
+    try:
+        text = (ROOT / "docs" / "OWNER_GUIDE.md").read_text(encoding="utf-8")
+        err = ""
+    except OSError as e:
+        text, err = "", f"guide unreadable ({type(e).__name__})"
+    return _page("Help", md_html(text) or "<p class='muted'>The owner guide is missing.</p>", err)
+
+
 TABS.append(("/workers", "Workers"))
 TABS.append(("/budgets", "Budgets"))
 TABS.append(("/calendar", "Calendar"))
 TABS.append(("/money", "Money"))
+TABS.append(("/help", "Help"))
 app = Starlette(routes=[Route("/", home), Route("/pipeline", pipeline), Route("/gates", gates),
                         Route("/queue", queue), Route("/workers", workers), Route("/budgets", budgets_page),
-                        Route("/calendar", calendar), Route("/money", money),
+                        Route("/calendar", calendar), Route("/money", money), Route("/help", help_page),
                         Route("/workers/{what:str}", set_pause, methods=["POST"])])
 
 
